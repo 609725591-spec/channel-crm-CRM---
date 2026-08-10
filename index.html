@@ -2040,7 +2040,20 @@ function renderCases(d) {
     });
   }
 
-  if (cases.length === 0 && citySigned.length === 0) {
+  // === Fallback：同城无已签PID时，取同城DPV最高的商户作参考 ===
+  var cityRef = [];
+  var isSignedCity = citySigned.length > 0;
+  if (!isSignedCity && STATE.commercialData) {
+    STATE.commercialData.forEach(function(p) {
+      if (p.city === city && p.pid !== d.pid && (p.dpv_30d || 0) > 0) {
+        cityRef.push(p);
+      }
+    });
+    cityRef.sort(function(a, b) { return (b.dpv_30d || 0) - (a.dpv_30d || 0); });
+    cityRef = cityRef.slice(0, 5);
+  }
+
+  if (cases.length === 0 && citySigned.length === 0 && cityRef.length === 0) {
     return '<p style="font-size:13px;color:var(--text3);text-align:center;padding:20px;">暂无' + cat + '品类签约案例数据</p>';
   }
 
@@ -2051,10 +2064,10 @@ function renderCases(d) {
     return name.charAt(0) + Array(name.length - 1).join('*') + name.charAt(name.length - 1);
   }
 
-  var hasCityData = citySigned.length > 0;
+  var hasCityData = isSignedCity || cityRef.length > 0;
   var html = '<p style="font-size:13px;color:var(--text2);margin-bottom:16px;">';
   html += '以下为5-7月' + region + cat + '商户签约后的真实效果（含直营、渠道、电销全渠道）';
-  if (hasCityData) {
+  if (isSignedCity) {
     html += '。<span style="color:var(--green);font-weight:600;">本城已有' + citySigned.length + '户签约</span>';
   }
   html += '</p>';
@@ -2078,17 +2091,16 @@ function renderCases(d) {
     html += '</div>';
   }
 
-  // === 同城签约商户展示：按DPV+GMV排序，展示Top5具体商户 ===
-  if (hasCityData) {
-    citySigned.sort(function(a, b) {
-      return ((b.dpv_30d || 0) + (b.gmv_90d || 0)) - ((a.dpv_30d || 0) + (a.gmv_90d || 0));
-    });
-    var topMerchants = citySigned.slice(0, 5);
+  // === 同城商户展示 ===
+  var showMerchants = isSignedCity ? citySigned.sort(function(a, b) {
+    return ((b.dpv_30d || 0) + (b.gmv_90d || 0)) - ((a.dpv_30d || 0) + (a.gmv_90d || 0));
+  }).slice(0, 5) : cityRef;
 
+  if (showMerchants.length > 0) {
     html += '<div style="margin-top:4px;">';
-    html += '<div style="font-size:13px;font-weight:600;margin-bottom:10px;color:var(--text1);">' + city + '同城签约商户</div>';
+    html += '<div style="font-size:13px;font-weight:600;margin-bottom:10px;color:var(--text1);">' + city + (isSignedCity ? '同城签约商户' : '同城活跃商户参考') + '</div>';
 
-    topMerchants.forEach(function(p) {
+    showMerchants.forEach(function(p) {
       var products = [];
       if (p.is_signed_agent) products.push('智能体');
       if (p.is_signed_eff) products.push('效广');
@@ -2099,9 +2111,13 @@ function renderCases(d) {
       html += '<div style="flex:1;">';
       html += '<div style="font-size:14px;font-weight:600;">' + city + ' · ' + (p.category_l2 || cat) + ' · ' + masked + '</div>';
       html += '<div style="margin-top:4px;">';
-      products.forEach(function(prod) {
-        html += '<span class="badge badge-blue" style="font-size:10px;margin-right:4px;">' + prod + '</span>';
-      });
+      if (products.length > 0) {
+        products.forEach(function(prod) {
+          html += '<span class="badge badge-blue" style="font-size:10px;margin-right:4px;">' + prod + '</span>';
+        });
+      } else {
+        html += '<span class="badge" style="font-size:10px;background:var(--bg2);color:var(--text3);">待签约</span>';
+      }
       html += '</div>';
       html += '</div>';
       html += '<div style="display:flex;gap:20px;text-align:center;flex-shrink:0;">';
