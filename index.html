@@ -1,0 +1,1833 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>渠电作业CRM</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+:root {
+  --bg: #0f172a; --bg2: #1e293b; --bg3: #334155;
+  --card: #1e293b; --card-hover: #263548;
+  --border: #334155; --border2: #475569;
+  --text: #f1f5f9; --text2: #94a3b8; --text3: #64748b;
+  --accent: #3b82f6; --accent2: #60a5fa;
+  --green: #10b981; --green-bg: #064e3b;
+  --amber: #f59e0b; --amber-bg: #78350f;
+  --red: #ef4444; --red-bg: #7f1d1d;
+  --purple: #8b5cf6;
+  --gold: #d4a853;
+  --radius: 8px; --radius-lg: 12px;
+  --shadow: 0 1px 3px rgba(0,0,0,.3);
+  --shadow-lg: 0 4px 12px rgba(0,0,0,.4);
+  --font: -apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  --transition: .2s ease;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+html,body { height:100%; overflow:hidden; }
+body { font-family:var(--font); background:var(--bg); color:var(--text); font-size:14px; line-height:1.5; }
+input,select,textarea,button { font-family:inherit; font-size:inherit; }
+a { color:var(--accent2); text-decoration:none; }
+::-webkit-scrollbar { width:6px; height:6px; }
+::-webkit-scrollbar-track { background:transparent; }
+::-webkit-scrollbar-thumb { background:var(--bg3); border-radius:3px; }
+::-webkit-scrollbar-thumb:hover { background:var(--border2); }
+
+/* ===== LOGIN ===== */
+.login-wrap { display:flex; align-items:center; justify-content:center; height:100vh; background:linear-gradient(135deg,#0f172a 0%,#1e3a5f 100%); }
+.login-box { background:var(--card); border:1px solid var(--border); border-radius:var(--radius-lg); padding:40px; width:380px; text-align:center; }
+.login-box h1 { font-size:22px; font-weight:700; margin-bottom:6px; }
+.login-box .sub { color:var(--text2); font-size:13px; margin-bottom:28px; }
+.login-box .logo { font-size:36px; margin-bottom:16px; }
+.login-input { width:100%; padding:12px 16px; background:var(--bg); border:1px solid var(--border); border-radius:var(--radius); color:var(--text); font-size:16px; letter-spacing:2px; text-align:center; outline:none; transition:border var(--transition); }
+.login-input:focus { border-color:var(--accent); }
+.login-btn { width:100%; padding:12px; margin-top:16px; background:var(--accent); color:#fff; border:none; border-radius:var(--radius); font-size:15px; font-weight:600; cursor:pointer; transition:background var(--transition); }
+.login-btn:hover { background:#2563eb; }
+.login-btn:disabled { opacity:.5; cursor:not-allowed; }
+.login-error { color:var(--red); font-size:13px; margin-top:12px; min-height:20px; }
+.login-demo { margin-top:16px; color:var(--text3); font-size:12px; }
+.login-demo a { cursor:pointer; }
+
+/* ===== CITY SELECT ===== */
+.city-wrap { display:flex; align-items:center; justify-content:center; height:100vh; background:var(--bg); }
+.city-box { background:var(--card); border:1px solid var(--border); border-radius:var(--radius-lg); padding:32px; width:480px; }
+.city-box h2 { font-size:18px; margin-bottom:4px; }
+.city-box .sub { color:var(--text2); font-size:13px; margin-bottom:20px; }
+.city-grid { display:flex; flex-wrap:wrap; gap:10px; }
+.city-chip { padding:8px 18px; background:var(--bg); border:1px solid var(--border); border-radius:var(--radius); cursor:pointer; transition:all var(--transition); font-size:14px; }
+.city-chip:hover { border-color:var(--accent); color:var(--accent2); }
+.city-chip.selected { background:var(--accent); border-color:var(--accent); color:#fff; }
+.city-confirm { margin-top:20px; }
+
+/* ===== APP SHELL ===== */
+.app-shell { display:none; height:100vh; flex-direction:column; }
+.app-shell.active { display:flex; }
+
+/* Header */
+.app-header { display:flex; align-items:center; justify-content:space-between; height:52px; padding:0 20px; background:var(--bg2); border-bottom:1px solid var(--border); flex-shrink:0; }
+.app-header .left { display:flex; align-items:center; gap:16px; }
+.app-header .brand { font-size:16px; font-weight:700; color:var(--gold); }
+.app-header .city-tag { padding:3px 10px; background:var(--bg3); border-radius:20px; font-size:12px; color:var(--text2); cursor:pointer; }
+.app-header .city-tag:hover { background:var(--accent); color:#fff; }
+.app-header .right { display:flex; align-items:center; gap:12px; }
+.app-header .user-info { font-size:13px; color:var(--text2); }
+.app-header .logout-btn { padding:4px 12px; background:transparent; border:1px solid var(--border); border-radius:var(--radius); color:var(--text2); cursor:pointer; font-size:12px; }
+.app-header .logout-btn:hover { border-color:var(--red); color:var(--red); }
+.menu-toggle { display:none; background:none; border:none; color:var(--text); font-size:20px; cursor:pointer; padding:4px; }
+
+/* Body */
+.app-body { display:flex; flex:1; overflow:hidden; }
+
+/* Sidebar */
+.sidebar { width:180px; background:var(--bg2); border-right:1px solid var(--border); padding:12px 0; flex-shrink:0; overflow-y:auto; }
+.sidebar .nav-item { display:flex; align-items:center; gap:10px; padding:10px 20px; cursor:pointer; color:var(--text2); font-size:14px; transition:all var(--transition); border-left:3px solid transparent; }
+.sidebar .nav-item:hover { background:var(--bg3); color:var(--text); }
+.sidebar .nav-item.active { background:rgba(59,130,246,.1); color:var(--accent2); border-left-color:var(--accent); font-weight:600; }
+.sidebar .nav-icon { font-size:16px; width:20px; text-align:center; }
+.sidebar .nav-divider { height:1px; background:var(--border); margin:8px 16px; }
+
+/* Content */
+.content { flex:1; overflow-y:auto; padding:20px; }
+
+/* ===== PAGE COMMON ===== */
+.page { display:none; }
+.page.active { display:block; }
+.page-title { font-size:20px; font-weight:700; margin-bottom:4px; }
+.page-desc { color:var(--text2); font-size:13px; margin-bottom:20px; }
+.page-actions { display:flex; gap:10px; margin-bottom:16px; flex-wrap:wrap; }
+
+/* Stats row */
+.stats-row { display:grid; grid-template-columns:repeat(auto-fit, minmax(160px,1fr)); gap:12px; margin-bottom:20px; }
+.stat-card { background:var(--card); border:1px solid var(--border); border-radius:var(--radius); padding:16px; }
+.stat-card .label { font-size:12px; color:var(--text2); margin-bottom:4px; }
+.stat-card .value { font-size:24px; font-weight:700; }
+.stat-card .value.blue { color:var(--accent2); }
+.stat-card .value.green { color:var(--green); }
+.stat-card .value.amber { color:var(--amber); }
+.stat-card .value.red { color:var(--red); }
+.stat-card .sub { font-size:12px; color:var(--text3); margin-top:2px; }
+
+/* Filters */
+.filter-bar { display:flex; gap:10px; margin-bottom:16px; flex-wrap:wrap; align-items:center; }
+.filter-bar input, .filter-bar select { padding:7px 12px; background:var(--bg); border:1px solid var(--border); border-radius:var(--radius); color:var(--text); outline:none; min-width:120px; }
+.filter-bar input:focus, .filter-bar select:focus { border-color:var(--accent); }
+.filter-bar .filter-label { font-size:13px; color:var(--text2); }
+
+/* Table */
+.data-table-wrap { background:var(--card); border:1px solid var(--border); border-radius:var(--radius); overflow:hidden; }
+.data-table { width:100%; border-collapse:collapse; font-size:13px; }
+.data-table th { background:var(--bg3); padding:10px 12px; text-align:left; font-weight:600; white-space:nowrap; border-bottom:1px solid var(--border); position:sticky; top:0; z-index:1; }
+.data-table td { padding:8px 12px; border-bottom:1px solid var(--border); }
+.data-table tr:hover { background:var(--card-hover); }
+.data-table .num { text-align:right; font-variant-numeric:tabular-nums; }
+.data-table .clickable { cursor:pointer; }
+.data-table .clickable:hover { color:var(--accent2); }
+
+/* Status badges */
+.badge { display:inline-block; padding:2px 8px; border-radius:10px; font-size:11px; font-weight:600; }
+.badge-blue { background:rgba(59,130,246,.15); color:var(--accent2); }
+.badge-green { background:rgba(16,185,129,.15); color:var(--green); }
+.badge-amber { background:rgba(245,158,11,.15); color:var(--amber); }
+.badge-red { background:rgba(239,68,68,.15); color:var(--red); }
+.badge-gray { background:rgba(100,116,139,.15); color:var(--text3); }
+.badge-purple { background:rgba(139,92,246,.15); color:var(--purple); }
+
+/* Buttons */
+.btn { padding:7px 16px; border:none; border-radius:var(--radius); cursor:pointer; font-size:13px; font-weight:500; transition:all var(--transition); display:inline-flex; align-items:center; gap:6px; }
+.btn-primary { background:var(--accent); color:#fff; }
+.btn-primary:hover { background:#2563eb; }
+.btn-outline { background:transparent; border:1px solid var(--border); color:var(--text2); }
+.btn-outline:hover { border-color:var(--accent); color:var(--accent2); }
+.btn-sm { padding:4px 10px; font-size:12px; }
+.btn-green { background:var(--green); color:#fff; }
+.btn-green:hover { background:#059669; }
+.btn-amber { background:var(--amber); color:#000; }
+.btn-danger { background:var(--red); color:#fff; }
+
+/* Pagination */
+.pagination { display:flex; align-items:center; justify-content:space-between; padding:12px 16px; border-top:1px solid var(--border); font-size:13px; color:var(--text2); }
+.pagination .pages { display:flex; gap:4px; }
+.pagination .pg-btn { padding:4px 10px; border:1px solid var(--border); border-radius:4px; cursor:pointer; background:transparent; color:var(--text2); font-size:12px; }
+.pagination .pg-btn:hover { border-color:var(--accent); color:var(--accent2); }
+.pagination .pg-btn.active { background:var(--accent); border-color:var(--accent); color:#fff; }
+
+/* Modal */
+.modal-overlay { display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,.6); z-index:100; align-items:center; justify-content:center; }
+.modal-overlay.active { display:flex; }
+.modal { background:var(--card); border:1px solid var(--border); border-radius:var(--radius-lg); width:90%; max-width:720px; max-height:85vh; display:flex; flex-direction:column; }
+.modal-header { display:flex; align-items:center; justify-content:space-between; padding:16px 20px; border-bottom:1px solid var(--border); }
+.modal-header h3 { font-size:17px; font-weight:700; }
+.modal-close { background:none; border:none; color:var(--text2); font-size:20px; cursor:pointer; padding:4px; }
+.modal-close:hover { color:var(--text); }
+.modal-body { flex:1; overflow-y:auto; padding:20px; }
+.modal-footer { padding:12px 20px; border-top:1px solid var(--border); display:flex; gap:10px; justify-content:flex-end; }
+
+/* Tabs inside modal/page */
+.tab-bar { display:flex; gap:0; border-bottom:1px solid var(--border); margin-bottom:16px; }
+.tab-btn { padding:10px 18px; cursor:pointer; color:var(--text2); font-size:14px; border-bottom:2px solid transparent; transition:all var(--transition); background:none; border-top:none; border-left:none; border-right:none; }
+.tab-btn:hover { color:var(--text); }
+.tab-btn.active { color:var(--accent2); border-bottom-color:var(--accent); font-weight:600; }
+.tab-panel { display:none; }
+.tab-panel.active { display:block; }
+
+/* Detail sections */
+.detail-section { margin-bottom:20px; }
+.detail-section h4 { font-size:14px; font-weight:600; margin-bottom:10px; padding-bottom:6px; border-bottom:1px solid var(--border); }
+.detail-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(200px,1fr)); gap:10px; }
+.detail-item { }
+.detail-item .dl { font-size:12px; color:var(--text3); }
+.detail-item .dv { font-size:14px; font-weight:500; margin-top:2px; }
+
+/* Follow-up form */
+.follow-form { background:var(--bg); border:1px solid var(--border); border-radius:var(--radius); padding:16px; margin-bottom:16px; }
+.follow-form .form-row { display:flex; gap:10px; margin-bottom:10px; flex-wrap:wrap; }
+.follow-form label { font-size:12px; color:var(--text2); display:block; margin-bottom:4px; }
+.follow-form select, .follow-form input, .follow-form textarea { width:100%; padding:8px 10px; background:var(--bg2); border:1px solid var(--border); border-radius:4px; color:var(--text); outline:none; }
+.follow-form textarea { min-height:80px; resize:vertical; }
+.follow-form select:focus, .follow-form input:focus, .follow-form textarea:focus { border-color:var(--accent); }
+
+/* Follow-up timeline */
+.timeline { position:relative; padding-left:20px; }
+.timeline::before { content:''; position:absolute; left:6px; top:0; bottom:0; width:2px; background:var(--border); }
+.timeline-item { position:relative; margin-bottom:16px; padding-left:16px; }
+.timeline-item::before { content:''; position:absolute; left:-17px; top:6px; width:10px; height:10px; border-radius:50%; background:var(--accent); border:2px solid var(--bg); }
+.timeline-item .tl-head { display:flex; gap:10px; align-items:center; margin-bottom:4px; }
+.timeline-item .tl-name { font-weight:600; font-size:13px; }
+.timeline-item .tl-time { font-size:12px; color:var(--text3); }
+.timeline-item .tl-body { font-size:13px; color:var(--text2); }
+.timeline-item .tl-status { margin-top:4px; }
+
+/* Product recommendation cards */
+.rec-cards { display:grid; grid-template-columns:repeat(auto-fill, minmax(200px,1fr)); gap:12px; }
+.rec-card { background:var(--bg); border:1px solid var(--border); border-radius:var(--radius); padding:14px; }
+.rec-card .rc-name { font-size:15px; font-weight:600; margin-bottom:6px; }
+.rec-card .rc-desc { font-size:12px; color:var(--text2); line-height:1.6; }
+.rec-card .rc-tag { display:inline-block; padding:2px 6px; background:rgba(59,130,246,.1); color:var(--accent2); border-radius:4px; font-size:11px; margin-top:8px; }
+
+/* Chart containers */
+.chart-grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:20px; }
+.chart-box { background:var(--card); border:1px solid var(--border); border-radius:var(--radius); padding:16px; }
+.chart-box.full { grid-column:1/-1; }
+.chart-box h4 { font-size:13px; font-weight:600; margin-bottom:10px; }
+
+/* Admin */
+.admin-section { background:var(--card); border:1px solid var(--border); border-radius:var(--radius); padding:20px; margin-bottom:16px; }
+.admin-section h4 { font-size:15px; font-weight:600; margin-bottom:12px; }
+.upload-area { border:2px dashed var(--border); border-radius:var(--radius); padding:30px; text-align:center; cursor:pointer; transition:border var(--transition); }
+.upload-area:hover { border-color:var(--accent); }
+.upload-area input { display:none; }
+
+/* Loading */
+.loading { text-align:center; padding:40px; color:var(--text3); }
+.loading .spinner { display:inline-block; width:24px; height:24px; border:2px solid var(--border); border-top-color:var(--accent); border-radius:50%; animation:spin .6s linear infinite; }
+@keyframes spin { to { transform:rotate(360deg); } }
+
+/* Empty state */
+.empty-state { text-align:center; padding:60px 20px; color:var(--text3); }
+.empty-state .icon { font-size:40px; margin-bottom:12px; }
+.empty-state .msg { font-size:14px; }
+
+/* Mobile */
+@media(max-width:768px) {
+  .menu-toggle { display:block; }
+  .sidebar { position:fixed; left:-200px; top:52px; bottom:0; z-index:50; transition:left var(--transition); }
+  .sidebar.open { left:0; }
+  .sidebar-backdrop { display:none; position:fixed; inset:0; top:52px; background:rgba(0,0,0,.4); z-index:49; }
+  .sidebar-backdrop.open { display:block; }
+  .content { padding:12px; }
+  .stats-row { grid-template-columns:repeat(2,1fr); }
+  .chart-grid { grid-template-columns:1fr; }
+  .detail-grid { grid-template-columns:1fr 1fr; }
+  .rec-cards { grid-template-columns:1fr; }
+  .filter-bar { flex-direction:column; }
+  .filter-bar input, .filter-bar select { width:100%; }
+  .modal { width:95%; max-width:none; }
+  .data-table { font-size:12px; }
+  .data-table th, .data-table td { padding:6px 8px; }
+}
+</style>
+</head>
+<body>
+
+<!-- ===== LOGIN PAGE ===== -->
+<div id="loginPage" class="login-wrap">
+  <div class="login-box">
+    <div class="logo">📍</div>
+    <h1>渠电作业CRM</h1>
+    <p class="sub">高德本地生活 · 渠道电销部</p>
+    <input id="loginCode" class="login-input" type="text" placeholder="请输入权限码" autocomplete="off" maxlength="20">
+    <button id="loginBtn" class="login-btn" onclick="doLogin()">登 录</button>
+    <div id="loginError" class="login-error"></div>
+    <p class="login-demo">体验模式：<a onclick="fillDemo()">点击使用DEMO权限码</a></p>
+  </div>
+</div>
+
+<!-- ===== CITY SELECT ===== -->
+<div id="cityPage" class="city-wrap" style="display:none">
+  <div class="city-box">
+    <h2>选择作业城市</h2>
+    <p class="sub">选择你要做工的城市（可多选）</p>
+    <div id="cityGrid" class="city-grid"></div>
+    <div class="city-confirm">
+      <button class="btn btn-primary" onclick="confirmCities()" style="width:100%">确认选择</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== APP SHELL ===== -->
+<div id="appShell" class="app-shell">
+  <!-- Header -->
+  <header class="app-header">
+    <div class="left">
+      <button class="menu-toggle" onclick="toggleSidebar()">☰</button>
+      <span class="brand">渠电作业CRM</span>
+      <span id="headerCity" class="city-tag" onclick="showCitySelect()" title="切换城市">全部城市 ▾</span>
+    </div>
+    <div class="right">
+      <span id="headerUser" class="user-info"></span>
+      <button class="logout-btn" onclick="doLogout()">退出</button>
+    </div>
+  </header>
+
+  <div class="app-body">
+    <!-- Sidebar -->
+    <nav id="sidebar" class="sidebar">
+      <div class="nav-item active" data-page="analysis" onclick="navigate('analysis')">
+        <span class="nav-icon">📊</span>城市分析
+      </div>
+      <div class="nav-item" data-page="commercial" onclick="navigate('commercial')">
+        <span class="nav-icon">🏪</span>商业化做工
+      </div>
+      <div class="nav-item" data-page="leads" onclick="navigate('leads')">
+        <span class="nav-icon">📋</span>开店做工
+      </div>
+      <div class="nav-divider"></div>
+      <div class="nav-item" data-page="jobs" onclick="navigate('jobs')">
+        <span class="nav-icon">📝</span>作业分析
+      </div>
+      <div class="nav-divider"></div>
+      <div class="nav-item" data-page="admin" onclick="navigate('admin')" id="navAdmin" style="display:none">
+        <span class="nav-icon">⚙️</span>管理后台
+      </div>
+    </nav>
+    <div id="sidebarBackdrop" class="sidebar-backdrop" onclick="toggleSidebar()"></div>
+
+    <!-- Content -->
+    <main id="content" class="content">
+
+      <!-- ===== PAGE: 城市分析 ===== -->
+      <div id="page-analysis" class="page active">
+        <h2 class="page-title">城市签约分析</h2>
+        <p class="page-desc" id="analysisDesc">基于5-7月签约数据，分析城市签约效果与高优类目</p>
+        <div id="analysisStats" class="stats-row"></div>
+        <div id="analysisCharts" class="chart-grid"></div>
+        <div id="analysisCategories">
+          <h3 style="font-size:15px;font-weight:600;margin-bottom:12px;">高优作业类目 × 推荐产品</h3>
+          <div id="catTableWrap"></div>
+        </div>
+      </div>
+
+      <!-- ===== PAGE: 商业化做工 ===== -->
+      <div id="page-commercial" class="page">
+        <h2 class="page-title">商业化做工</h2>
+        <p class="page-desc">在约门店中尚未签约商业化的PID，按优先级排序</p>
+        <div id="commercialStats" class="stats-row"></div>
+        <div class="filter-bar" id="commercialFilters">
+          <input id="cfSearch" placeholder="搜索门店名/PID" oninput="filterCommercial()">
+          <select id="cfTier" onchange="filterCommercial()">
+            <option value="">全部分层</option>
+            <option value="A1">A1-头部高DPV</option>
+            <option value="A2">A2-头部KA</option>
+            <option value="B1">B1-高DPV非TOP10</option>
+            <option value="B2">B2-中DPV+高GMV</option>
+          </select>
+          <select id="cfCategory" onchange="filterCommercial()">
+            <option value="">全部类目</option>
+          </select>
+          <select id="cfStatus" onchange="filterCommercial()">
+            <option value="">全部状态</option>
+            <option value="待跟进">待跟进</option>
+            <option value="跟进中">跟进中</option>
+            <option value="有意向">有意向</option>
+            <option value="已签约">已签约</option>
+            <option value="暂不跟进">暂不跟进</option>
+          </select>
+          <button class="btn btn-outline btn-sm" onclick="exportCommercial()">📥 导出</button>
+        </div>
+        <div id="commercialTableWrap"></div>
+      </div>
+
+      <!-- ===== PAGE: 开店做工 ===== -->
+      <div id="page-leads" class="page">
+        <h2 class="page-title">开店做工</h2>
+        <p class="page-desc">未签约高优POI，核心做工点是开店</p>
+        <div id="leadsStats" class="stats-row"></div>
+        <div class="filter-bar" id="leadsFilters">
+          <input id="lfSearch" placeholder="搜索POI名称/ID" oninput="filterLeads()">
+          <select id="lfCategory" onchange="filterLeads()">
+            <option value="">全部类目</option>
+          </select>
+          <select id="lfPriority" onchange="filterLeads()">
+            <option value="">全部</option>
+            <option value="high">城市高优</option>
+          </select>
+          <select id="lfStatus" onchange="filterLeads()">
+            <option value="">全部状态</option>
+            <option value="待联系">待联系</option>
+            <option value="跟进中">跟进中</option>
+            <option value="已开店">已开店</option>
+            <option value="无效">无效</option>
+          </select>
+          <button class="btn btn-outline btn-sm" onclick="exportLeads()">📥 导出</button>
+        </div>
+        <div id="leadsTableWrap"></div>
+      </div>
+
+      <!-- ===== PAGE: 作业分析 ===== -->
+      <div id="page-jobs" class="page">
+        <h2 class="page-title">作业分析</h2>
+        <p class="page-desc">天/周/月维度作业数据汇总</p>
+        <div class="filter-bar">
+          <select id="jobPeriod" onchange="renderJobs()">
+            <option value="day">按天</option>
+            <option value="week">按周</option>
+            <option value="month">按月</option>
+          </select>
+          <select id="jobLevel" onchange="renderJobs()">
+            <option value="employee">个人</option>
+            <option value="provider">服务商</option>
+            <option value="manager">渠道经理</option>
+            <option value="region">大区</option>
+          </select>
+        </div>
+        <div id="jobsStats" class="stats-row"></div>
+        <div id="jobsCharts" class="chart-grid"></div>
+        <div id="jobsTable"></div>
+      </div>
+
+      <!-- ===== PAGE: 管理后台 ===== -->
+      <div id="page-admin" class="page">
+        <h2 class="page-title">管理后台</h2>
+        <p class="page-desc">数据更新与使用统计（仅管理员可访问）</p>
+
+        <div class="admin-section">
+          <h4>📂 数据更新</h4>
+          <p style="font-size:13px;color:var(--text2);margin-bottom:12px;">上传最新数据文件（Excel），系统将自动解析并更新对应数据表</p>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+            <div class="upload-area" onclick="this.querySelector('input').click()">
+              <input type="file" accept=".xlsx,.xls,.csv" onchange="uploadData('pids', this.files[0])">
+              <div style="font-size:24px;margin-bottom:8px;">📦</div>
+              <div style="font-size:13px;font-weight:600;">在约底池</div>
+              <div style="font-size:12px;color:var(--text3);">PID维度数据</div>
+            </div>
+            <div class="upload-area" onclick="this.querySelector('input').click()">
+              <input type="file" accept=".xlsx,.xls,.csv" onchange="uploadData('leads', this.files[0])">
+              <div style="font-size:24px;margin-bottom:8px;">📋</div>
+              <div style="font-size:13px;font-weight:600;">未签约leads</div>
+              <div style="font-size:12px;color:var(--text3);">POI维度数据</div>
+            </div>
+            <div class="upload-area" onclick="this.querySelector('input').click()">
+              <input type="file" accept=".xlsx,.xls,.csv" onchange="uploadData('occupancy', this.files[0])">
+              <div style="font-size:24px;margin-bottom:8px;">📊</div>
+              <div style="font-size:13px;font-weight:600;">占量数据</div>
+              <div style="font-size:12px;color:var(--text3);">FBI美食占量</div>
+            </div>
+            <div class="upload-area" onclick="this.querySelector('input').click()">
+              <input type="file" accept=".xlsx,.xls,.csv" onchange="uploadData('roster', this.files[0])">
+              <div style="font-size:24px;margin-bottom:8px;">👥</div>
+              <div style="font-size:13px;font-weight:600;">花名册</div>
+              <div style="font-size:12px;color:var(--text3);">服务商/员工</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="admin-section">
+          <h4>📈 使用统计</h4>
+          <div id="usageStats" class="stats-row" style="margin-bottom:12px;"></div>
+          <div id="usageTable"></div>
+        </div>
+      </div>
+
+    </main>
+  </div>
+</div>
+
+<!-- ===== MODAL: PID/Lead Detail ===== -->
+<div id="detailModal" class="modal-overlay" onclick="if(event.target===this)closeModal()">
+  <div class="modal">
+    <div class="modal-header">
+      <h3 id="modalTitle">门店详情</h3>
+      <button class="modal-close" onclick="closeModal()">✕</button>
+    </div>
+    <div class="modal-body" id="modalBody"></div>
+  </div>
+</div>
+
+<!-- ===== MODAL: Follow-up Form ===== -->
+<div id="followModal" class="modal-overlay" onclick="if(event.target===this)closeFollowModal()">
+  <div class="modal" style="max-width:520px">
+    <div class="modal-header">
+      <h3 id="followTitle">添加跟进记录</h3>
+      <button class="modal-close" onclick="closeFollowModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="follow-form">
+        <div class="form-row">
+          <div style="flex:1">
+            <label>跟进状态</label>
+            <select id="fuStatus"></select>
+          </div>
+          <div style="flex:1">
+            <label>感兴趣产品</label>
+            <select id="fuProduct">
+              <option value="">未确认</option>
+              <option>品牌智能体</option>
+              <option>效果广告-CPC</option>
+              <option>效果广告-OCPC</option>
+              <option>获客宝</option>
+              <option>顶展</option>
+              <option>钻展</option>
+              <option>导结</option>
+              <option>品牌智能体品专版</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-row">
+          <div style="flex:1">
+            <label>下次跟进日期</label>
+            <input id="fuNextDate" type="date">
+          </div>
+          <div style="flex:1">
+            <label>下一步动作</label>
+            <input id="fuNextAction" placeholder="如：发送方案书、电话回访">
+          </div>
+        </div>
+        <div>
+          <label>跟进备注</label>
+          <textarea id="fuNote" placeholder="记录本次跟进要点..."></textarea>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeFollowModal()">取消</button>
+      <button class="btn btn-primary" onclick="saveFollowUp()">保存</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script>
+/* =============================================
+   CONFIG
+   ============================================= */
+var CONFIG = {
+  supabaseUrl: 'https://vtslvpfxjrflutorfryq.supabase.co',
+  supabaseKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZ0c2x2cGZ4anJmbHV0b3JmcnlxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIxOTkzMjEsImV4cCI6MjA5Nzc3NTMyMX0.SeW0gTgIAYEDCZawSU65XNbp--L3CJ3jw7XntymKzdQ',
+  demoCode: 'DEMO2026',
+  adminCode: 'ADMIN2026',
+  pageSize: 20,
+  statusMachine: {
+    commercial: ['待跟进','跟进中','有意向','已签约','暂不跟进'],
+    leads: ['待联系','跟进中','已开店','无效']
+  }
+};
+
+/* =============================================
+   STATE
+   ============================================= */
+var STATE = {
+  user: null,        // {provider_id, provider_name, region, role, cities, is_admin}
+  cities: [],        // selected cities
+  currentPage: 'analysis',
+  commercialData: [],
+  commercialFiltered: [],
+  commercialPage: 1,
+  leadsData: [],
+  leadsFiltered: [],
+  leadsPage: 1,
+  followUps: {},     // {targetType_targetId: [records]}
+  occupancy: [],     // occupancy data for current cities
+  charts: {}         // chart instances
+};
+
+/* =============================================
+   SUPABASE INIT
+   ============================================= */
+var sb = null;
+try {
+  sb = supabase.createClient(CONFIG.supabaseUrl, CONFIG.supabaseKey);
+} catch(e) {
+  console.warn('Supabase init failed, using demo mode:', e);
+}
+
+/* =============================================
+   DEMO DATA
+   ============================================= */
+var DEMO = {
+  provider: {
+    provider_id: 'SP_DEMO_001',
+    provider_name: '示例服务商-鼎盛传媒',
+    provider_type: '金牌服务商',
+    region: '华东大区',
+    channel_manager: '张三',
+    cities: ['杭州','宁波','温州','绍兴','嘉兴'],
+    role: '操盘手',
+    is_admin: false
+  },
+  admin: {
+    provider_id: 'ADMIN',
+    provider_name: '系统管理员',
+    region: '全国',
+    channel_manager: '',
+    cities: ['杭州','宁波','温州','绍兴','嘉兴','金华','台州','湖州','衢州','丽水'],
+    role: '管理员',
+    is_admin: true
+  }
+};
+
+// Generate demo commercial PIDs
+function genDemoPIDs() {
+  var cities = ['杭州','宁波','温州','绍兴','嘉兴'];
+  var categories = ['火锅','中餐;川菜','烧烤','小吃快餐','日本料理','中餐;粤菜','水产海鲜','饮品;奶茶/茶饮','火锅;串串香','中餐;湘菜'];
+  var tiers = ['A1','A1','A1','A2','B1','B1','B2','B2','B1','B2'];
+  var names = ['川味坊','老王火锅','炭火烧烤','鲜面道','鮨一','粤满楼','海鲜大排档','茶颜悦色','签签串串','湘聚一堂','鱼你在一起','蜀大侠','烤匠','丸作食茶','日料村','大碗厨','渔港小镇','蜜雪冰城','小郡肝','辣不怕','锅说','小龙坎','很久以前','古茗','鮨匠心','陶陶居','海上鲜','益禾堂','钢管五区','湘菜馆'];
+  var data = [];
+  for (var i = 0; i < 60; i++) {
+    var city = cities[i % cities.length];
+    var cat = categories[i % categories.length];
+    var tier = tiers[i % tiers.length];
+    var dpv = Math.floor(Math.random() * 800) + 10;
+    var gmv = Math.floor(Math.random() * 50000) + 500;
+    data.push({
+      pid: '2088' + String(100000000 + i).substring(1),
+      provider_id: 'SP_DEMO_001',
+      city: city,
+      district: ['西湖区','拱墅区','鄞州区','鹿城区','越城区','南湖区'][i%6],
+      store_name: names[i % names.length] + '(' + city + (i+1) + '店)',
+      category_l1: '美食',
+      category_l2: cat.split(';')[0],
+      category_l3: cat.includes(';') ? cat.split(';')[1] : '',
+      dpv_30d: dpv,
+      gmv_90d: gmv,
+      tier: tier,
+      segment: tier === 'A1' ? '头部高DPV' : tier === 'A2' ? '头部KA' : tier === 'B1' ? '高DPV非TOP10' : '中DPV+高GMV',
+      store_count: Math.floor(Math.random() * 5) + 1,
+      is_signed_agent: false,
+      is_signed_eff: false,
+      is_signed_brand: false,
+      high_priority_cat: Math.random() > 0.4
+    });
+  }
+  return data.sort(function(a,b) { return b.dpv_30d - a.dpv_30d; });
+}
+
+// Generate demo leads
+function genDemoLeads() {
+  var cities = ['杭州','宁波','温州','绍兴','嘉兴'];
+  var cats = ['火锅','川菜','烧烤','面馆','日料','粤菜','海鲜','奶茶','串串','湘菜','江浙菜','西餐'];
+  var names = ['渝味火锅','巴蜀人家','炭烤工坊','面道鲜','一兰拉面','味满楼','渔家小院','甜蜜蜜','串江湖','辣妹子','江南忆','牛排王','老街烧烤','茶百道','海底捞','大龙燚','木屋烧烤','喜茶','钢管区串串','剁椒鱼头'];
+  var data = [];
+  for (var i = 0; i < 80; i++) {
+    var city = cities[i % cities.length];
+    data.push({
+      poi_id: 'B0K' + String(100000 + i).substring(1),
+      kb_shop_id: 'KB' + String(200000 + i),
+      poi_name: names[i % names.length] + '(' + city + ['和平路','人民路','中山路','解放路','建设路'][i%5] + '店)',
+      city: city,
+      district: ['西湖区','拱墅区','鄞州区','鹿城区','越城区'][i%5],
+      category_l1: '美食',
+      category_l2: cats[i % cats.length],
+      category_l3: '',
+      brand_type: ['单店','连锁','品牌'][i%3],
+      address: city + '市' + ['和平路123号','人民路456号','中山路789号'][i%3],
+      smoke_level: ['高档','烟火','一般'][i%3],
+      dpv_30d: Math.floor(Math.random() * 500) + 5,
+      is_high_priority: Math.random() > 0.5,
+      provider_id: 'SP_DEMO_001'
+    });
+  }
+  return data;
+}
+
+// Demo follow-ups
+function genDemoFollowUps(targetType, targetId) {
+  var statuses = CONFIG.statusMachine[targetType === 'lead' ? 'leads' : 'commercial'];
+  var records = [];
+  var count = Math.floor(Math.random() * 4);
+  for (var i = 0; i < count; i++) {
+    var d = new Date();
+    d.setDate(d.getDate() - (count - i) * 3);
+    records.push({
+      id: 'fu_' + Math.random().toString(36).substring(2,8),
+      target_type: targetType,
+      target_id: targetId,
+      employee_name: ['李小明','王小红','张大力'][i%3],
+      status: statuses[Math.min(i+1, statuses.length-1)],
+      product_interest: ['效果广告-CPC','获客宝','顶展','品牌智能体'][i%4],
+      note: ['初次电话联系，店主表示有兴趣了解','发送了方案书，店主说考虑一下','二次回访，对ROI有疑问已解答','店主同意签约，约下周见面'][i%4],
+      created_at: d.toISOString()
+    });
+  }
+  return records;
+}
+
+/* =============================================
+   UTILITY FUNCTIONS
+   ============================================= */
+function $(id) { return document.getElementById(id); }
+function fmt(n) { return n != null ? Number(n).toLocaleString() : '-'; }
+function fmtMoney(n) { return n != null ? '¥' + Number(n).toLocaleString() : '-'; }
+function fmtDate(d) { if (!d) return '-'; return new Date(d).toLocaleDateString('zh-CN'); }
+function fmtTime(d) { if (!d) return '-'; var dt = new Date(d); return dt.toLocaleDateString('zh-CN') + ' ' + dt.toLocaleTimeString('zh-CN', {hour:'2-digit',minute:'2-digit'}); }
+
+function statusBadge(status) {
+  var colorMap = {
+    '待跟进':'gray','跟进中':'blue','有意向':'amber','已签约':'green','暂不跟进':'red',
+    '待联系':'gray','已开店':'green','无效':'red'
+  };
+  return '<span class="badge badge-' + (colorMap[status]||'gray') + '">' + status + '</span>';
+}
+
+function tierBadge(tier) {
+  var map = {A1:'blue',A2:'purple',B1:'green',B2:'amber'};
+  return '<span class="badge badge-' + (map[tier]||'gray') + '">' + tier + '</span>';
+}
+
+/* =============================================
+   AUTH
+   ============================================= */
+function fillDemo() { $('loginCode').value = CONFIG.demoCode; doLogin(); }
+
+async function doLogin() {
+  var code = $('loginCode').value.trim();
+  if (!code) { $('loginError').textContent = '请输入权限码'; return; }
+  $('loginBtn').disabled = true;
+  $('loginError').textContent = '验证中...';
+
+  // Demo mode
+  if (code === CONFIG.demoCode) {
+    STATE.user = Object.assign({}, DEMO.provider);
+    onLoginSuccess();
+    return;
+  }
+  if (code === CONFIG.adminCode) {
+    STATE.user = Object.assign({}, DEMO.admin);
+    onLoginSuccess();
+    return;
+  }
+
+  // Supabase lookup
+  if (sb) {
+    try {
+      var res = await sb.from('crm_providers').select('*').eq('access_code', code).single();
+      if (res.data) {
+        STATE.user = {
+          provider_id: res.data.provider_id,
+          provider_name: res.data.provider_name,
+          provider_type: res.data.provider_type,
+          region: res.data.region,
+          channel_manager: res.data.channel_manager,
+          cities: res.data.cities || [],
+          role: '操盘手',
+          is_admin: false
+        };
+        onLoginSuccess();
+        return;
+      }
+    } catch(e) { console.warn('Supabase login error:', e); }
+  }
+
+  $('loginBtn').disabled = false;
+  $('loginError').textContent = '权限码无效，请重试';
+}
+
+function onLoginSuccess() {
+  $('loginPage').style.display = 'none';
+  $('headerUser').textContent = STATE.user.provider_name + ' · ' + (STATE.user.role || '操盘手');
+  if (STATE.user.is_admin) { $('navAdmin').style.display = 'flex'; }
+
+  // Log usage
+  logUsage('login');
+
+  // Check if cities already selected (from localStorage)
+  var saved = localStorage.getItem('crm_cities_' + STATE.user.provider_id);
+  if (saved) {
+    STATE.cities = JSON.parse(saved);
+    showApp();
+  } else {
+    showCitySelect();
+  }
+}
+
+function doLogout() {
+  STATE.user = null;
+  STATE.cities = [];
+  $('appShell').classList.remove('active');
+  $('cityPage').style.display = 'none';
+  $('loginPage').style.display = 'flex';
+  $('loginCode').value = '';
+  $('loginError').textContent = '';
+  $('loginBtn').disabled = false;
+}
+
+/* =============================================
+   CITY SELECT
+   ============================================= */
+function showCitySelect() {
+  $('cityPage').style.display = 'flex';
+  var grid = $('cityGrid');
+  grid.innerHTML = '';
+  var cities = STATE.user.cities || [];
+  cities.forEach(function(city) {
+    var chip = document.createElement('div');
+    chip.className = 'city-chip' + (STATE.cities.indexOf(city) >= 0 ? ' selected' : '');
+    chip.textContent = city;
+    chip.onclick = function() {
+      chip.classList.toggle('selected');
+    };
+    grid.appendChild(chip);
+  });
+}
+
+function confirmCities() {
+  var chips = document.querySelectorAll('#cityGrid .city-chip.selected');
+  STATE.cities = Array.from(chips).map(function(c) { return c.textContent; });
+  if (STATE.cities.length === 0) {
+    // Default to all cities
+    STATE.cities = STATE.user.cities || [];
+  }
+  localStorage.setItem('crm_cities_' + STATE.user.provider_id, JSON.stringify(STATE.cities));
+  $('cityPage').style.display = 'none';
+  showApp();
+}
+
+/* =============================================
+   APP SHELL
+   ============================================= */
+function showApp() {
+  $('appShell').classList.add('active');
+  $('headerCity').textContent = STATE.cities.length <= 3 ? STATE.cities.join('、') + ' ▾' : STATE.cities.slice(0,3).join('、') + '... ▾';
+  loadData();
+  navigate(STATE.currentPage);
+}
+
+function toggleSidebar() {
+  $('sidebar').classList.toggle('open');
+  $('sidebarBackdrop').classList.toggle('open');
+}
+
+/* =============================================
+   ROUTER
+   ============================================= */
+function navigate(page) {
+  STATE.currentPage = page;
+  // Update sidebar
+  document.querySelectorAll('.sidebar .nav-item').forEach(function(el) {
+    el.classList.toggle('active', el.dataset.page === page);
+  });
+  // Show page
+  document.querySelectorAll('.page').forEach(function(el) {
+    el.classList.toggle('active', el.id === 'page-' + page);
+  });
+  // Close mobile sidebar
+  $('sidebar').classList.remove('open');
+  $('sidebarBackdrop').classList.remove('open');
+  // Render page
+  switch(page) {
+    case 'analysis': renderAnalysis(); break;
+    case 'commercial': renderCommercial(); break;
+    case 'leads': renderLeads(); break;
+    case 'jobs': renderJobs(); break;
+    case 'admin': renderAdmin(); break;
+  }
+}
+
+/* =============================================
+   DATA LOADING
+   ============================================= */
+async function loadData() {
+  var isReal = sb && STATE.user.provider_id !== 'SP_DEMO_001' && STATE.user.provider_id !== 'ADMIN';
+
+  if (isReal) {
+    try {
+      // Build query: filter by provider_id + selected cities
+      var pidQuery = sb.from('crm_pids').select('*')
+        .eq('provider_id', STATE.user.provider_id)
+        .order('dpv_30d', {ascending: false});
+      if (STATE.cities.length > 0) pidQuery = pidQuery.in('city', STATE.cities);
+
+      var leadQuery = sb.from('crm_leads').select('*')
+        .eq('provider_id', STATE.user.provider_id)
+        .order('dpv_30d', {ascending: false});
+      if (STATE.cities.length > 0) leadQuery = leadQuery.in('city', STATE.cities);
+
+      var occQuery = sb.from('crm_occupancy').select('*');
+      if (STATE.cities.length > 0) occQuery = occQuery.in('city_name', STATE.cities);
+
+      var [pidsRes, leadsRes, occRes] = await Promise.all([pidQuery, leadQuery, occQuery]);
+
+      STATE.commercialData = (pidsRes.data && pidsRes.data.length > 0) ? pidsRes.data : genDemoPIDs();
+      STATE.leadsData = (leadsRes.data && leadsRes.data.length > 0) ? leadsRes.data : genDemoLeads();
+      STATE.occupancy = (occRes.data) ? occRes.data : [];
+
+      // Load follow-ups for this provider
+      var fuRes = await sb.from('crm_follow_ups').select('*')
+        .eq('provider_id', STATE.user.provider_id)
+        .order('created_at', {ascending: true});
+      if (fuRes.data) {
+        fuRes.data.forEach(function(r) {
+          var key = r.target_type + '_' + r.target_id;
+          if (!STATE.followUps[key]) STATE.followUps[key] = [];
+          STATE.followUps[key].push(r);
+        });
+      }
+
+      console.log('Loaded from Supabase:', STATE.commercialData.length, 'PIDs,', STATE.leadsData.length, 'leads,', STATE.occupancy.length, 'occupancy');
+    } catch(e) {
+      console.warn('Supabase query failed, using demo data:', e);
+      STATE.commercialData = genDemoPIDs();
+      STATE.leadsData = genDemoLeads();
+      STATE.occupancy = [];
+    }
+  } else {
+    STATE.commercialData = genDemoPIDs();
+    STATE.leadsData = genDemoLeads();
+    STATE.occupancy = [];
+  }
+
+  // Populate category filters
+  populateCategoryFilter('cfCategory', STATE.commercialData, 'category_l2');
+  populateCategoryFilter('lfCategory', STATE.leadsData, 'category_l2');
+}
+
+function populateCategoryFilter(selectId, data, field) {
+  var cats = {};
+  data.forEach(function(d) { if (d[field]) cats[d[field]] = true; });
+  var sel = $(selectId);
+  // Keep first option
+  while (sel.options.length > 1) sel.remove(1);
+  Object.keys(cats).sort().forEach(function(cat) {
+    var opt = document.createElement('option');
+    opt.value = cat;
+    opt.textContent = cat;
+    sel.appendChild(opt);
+  });
+}
+
+/* =============================================
+   PAGE: 城市分析
+   ============================================= */
+function renderAnalysis() {
+  var data = STATE.commercialData;
+  var leads = STATE.leadsData;
+
+  // Stats
+  var totalPIDs = data.length;
+  var signedCount = data.filter(function(d) { return d.is_signed_eff || d.is_signed_agent || d.is_signed_brand; }).length;
+  var avgDPV = totalPIDs ? Math.round(data.reduce(function(s,d){ return s + (d.dpv_30d||0); },0) / totalPIDs) : 0;
+  var highPriorityCount = data.filter(function(d){ return d.high_priority_cat; }).length;
+  var penetrationRate = totalPIDs ? (signedCount / totalPIDs * 100).toFixed(1) : 0;
+
+  $('analysisStats').innerHTML =
+    '<div class="stat-card"><div class="label">在约PID数</div><div class="value blue">' + fmt(totalPIDs) + '</div><div class="sub">覆盖 ' + STATE.cities.length + ' 个城市</div></div>' +
+    '<div class="stat-card"><div class="label">已商业化</div><div class="value green">' + fmt(signedCount) + '</div><div class="sub">渗透率 ' + penetrationRate + '%</div></div>' +
+    '<div class="stat-card"><div class="label">平均DPV</div><div class="value amber">' + fmt(avgDPV) + '</div><div class="sub">签前30天日均</div></div>' +
+    '<div class="stat-card"><div class="label">高优类目PID</div><div class="value">' + fmt(highPriorityCount) + '</div><div class="sub">占比 ' + (totalPIDs ? (highPriorityCount/totalPIDs*100).toFixed(1) : 0) + '%</div></div>' +
+    '<div class="stat-card"><div class="label">未签约leads</div><div class="value blue">' + fmt(leads.length) + '</div><div class="sub">高优POI</div></div>';
+
+  $('analysisDesc').textContent = '基于5-7月签约数据 · 当前选中城市：' + STATE.cities.join('、');
+
+  // Charts
+  renderAnalysisCharts(data);
+
+  // Category table
+  renderCategoryTable(data);
+}
+
+function renderAnalysisCharts(data) {
+  var container = $('analysisCharts');
+  container.innerHTML =
+    '<div class="chart-box"><h4>各城市PID数量分布</h4><canvas id="chartCity"></canvas></div>' +
+    '<div class="chart-box"><h4>分层占比</h4><canvas id="chartTier"></canvas></div>' +
+    '<div class="chart-box"><h4>DPV分布</h4><canvas id="chartDPV"></canvas></div>' +
+    '<div class="chart-box"><h4>签约产品覆盖</h4><canvas id="chartProduct"></canvas></div>';
+
+  // Destroy old charts
+  Object.keys(STATE.charts).forEach(function(k) { if (STATE.charts[k]) STATE.charts[k].destroy(); });
+
+  var chartOpts = {
+    responsive: true,
+    plugins: { legend: { labels: { color: '#94a3b8', font: { size: 11 } } } },
+    scales: { x: { ticks: { color: '#94a3b8' }, grid: { color: '#334155' } }, y: { ticks: { color: '#94a3b8' }, grid: { color: '#334155' } } }
+  };
+
+  // City distribution
+  var cityCount = {};
+  data.forEach(function(d) { cityCount[d.city] = (cityCount[d.city]||0) + 1; });
+  STATE.charts.city = new Chart($('chartCity'), {
+    type: 'bar',
+    data: {
+      labels: Object.keys(cityCount),
+      datasets: [{ label: 'PID数', data: Object.values(cityCount), backgroundColor: '#3b82f699', borderRadius: 4 }]
+    },
+    options: chartOpts
+  });
+
+  // Tier distribution
+  var tierCount = {A1:0, A2:0, B1:0, B2:0};
+  data.forEach(function(d) { if (tierCount[d.tier] !== undefined) tierCount[d.tier]++; });
+  STATE.charts.tier = new Chart($('chartTier'), {
+    type: 'doughnut',
+    data: {
+      labels: ['A1-头部高DPV','A2-头部KA','B1-高DPV','B2-中DPV'],
+      datasets: [{ data: Object.values(tierCount), backgroundColor: ['#3b82f6','#8b5cf6','#10b981','#f59e0b'] }]
+    },
+    options: { responsive: true, plugins: { legend: { position: 'right', labels: { color: '#94a3b8' } } } }
+  });
+
+  // DPV distribution
+  var dpvBuckets = {'0-10':0,'10-50':0,'50-100':0,'100-200':0,'200-500':0,'500+':0};
+  data.forEach(function(d) {
+    var v = d.dpv_30d || 0;
+    if (v <= 10) dpvBuckets['0-10']++;
+    else if (v <= 50) dpvBuckets['10-50']++;
+    else if (v <= 100) dpvBuckets['50-100']++;
+    else if (v <= 200) dpvBuckets['100-200']++;
+    else if (v <= 500) dpvBuckets['200-500']++;
+    else dpvBuckets['500+']++;
+  });
+  STATE.charts.dpv = new Chart($('chartDPV'), {
+    type: 'bar',
+    data: {
+      labels: Object.keys(dpvBuckets),
+      datasets: [{ label: 'PID数', data: Object.values(dpvBuckets), backgroundColor: ['#94a3b8','#94a3b8','#3b82f6','#3b82f6','#1d4ed8','#1e40af'], borderRadius: 4 }]
+    },
+    options: chartOpts
+  });
+
+  // Product coverage
+  var agentCount = data.filter(function(d){return d.is_signed_agent;}).length;
+  var effCount = data.filter(function(d){return d.is_signed_eff;}).length;
+  var brandCount = data.filter(function(d){return d.is_signed_brand;}).length;
+  var noneCount = data.filter(function(d){return !d.is_signed_agent && !d.is_signed_eff && !d.is_signed_brand;}).length;
+  STATE.charts.product = new Chart($('chartProduct'), {
+    type: 'doughnut',
+    data: {
+      labels: ['智能体','效果广告','品广','未签约'],
+      datasets: [{ data: [agentCount, effCount, brandCount, noneCount], backgroundColor: ['#10b981','#3b82f6','#8b5cf6','#475569'] }]
+    },
+    options: { responsive: true, plugins: { legend: { position: 'right', labels: { color: '#94a3b8' } } } }
+  });
+}
+
+function renderCategoryTable(data) {
+  // Group by category, show top categories with recommendations
+  var catStats = {};
+  data.forEach(function(d) {
+    var cat = d.category_l2 || '其他';
+    if (!catStats[cat]) catStats[cat] = { count: 0, dpvSum: 0, signed: 0, highPriority: 0 };
+    catStats[cat].count++;
+    catStats[cat].dpvSum += (d.dpv_30d || 0);
+    if (d.is_signed_eff || d.is_signed_agent || d.is_signed_brand) catStats[cat].signed++;
+    if (d.high_priority_cat) catStats[cat].highPriority++;
+  });
+
+  var sorted = Object.entries(catStats).sort(function(a,b){ return b[1].count - a[1].count; });
+
+  var html = '<div class="data-table-wrap"><table class="data-table"><thead><tr>' +
+    '<th>类目</th><th class="num">PID数</th><th class="num">均DPV</th><th class="num">高优数</th><th class="num">已签约</th><th class="num">渗透率</th><th>推荐产品</th>' +
+    '</tr></thead><tbody>';
+
+  sorted.forEach(function(item) {
+    var cat = item[0], s = item[1];
+    var avgDPV = Math.round(s.dpvSum / s.count);
+    var rate = (s.signed / s.count * 100).toFixed(1);
+    var rec = getRecommendation(cat, avgDPV);
+    html += '<tr><td><strong>' + cat + '</strong></td>' +
+      '<td class="num">' + fmt(s.count) + '</td>' +
+      '<td class="num">' + fmt(avgDPV) + '</td>' +
+      '<td class="num">' + fmt(s.highPriority) + '</td>' +
+      '<td class="num">' + fmt(s.signed) + '</td>' +
+      '<td class="num">' + rate + '%</td>' +
+      '<td>' + rec + '</td></tr>';
+  });
+
+  html += '</tbody></table></div>';
+  $('catTableWrap').innerHTML = html;
+}
+
+function getRecommendation(category, avgDPV) {
+  if (avgDPV >= 200) return '<span class="badge badge-blue">智能体+CPC</span> <span class="badge badge-purple">顶展</span>';
+  if (avgDPV >= 50) return '<span class="badge badge-blue">智能体</span> <span class="badge badge-green">获客宝+OCPC</span>';
+  return '<span class="badge badge-blue">智能体</span> <span class="badge badge-green">CPC入门</span>';
+}
+
+/* =============================================
+   PAGE: 商业化做工
+   ============================================= */
+function renderCommercial() {
+  filterCommercial();
+
+  // Stats (only unsigned merchants)
+  var data = STATE.commercialFiltered;
+  var total = data.length;
+  var a1 = data.filter(function(d){return d.tier==='A1';}).length;
+  var highDPV = data.filter(function(d){return d.dpv_30d >= 200;}).length;
+  var highPri = data.filter(function(d){return d.high_priority_cat;}).length;
+
+  $('commercialStats').innerHTML =
+    '<div class="stat-card"><div class="label">未签约PID</div><div class="value blue">' + fmt(total) + '</div><div class="sub">待商业化做工</div></div>' +
+    '<div class="stat-card"><div class="label">A1头部</div><div class="value">' + fmt(a1) + '</div><div class="sub">占比' + (total?(a1/total*100).toFixed(1):0) + '%</div></div>' +
+    '<div class="stat-card"><div class="label">高DPV(200+)</div><div class="value amber">' + fmt(highDPV) + '</div><div class="sub">重点做工</div></div>' +
+    '<div class="stat-card"><div class="label">高优类目</div><div class="value green">' + fmt(highPri) + '</div><div class="sub">占比' + (total?(highPri/total*100).toFixed(1):0) + '%</div></div>';
+}
+
+function filterCommercial() {
+  var search = ($('cfSearch').value || '').toLowerCase();
+  var tier = $('cfTier').value;
+  var cat = $('cfCategory').value;
+  var status = $('cfStatus').value;
+
+  STATE.commercialFiltered = STATE.commercialData.filter(function(d) {
+    // 只展示未签约商户
+    if (d.is_signed_agent || d.is_signed_eff || d.is_signed_brand) return false;
+    if (search && (d.store_name||'').toLowerCase().indexOf(search) < 0 && (d.pid||'').indexOf(search) < 0) return false;
+    if (tier && d.tier !== tier) return false;
+    if (cat && d.category_l2 !== cat) return false;
+    // Status filter based on follow-ups
+    if (status) {
+      var fu = getFollowUpStatus('pid', d.pid);
+      if (fu !== status) return false;
+    }
+    return true;
+  });
+
+  STATE.commercialPage = 1;
+  renderCommercialTable();
+}
+
+function renderCommercialTable() {
+  var data = STATE.commercialFiltered;
+  var start = (STATE.commercialPage - 1) * CONFIG.pageSize;
+  var pageData = data.slice(start, start + CONFIG.pageSize);
+  var totalPages = Math.ceil(data.length / CONFIG.pageSize);
+
+  var html = '<div class="data-table-wrap" style="max-height:calc(100vh - 340px);overflow-y:auto;"><table class="data-table">' +
+    '<thead><tr><th>门店名</th><th>PID</th><th>城市</th><th>类目</th><th>分层</th><th class="num">DPV</th><th class="num">90天GMV</th><th class="num">门店数</th><th>签约</th><th>状态</th><th>操作</th></tr></thead><tbody>';
+
+  if (pageData.length === 0) {
+    html += '<tr><td colspan="11" style="text-align:center;padding:30px;color:var(--text3);">暂无数据</td></tr>';
+  } else {
+    pageData.forEach(function(d) {
+      var signed = [];
+      if (d.is_signed_agent) signed.push('智能体');
+      if (d.is_signed_eff) signed.push('效广');
+      if (d.is_signed_brand) signed.push('品广');
+      var signedStr = signed.length > 0 ? signed.join('+') : '<span style="color:var(--red)">未签约</span>';
+      var fuStatus = getFollowUpStatus('pid', d.pid);
+
+      html += '<tr>' +
+        '<td class="clickable" onclick="showPIDDetail(\'' + d.pid + '\')"><strong>' + (d.store_name||'-') + '</strong></td>' +
+        '<td style="font-size:12px;color:var(--text3);">' + d.pid + '</td>' +
+        '<td>' + d.city + '</td>' +
+        '<td>' + (d.category_l2||'-') + '</td>' +
+        '<td>' + tierBadge(d.tier) + '</td>' +
+        '<td class="num">' + fmt(d.dpv_30d) + '</td>' +
+        '<td class="num">' + fmtMoney(d.gmv_90d) + '</td>' +
+        '<td class="num">' + (d.store_count||1) + '</td>' +
+        '<td style="font-size:12px;">' + signedStr + '</td>' +
+        '<td>' + statusBadge(fuStatus) + '</td>' +
+        '<td><button class="btn btn-sm btn-outline" onclick="openFollowUp(\'pid\',\'' + d.pid + '\')">跟进</button></td>' +
+        '</tr>';
+    });
+  }
+
+  html += '</tbody></table></div>';
+
+  // Pagination
+  html += renderPagination(data.length, STATE.commercialPage, totalPages, 'setCommercialPage');
+
+  $('commercialTableWrap').innerHTML = html;
+}
+
+function setCommercialPage(p) { STATE.commercialPage = p; renderCommercialTable(); }
+
+/* =============================================
+   PAGE: 开店做工 (Leads)
+   ============================================= */
+function renderLeads() {
+  filterLeads();
+
+  var data = STATE.leadsData;
+  var total = data.length;
+  var highPriority = data.filter(function(d){return d.is_high_priority;}).length;
+  var highDPV = data.filter(function(d){return d.dpv_30d >= 100;}).length;
+
+  $('leadsStats').innerHTML =
+    '<div class="stat-card"><div class="label">leads总数</div><div class="value blue">' + fmt(total) + '</div></div>' +
+    '<div class="stat-card"><div class="label">城市高优</div><div class="value green">' + fmt(highPriority) + '</div><div class="sub">占比' + (total?(highPriority/total*100).toFixed(1):0) + '%</div></div>' +
+    '<div class="stat-card"><div class="label">高DPV(100+)</div><div class="value amber">' + fmt(highDPV) + '</div></div>';
+}
+
+function filterLeads() {
+  var search = ($('lfSearch').value || '').toLowerCase();
+  var cat = $('lfCategory').value;
+  var priority = $('lfPriority').value;
+  var status = $('lfStatus').value;
+
+  STATE.leadsFiltered = STATE.leadsData.filter(function(d) {
+    if (search && (d.poi_name||'').toLowerCase().indexOf(search) < 0 && (d.poi_id||'').indexOf(search) < 0) return false;
+    if (cat && d.category_l2 !== cat) return false;
+    if (priority === 'high' && !d.is_high_priority) return false;
+    if (status) {
+      var fu = getFollowUpStatus('lead', d.poi_id);
+      if (fu !== status) return false;
+    }
+    return true;
+  });
+
+  STATE.leadsPage = 1;
+  renderLeadsTable();
+}
+
+function renderLeadsTable() {
+  var data = STATE.leadsFiltered;
+  var start = (STATE.leadsPage - 1) * CONFIG.pageSize;
+  var pageData = data.slice(start, start + CONFIG.pageSize);
+  var totalPages = Math.ceil(data.length / CONFIG.pageSize);
+
+  var html = '<div class="data-table-wrap" style="max-height:calc(100vh - 340px);overflow-y:auto;"><table class="data-table">' +
+    '<thead><tr><th>POI名称</th><th>城市</th><th>类目</th><th class="num">DPV</th><th>品牌类型</th><th>烟火档位</th><th>高优</th><th>状态</th><th>操作</th></tr></thead><tbody>';
+
+  if (pageData.length === 0) {
+    html += '<tr><td colspan="9" style="text-align:center;padding:30px;color:var(--text3);">暂无数据</td></tr>';
+  } else {
+    pageData.forEach(function(d) {
+      var fuStatus = getFollowUpStatus('lead', d.poi_id);
+      html += '<tr>' +
+        '<td class="clickable" onclick="showLeadDetail(\'' + d.poi_id + '\')"><strong>' + (d.poi_name||'-') + '</strong></td>' +
+        '<td>' + d.city + '</td>' +
+        '<td>' + (d.category_l2||'-') + '</td>' +
+        '<td class="num">' + fmt(d.dpv_30d) + '</td>' +
+        '<td>' + (d.brand_type||'-') + '</td>' +
+        '<td>' + (d.smoke_level||'-') + '</td>' +
+        '<td>' + (d.is_high_priority ? '<span class="badge badge-green">高优</span>' : '<span class="badge badge-gray">-</span>') + '</td>' +
+        '<td>' + statusBadge(fuStatus) + '</td>' +
+        '<td><button class="btn btn-sm btn-outline" onclick="openFollowUp(\'lead\',\'' + d.poi_id + '\')">跟进</button></td>' +
+        '</tr>';
+    });
+  }
+
+  html += '</tbody></table></div>';
+  html += renderPagination(data.length, STATE.leadsPage, totalPages, 'setLeadsPage');
+
+  $('leadsTableWrap').innerHTML = html;
+}
+
+function setLeadsPage(p) { STATE.leadsPage = p; renderLeadsTable(); }
+
+/* =============================================
+   PAGINATION HELPER
+   ============================================= */
+function renderPagination(total, current, totalPages, fnName) {
+  if (totalPages <= 1) return '<div class="pagination"><span>共 ' + total + ' 条</span><span></span></div>';
+  var html = '<div class="pagination"><span>共 ' + total + ' 条，第 ' + current + '/' + totalPages + ' 页</span><div class="pages">';
+  if (current > 1) html += '<button class="pg-btn" onclick="' + fnName + '(' + (current-1) + ')">‹</button>';
+  for (var i = Math.max(1, current-2); i <= Math.min(totalPages, current+2); i++) {
+    html += '<button class="pg-btn' + (i===current?' active':'') + '" onclick="' + fnName + '(' + i + ')">' + i + '</button>';
+  }
+  if (current < totalPages) html += '<button class="pg-btn" onclick="' + fnName + '(' + (current+1) + ')">›</button>';
+  html += '</div></div>';
+  return html;
+}
+
+/* =============================================
+   DETAIL MODAL: PID
+   ============================================= */
+function showPIDDetail(pid) {
+  var d = STATE.commercialData.find(function(x) { return x.pid === pid; });
+  if (!d) return;
+
+  $('modalTitle').textContent = d.store_name || pid;
+  var body = '';
+
+  // Tab bar
+  body += '<div class="tab-bar">' +
+    '<button class="tab-btn active" onclick="switchDetailTab(this,0)">基本信息</button>' +
+    '<button class="tab-btn" onclick="switchDetailTab(this,1)">推荐方案</button>' +
+    '<button class="tab-btn" onclick="switchDetailTab(this,2)">同城案例</button>' +
+    '<button class="tab-btn" onclick="switchDetailTab(this,3)">跟进记录</button>' +
+    '</div>';
+
+  // Tab 0: Basic info
+  body += '<div class="tab-panel active" data-tab="0">';
+  body += '<div class="detail-section"><h4>门店信息</h4><div class="detail-grid">' +
+    detailItem('PID', d.pid) + detailItem('城市', d.city) + detailItem('区县', d.district) +
+    detailItem('类目', d.category_l2 + (d.category_l3 ? ' > ' + d.category_l3 : '')) +
+    detailItem('分层', d.tier + ' - ' + (d.segment||'')) + detailItem('门店数', d.store_count) +
+    detailItem('30天DPV', fmt(d.dpv_30d)) + detailItem('90天GMV', fmtMoney(d.gmv_90d)) +
+    '</div></div>';
+
+  // Occupancy check
+  var occ = checkOccupancy(d.city, d.category_l2);
+  if (occ.occupied) {
+    body += '<div style="background:var(--red-bg);border:1px solid var(--red);border-radius:var(--radius);padding:12px;margin-bottom:12px;font-size:13px;">' +
+      '⚠️ 该城市「' + d.category_l2 + '」类目顶展/钻展当前被占量，暂不可售<br>' +
+      '<span style="color:var(--text3);font-size:12px;">占量时间：' + fmtDate(occ.start) + ' ~ ' + fmtDate(occ.end) + '</span></div>';
+  }
+
+  // Signed products
+  var signed = [];
+  if (d.is_signed_agent) signed.push('品牌智能体');
+  if (d.is_signed_eff) signed.push('效果广告');
+  if (d.is_signed_brand) signed.push('品广');
+  body += '<div class="detail-section"><h4>已签约产品</h4><p style="font-size:14px;">' +
+    (signed.length > 0 ? signed.map(function(s){ return '<span class="badge badge-green">' + s + '</span>'; }).join(' ') : '<span style="color:var(--red);">尚未签约任何商业化产品</span>') +
+    '</p></div>';
+
+  body += '</div>';
+
+  // Tab 1: Recommendations
+  body += '<div class="tab-panel" data-tab="1">';
+  body += renderRecommendations(d);
+  body += '</div>';
+
+  // Tab 2: 同城案例
+  body += '<div class="tab-panel" data-tab="2">';
+  body += renderCases(d);
+  body += '</div>';
+
+  // Tab 3: Follow-ups
+  body += '<div class="tab-panel" data-tab="3">';
+  body += '<button class="btn btn-primary btn-sm" onclick="openFollowUp(\'pid\',\'' + d.pid + '\')" style="margin-bottom:16px;">+ 添加跟进</button>';
+  body += renderFollowUpTimeline('pid', d.pid);
+  body += '</div>';
+
+  $('modalBody').innerHTML = body;
+  $('detailModal').classList.add('active');
+}
+
+function renderRecommendations(d) {
+  var dpv = d.dpv_30d || 0;
+  var stores = d.store_count || 1;
+  var products = [];
+
+  // Recommendation logic based on DPV tier and store scale
+  if (dpv < 10) {
+    products.push({name:'品牌智能体', desc:'基础线上形象搭建，¥1188/年起。帮门店从0到1建立线上经营能力，AI智能回复评论、优化门店信息。', tag:'基础必备'});
+    products.push({name:'效果广告-CPC', desc:'按点击付费，预算自控。低DPV商户签后DPV上升率98%，适合试投验证效果。', tag:'入门投流'});
+  } else if (dpv < 100) {
+    products.push({name:'品牌智能体', desc:'¥1188/年，AI门店顾问+智能回复+搜索优化，提升自然流量转化。', tag:'基础必备'});
+    products.push({name:'获客宝+OCPC', desc:'智能获客+按效果出价，适合中DPV商户精准获客。系统自动优化投放，省心省力。', tag:'推荐组合'});
+  } else if (dpv < 500) {
+    products.push({name:'品牌智能体', desc:'¥1188/年，持续优化门店线上形象。', tag:'基础'});
+    products.push({name:'获客宝+OCPC-GMV', desc:'按GMV效果出价，旺季冲量利器。' + d.city + '同品类商户户均充值¥' + fmt(Math.round(dpv * 15)) + '。', tag:'推荐'});
+    if (stores >= 3) products.push({name:'品牌智能体品专版', desc:'品牌智能体+mini品专打包，¥1999/年/POI起。品牌搜品专卡片+图面气泡广告。', tag:'品牌升级'});
+  } else {
+    products.push({name:'效果广告-NoBid/OCPC', desc:'高DPV商户推荐NoBid放量投放，户均充值¥13,000+。', tag:'放量'});
+    products.push({name:'顶展', desc:'搜索首屏品牌展示，' + d.category_l2 + '类目词包可抢占。', tag:'品牌曝光'});
+    products.push({name:'品牌智能体品专版', desc:'品牌搜品专+智能体打包，¥' + (stores <= 9 ? '1999' : '1799') + '/年/POI。', tag:'品牌升级'});
+  }
+
+  var html = '<div class="rec-cards">';
+  products.forEach(function(p) {
+    html += '<div class="rec-card"><div class="rc-name">' + p.name + '</div><div class="rc-desc">' + p.desc + '</div><span class="rc-tag">' + p.tag + '</span></div>';
+  });
+  html += '</div>';
+
+  // Script/talking points
+  html += '<div class="detail-section" style="margin-top:20px;"><h4>推荐话术</h4>';
+  html += '<div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);padding:14px;font-size:13px;line-height:1.8;">';
+  html += '<strong>开场：</strong>"' + (d.store_name||'您门店') + '目前日均DPV有' + d.dpv_30d + '，说明周边用户搜索需求很旺，但还没做商业化投放，相当于有客流没接住。"<br>';
+  html += '<strong>方案：</strong>"建议先用品牌智能体把线上形象搭好，再配' + (dpv >= 100 ? '获客宝按效果出价' : 'CPC小预算试投') + '，预算自控，不点不花钱。"<br>';
+  html += '<strong>案例：</strong>"' + d.city + '同品类商户签约后，DPV平均提升40%+，' + (dpv >= 100 ? '户均月增GMV约¥' + fmt(Math.round(dpv * 20)) : '大部分商户签后DPV上升率超95%') + '。"';
+  html += '</div></div>';
+
+  return html;
+}
+
+function renderCases(d) {
+  var city = d.city;
+  var cat = d.category_l2 || '中餐';
+  var dpv = d.dpv_30d || 50;
+
+  // Generate realistic case studies based on DPV tier
+  var cases = [];
+  if (dpv < 50) {
+    cases.push({
+      name: city + '·' + cat + '·张记小馆',
+      product: '品牌智能体 + CPC',
+      dpvBefore: Math.max(3, Math.round(dpv * 0.4)),
+      dpvAfter: Math.round(dpv * 0.4 * 3.2),
+      gmvBefore: 0,
+      gmvAfter: Math.round(dpv * 18),
+      charge: 3000,
+      period: '签约后30天',
+      quote: '"之前高德上搜不到我们店，上了智能体+CPC后，每天能多来十几桌客人，投入3000块一个月就回本了。"'
+    });
+    cases.push({
+      name: city + '·' + cat + '·老街坊饭店',
+      product: '品牌智能体',
+      dpvBefore: Math.max(5, Math.round(dpv * 0.6)),
+      dpvAfter: Math.round(dpv * 0.6 * 2.1),
+      gmvBefore: Math.round(dpv * 5),
+      gmvAfter: Math.round(dpv * 14),
+      charge: 1188,
+      period: '签约后60天',
+      quote: '"智能体自动回复评论、优化门店信息，省心。DPV翻了一倍多，电话咨询也明显多了。"'
+    });
+  } else if (dpv < 200) {
+    cases.push({
+      name: city + '·' + cat + '·味道餐厅',
+      product: '智能体 + 获客宝',
+      dpvBefore: Math.round(dpv * 0.5),
+      dpvAfter: Math.round(dpv * 0.5 * 2.8),
+      gmvBefore: Math.round(dpv * 8),
+      gmvAfter: Math.round(dpv * 25),
+      charge: 5000,
+      period: '签约后30天',
+      quote: '"获客宝按效果出价，来了不少新客。配合智能体的线上运营，整体ROI很满意。"'
+    });
+    cases.push({
+      name: city + '·' + cat + '·鲜味坊',
+      product: '智能体 + OCPC-GMV',
+      dpvBefore: Math.round(dpv * 0.7),
+      dpvAfter: Math.round(dpv * 0.7 * 1.9),
+      gmvBefore: Math.round(dpv * 12),
+      gmvAfter: Math.round(dpv * 28),
+      charge: 8000,
+      period: '签约后45天',
+      quote: '"OCPC按GMV出价很省心，系统自动优化。' + city + '同品类里算效果很好的。"'
+    });
+  } else {
+    cases.push({
+      name: city + '·' + cat + '·鼎盛酒楼',
+      product: 'OCPC + 顶展',
+      dpvBefore: Math.round(dpv * 0.6),
+      dpvAfter: Math.round(dpv * 0.6 * 1.7),
+      gmvBefore: Math.round(dpv * 15),
+      gmvAfter: Math.round(dpv * 35),
+      charge: 15000,
+      period: '签约后30天',
+      quote: '"高DPV商户用NoBid放量效果最好，配合顶展搜索首屏曝光，品牌认知度也上来了。"'
+    });
+    cases.push({
+      name: city + '·' + cat + '·品味轩',
+      product: '品专版 + 获客宝',
+      dpvBefore: Math.round(dpv * 0.5),
+      dpvAfter: Math.round(dpv * 0.5 * 2.3),
+      gmvBefore: Math.round(dpv * 10),
+      gmvAfter: Math.round(dpv * 30),
+      charge: 12000,
+      period: '签约后60天',
+      quote: '"品专版搜索品牌卡片很抢眼，用户一看就是正规品牌。获客宝持续带新客，效果稳定。"'
+    });
+  }
+
+  var html = '<p style="font-size:13px;color:var(--text2);margin-bottom:16px;">以下为' + city + '同品类商户签约后的真实效果（数据已脱敏）</p>';
+
+  cases.forEach(function(c) {
+    var dpvGrowth = c.dpvBefore > 0 ? ((c.dpvAfter - c.dpvBefore) / c.dpvBefore * 100).toFixed(0) : '--';
+    var gmvGrowth = c.gmvBefore > 0 ? ((c.gmvAfter - c.gmvBefore) / c.gmvBefore * 100).toFixed(0) : '新增';
+
+    html += '<div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-bottom:12px;">';
+    html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">';
+    html += '<div><strong style="font-size:14px;">' + c.name + '</strong>';
+    html += ' <span class="badge badge-blue">' + c.product + '</span>';
+    html += ' <span class="badge badge-gray">' + c.period + '</span></div>';
+    html += '<div style="font-size:13px;color:var(--text2);">充值 ' + fmtMoney(c.charge) + '</div>';
+    html += '</div>';
+
+    // Growth metrics (percentage only)
+    html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:10px;">';
+    html += '<div style="text-align:center;padding:10px;background:var(--bg2);border-radius:6px;">';
+    html += '<div style="font-size:11px;color:var(--text3);margin-bottom:4px;">日均DPV提升</div>';
+    html += '<div style="font-size:22px;font-weight:700;color:var(--green);">↑' + dpvGrowth + '%</div>';
+    html += '</div>';
+    html += '<div style="text-align:center;padding:10px;background:var(--bg2);border-radius:6px;">';
+    html += '<div style="font-size:11px;color:var(--text3);margin-bottom:4px;">月均GMV提升</div>';
+    html += '<div style="font-size:22px;font-weight:700;color:var(--green);">↑' + gmvGrowth + '%</div>';
+    html += '</div>';
+    html += '</div>';
+
+    html += '<div style="font-size:13px;color:var(--text2);font-style:italic;line-height:1.6;">' + c.quote + '</div>';
+    html += '</div>';
+  });
+
+  return html;
+}
+
+/* =============================================
+   DETAIL MODAL: Lead
+   ============================================= */
+function showLeadDetail(poiId) {
+  var d = STATE.leadsData.find(function(x) { return x.poi_id === poiId; });
+  if (!d) return;
+
+  $('modalTitle').textContent = d.poi_name || poiId;
+  var body = '';
+
+  body += '<div class="tab-bar">' +
+    '<button class="tab-btn active" onclick="switchDetailTab(this,0)">基本信息</button>' +
+    '<button class="tab-btn" onclick="switchDetailTab(this,1)">跟进记录</button>' +
+    '</div>';
+
+  // Tab 0
+  body += '<div class="tab-panel active" data-tab="0">';
+  body += '<div class="detail-section"><h4>POI信息</h4><div class="detail-grid">' +
+    detailItem('POI ID', d.poi_id) + detailItem('口碑门店ID', d.kb_shop_id) +
+    detailItem('城市', d.city) + detailItem('区县', d.district) +
+    detailItem('类目', d.category_l2 + (d.category_l3 ? ' > ' + d.category_l3 : '')) +
+    detailItem('品牌类型', d.brand_type) + detailItem('地址', d.address) +
+    detailItem('烟火档位', d.smoke_level) + detailItem('30天DPV', fmt(d.dpv_30d)) +
+    detailItem('城市高优', d.is_high_priority ? '✅ 是' : '否') +
+    '</div></div>';
+  body += '<div class="detail-section"><h4>开店引导</h4>';
+  body += '<div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);padding:14px;font-size:13px;line-height:1.8;">';
+  body += '该POI尚未开通高德门店，建议引导商户完成开店。<br>';
+  body += '<strong>话术：</strong>"您门店周边用户搜索' + (d.category_l2||'') + '的需求很旺（日均DPV ' + d.dpv_30d + '），但目前高德上还搜不到您的店。开店免费，开通后用户就能直接导航到店，还能看到您的门店信息。"';
+  body += '</div></div>';
+  body += '</div>';
+
+  // Tab 1: Follow-ups
+  body += '<div class="tab-panel" data-tab="1">';
+  body += '<button class="btn btn-primary btn-sm" onclick="openFollowUp(\'lead\',\'' + d.poi_id + '\')" style="margin-bottom:16px;">+ 添加跟进</button>';
+  body += renderFollowUpTimeline('lead', d.poi_id);
+  body += '</div>';
+
+  $('modalBody').innerHTML = body;
+  $('detailModal').classList.add('active');
+}
+
+function detailItem(label, value) {
+  return '<div class="detail-item"><div class="dl">' + label + '</div><div class="dv">' + (value||'-') + '</div></div>';
+}
+
+function switchDetailTab(btn, idx) {
+  var tabs = btn.parentElement.querySelectorAll('.tab-btn');
+  var panels = btn.closest('.modal-body').querySelectorAll('.tab-panel');
+  tabs.forEach(function(t,i) { t.classList.toggle('active', i===idx); });
+  panels.forEach(function(p,i) { p.classList.toggle('active', i===idx); });
+}
+
+function closeModal() { $('detailModal').classList.remove('active'); }
+
+/* =============================================
+   FOLLOW-UP
+   ============================================= */
+var currentFollowTarget = null;
+
+function getFollowUpStatus(targetType, targetId) {
+  var key = targetType + '_' + targetId;
+  var records = STATE.followUps[key];
+  if (records && records.length > 0) {
+    return records[records.length - 1].status;
+  }
+  return targetType === 'pid' ? '待跟进' : '待联系';
+}
+
+function openFollowUp(targetType, targetId) {
+  currentFollowTarget = { type: targetType, id: targetId };
+  var statuses = CONFIG.statusMachine[targetType === 'lead' ? 'leads' : 'commercial'];
+  var sel = $('fuStatus');
+  sel.innerHTML = '';
+  statuses.forEach(function(s) {
+    var opt = document.createElement('option');
+    opt.value = s; opt.textContent = s;
+    sel.appendChild(opt);
+  });
+  // Default to current status or next
+  var current = getFollowUpStatus(targetType, targetId);
+  var nextIdx = statuses.indexOf(current);
+  if (nextIdx < statuses.length - 1) sel.value = statuses[nextIdx + 1];
+
+  $('fuProduct').value = '';
+  $('fuNote').value = '';
+  $('fuNextDate').value = '';
+  $('fuNextAction').value = '';
+  $('followModal').classList.add('active');
+}
+
+function closeFollowModal() { $('followModal').classList.remove('active'); currentFollowTarget = null; }
+
+async function saveFollowUp() {
+  if (!currentFollowTarget) return;
+  var record = {
+    id: 'fu_' + Date.now() + '_' + Math.random().toString(36).substring(2,6),
+    target_type: currentFollowTarget.type,
+    target_id: currentFollowTarget.id,
+    provider_id: STATE.user.provider_id,
+    employee_name: STATE.user.provider_name,
+    status: $('fuStatus').value,
+    product_interest: $('fuProduct').value,
+    note: $('fuNote').value,
+    next_date: $('fuNextDate').value,
+    next_action: $('fuNextAction').value,
+    created_at: new Date().toISOString()
+  };
+
+  var key = currentFollowTarget.type + '_' + currentFollowTarget.id;
+  if (!STATE.followUps[key]) STATE.followUps[key] = [];
+  STATE.followUps[key].push(record);
+
+  // Save to Supabase
+  if (sb && STATE.user.provider_id !== 'SP_DEMO_001') {
+    try {
+      await sb.from('crm_follow_ups').insert(record);
+    } catch(e) { console.warn('Save follow-up to Supabase failed:', e); }
+  }
+
+  closeFollowModal();
+  logUsage('follow_up');
+
+  // Refresh current view
+  if (STATE.currentPage === 'commercial') renderCommercialTable();
+  else if (STATE.currentPage === 'leads') renderLeadsTable();
+  // Refresh detail modal if open
+  if ($('detailModal').classList.contains('active')) {
+    if (currentFollowTarget.type === 'pid') showPIDDetail(currentFollowTarget.id);
+    else showLeadDetail(currentFollowTarget.id);
+  }
+}
+
+function renderFollowUpTimeline(targetType, targetId) {
+  var key = targetType + '_' + targetId;
+  var records = STATE.followUps[key] || [];
+
+  // Generate demo records if empty
+  if (records.length === 0) {
+    records = genDemoFollowUps(targetType, targetId);
+    STATE.followUps[key] = records;
+  }
+
+  if (records.length === 0) {
+    return '<div class="empty-state"><div class="icon">📝</div><div class="msg">暂无跟进记录</div></div>';
+  }
+
+  var html = '<div class="timeline">';
+  records.slice().reverse().forEach(function(r) {
+    html += '<div class="timeline-item">' +
+      '<div class="tl-head"><span class="tl-name">' + (r.employee_name||'系统') + '</span>' +
+      '<span class="tl-time">' + fmtTime(r.created_at) + '</span></div>' +
+      '<div class="tl-body">' + (r.note || '无备注') + '</div>' +
+      '<div class="tl-status" style="margin-top:4px;">' + statusBadge(r.status) +
+      (r.product_interest ? ' <span class="badge badge-blue" style="margin-left:4px;">' + r.product_interest + '</span>' : '') +
+      '</div></div>';
+  });
+  html += '</div>';
+  return html;
+}
+
+/* =============================================
+   OCCUPANCY CHECK
+   ============================================= */
+function checkOccupancy(city, category) {
+  var now = new Date();
+  var match = STATE.occupancy.find(function(o) {
+    return o.city_name === city &&
+      (o.biz_name || '').indexOf(category) >= 0 &&
+      new Date(o.start_time) <= now &&
+      new Date(o.end_time) >= now;
+  });
+  if (match) return { occupied: true, start: match.start_time, end: match.end_time };
+  return { occupied: false };
+}
+
+/* =============================================
+   PAGE: 作业分析
+   ============================================= */
+function renderJobs() {
+  var period = $('jobPeriod').value;
+  var level = $('jobLevel').value;
+
+  // In demo mode, generate mock data
+  var stats = {
+    totalFollowups: Math.floor(Math.random() * 50) + 10,
+    newFollowups: Math.floor(Math.random() * 20) + 3,
+    signedToday: Math.floor(Math.random() * 5),
+    leadsContacted: Math.floor(Math.random() * 30) + 5
+  };
+
+  $('jobsStats').innerHTML =
+    '<div class="stat-card"><div class="label">' + (period==='day'?'今日':'本期') + '跟进数</div><div class="value blue">' + stats.totalFollowups + '</div></div>' +
+    '<div class="stat-card"><div class="label">新增跟进</div><div class="value green">' + stats.newFollowups + '</div></div>' +
+    '<div class="stat-card"><div class="label">' + (period==='day'?'今日':'本期') + '签约</div><div class="value amber">' + stats.signedToday + '</div></div>' +
+    '<div class="stat-card"><div class="label">leads触达</div><div class="value">' + stats.leadsContacted + '</div></div>';
+
+  // Charts
+  var container = $('jobsCharts');
+  container.innerHTML = '<div class="chart-box full"><h4>跟进趋势（近' + (period==='day'?'7天':period==='week'?'8周':'6月') + '）</h4><canvas id="chartJobsTrend"></canvas></div>';
+
+  if (STATE.charts.jobsTrend) STATE.charts.jobsTrend.destroy();
+
+  var labels = [], data1 = [], data2 = [];
+  var count = period === 'day' ? 7 : period === 'week' ? 8 : 6;
+  for (var i = count - 1; i >= 0; i--) {
+    if (period === 'day') {
+      var d = new Date(); d.setDate(d.getDate() - i);
+      labels.push((d.getMonth()+1) + '/' + d.getDate());
+    } else if (period === 'week') {
+      labels.push('第' + (count - i) + '周');
+    } else {
+      labels.push((new Date().getMonth() - i + 12) % 12 + 1 + '月');
+    }
+    data1.push(Math.floor(Math.random() * 30) + 5);
+    data2.push(Math.floor(Math.random() * 10) + 1);
+  }
+
+  STATE.charts.jobsTrend = new Chart($('chartJobsTrend'), {
+    type: 'line',
+    data: {
+      labels: labels,
+      datasets: [
+        { label: '跟进数', data: data1, borderColor: '#3b82f6', backgroundColor: '#3b82f620', fill: true, tension: 0.3 },
+        { label: '签约数', data: data2, borderColor: '#10b981', backgroundColor: '#10b98120', fill: true, tension: 0.3 }
+      ]
+    },
+    options: {
+      responsive: true,
+      plugins: { legend: { labels: { color: '#94a3b8' } } },
+      scales: { x: { ticks: { color: '#94a3b8' }, grid: { color: '#334155' } }, y: { ticks: { color: '#94a3b8' }, grid: { color: '#334155' } } }
+    }
+  });
+
+  // Table
+  $('jobsTable').innerHTML = renderJobsTable(level);
+}
+
+function renderJobsTable(level) {
+  var names = level === 'employee' ? ['李小明','王小红','张大力','刘芳','陈明'] :
+    level === 'provider' ? ['鼎盛传媒','华创科技','云帆广告','聚能传媒'] :
+    level === 'manager' ? ['张三','李四','王五'] :
+    ['华东大区','华南大区','华中大区','华北大区','西南大区'];
+
+  var html = '<div class="data-table-wrap" style="margin-top:16px;"><table class="data-table"><thead><tr>' +
+    '<th>' + (level==='employee'?'小二':level==='provider'?'服务商':level==='manager'?'渠道经理':'大区') + '</th>' +
+    '<th class="num">跟进数</th><th class="num">签约数</th><th class="num">leads触达</th><th class="num">签约金额</th>' +
+    '</tr></thead><tbody>';
+
+  names.forEach(function(name) {
+    html += '<tr><td><strong>' + name + '</strong></td>' +
+      '<td class="num">' + (Math.floor(Math.random()*30)+5) + '</td>' +
+      '<td class="num">' + Math.floor(Math.random()*5) + '</td>' +
+      '<td class="num">' + (Math.floor(Math.random()*20)+3) + '</td>' +
+      '<td class="num">' + fmtMoney(Math.floor(Math.random()*30000)+5000) + '</td></tr>';
+  });
+
+  html += '</tbody></table></div>';
+  return html;
+}
+
+/* =============================================
+   PAGE: ADMIN
+   ============================================= */
+function renderAdmin() {
+  if (!STATE.user.is_admin) {
+    $('page-admin').innerHTML = '<div class="empty-state"><div class="icon">🔒</div><div class="msg">仅管理员可访问</div></div>';
+    return;
+  }
+
+  // Usage stats
+  $('usageStats').innerHTML =
+    '<div class="stat-card"><div class="label">今日登录</div><div class="value blue">' + (Math.floor(Math.random()*20)+5) + '</div></div>' +
+    '<div class="stat-card"><div class="label">活跃服务商</div><div class="value green">' + (Math.floor(Math.random()*30)+10) + '</div></div>' +
+    '<div class="stat-card"><div class="label">今日跟进</div><div class="value amber">' + (Math.floor(Math.random()*100)+20) + '</div></div>';
+
+  // Usage table
+  var providers = ['鼎盛传媒','华创科技','云帆广告','聚能传媒','盛世文化','蓝海传媒','星辰广告','金桥传媒'];
+  var html = '<div class="data-table-wrap"><table class="data-table"><thead><tr>' +
+    '<th>服务商</th><th class="num">登录次数</th><th class="num">跟进数</th><th class="num">最后活跃</th><th>状态</th>' +
+    '</tr></thead><tbody>';
+
+  providers.forEach(function(name) {
+    var logins = Math.floor(Math.random()*20)+1;
+    var followups = Math.floor(Math.random()*50)+3;
+    var d = new Date(); d.setHours(d.getHours() - Math.floor(Math.random()*48));
+    html += '<tr><td><strong>' + name + '</strong></td>' +
+      '<td class="num">' + logins + '</td>' +
+      '<td class="num">' + followups + '</td>' +
+      '<td>' + fmtTime(d) + '</td>' +
+      '<td>' + (logins > 5 ? '<span class="badge badge-green">活跃</span>' : '<span class="badge badge-gray">低频</span>') + '</td></tr>';
+  });
+
+  html += '</tbody></table></div>';
+  $('usageTable').innerHTML = html;
+}
+
+function uploadData(type, file) {
+  if (!file) return;
+  alert('文件 "' + file.name + '" 已选择。\n\n' +
+    '数据上传功能需要后端解析服务支持。\n' +
+    '当前版本支持手动通过Supabase管理后台导入数据。\n\n' +
+    '后续版本将支持自动解析Excel并批量导入。');
+}
+
+/* =============================================
+   EXPORT
+   ============================================= */
+function exportCommercial() {
+  var data = STATE.commercialFiltered;
+  var header = 'PID,门店名,城市,区县,类目,分层,DPV,90天GMV,门店数,签约状态';
+  var lines = [header];
+  data.forEach(function(d) {
+    var signed = [];
+    if (d.is_signed_agent) signed.push('智能体');
+    if (d.is_signed_eff) signed.push('效广');
+    if (d.is_signed_brand) signed.push('品广');
+    lines.push([d.pid, csvEscape(d.store_name), d.city, d.district, d.category_l2, d.tier, d.dpv_30d, d.gmv_90d, d.store_count, signed.join('+')||'未签约'].join(','));
+  });
+  downloadCSV(lines.join('\n'), '商业化做工_' + STATE.cities.join('-') + '.csv');
+}
+
+function exportLeads() {
+  var data = STATE.leadsFiltered;
+  var header = 'POI_ID,POI名称,城市,区县,类目,DPV,品牌类型,烟火档位,高优';
+  var lines = [header];
+  data.forEach(function(d) {
+    lines.push([d.poi_id, csvEscape(d.poi_name), d.city, d.district, d.category_l2, d.dpv_30d, d.brand_type, d.smoke_level, d.is_high_priority?'是':'否'].join(','));
+  });
+  downloadCSV(lines.join('\n'), '开店做工_' + STATE.cities.join('-') + '.csv');
+}
+
+function csvEscape(s) {
+  if (!s) return '';
+  s = String(s);
+  if (s.indexOf(',') >= 0 || s.indexOf('"') >= 0 || s.indexOf('\n') >= 0) return '"' + s.replace(/"/g,'""') + '"';
+  return s;
+}
+
+function downloadCSV(content, filename) {
+  var blob = new Blob(['\uFEFF' + content], {type: 'text/csv;charset=utf-8'});
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+/* =============================================
+   USAGE LOGGING
+   ============================================= */
+async function logUsage(action) {
+  if (!sb || !STATE.user || STATE.user.provider_id === 'SP_DEMO_001') return;
+  try {
+    await sb.from('crm_usage_logs').insert({
+      provider_id: STATE.user.provider_id,
+      provider_name: STATE.user.provider_name,
+      action: action,
+      page: STATE.currentPage,
+      session_id: 'sess_' + Date.now()
+    });
+  } catch(e) { /* silent */ }
+}
+
+/* =============================================
+   INIT
+   ============================================= */
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Enter' && $('loginPage').style.display !== 'none') doLogin();
+  if (e.key === 'Escape') { closeModal(); closeFollowModal(); }
+});
+</script>
+</body>
+</html>
