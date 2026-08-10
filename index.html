@@ -328,11 +328,11 @@ a { color:var(--accent2); text-decoration:none; }
       <!-- ===== PAGE: 城市分析 ===== -->
       <div id="page-analysis" class="page active">
         <h2 class="page-title">城市签约分析</h2>
-        <p class="page-desc" id="analysisDesc">基于5-7月签约数据，分析城市签约效果与高优类目</p>
+        <p class="page-desc" id="analysisDesc">基于5-7月签约数据 · 当前选中城市加载中...</p>
         <div id="analysisStats" class="stats-row"></div>
-        <div id="analysisCharts" class="chart-grid"></div>
+        <div id="analysisSigning" style="margin-bottom:24px;"></div>
         <div id="analysisCategories">
-          <h3 style="font-size:15px;font-weight:600;margin-bottom:12px;">高优作业类目 × 推荐产品</h3>
+          <h3 style="font-size:15px;font-weight:600;margin-bottom:12px;">高优作业类目分析</h3>
           <div id="catTableWrap"></div>
         </div>
       </div>
@@ -958,146 +958,203 @@ function populateCategoryFilter(selectId, data, field) {
 function renderAnalysis() {
   var data = STATE.commercialData;
   var leads = STATE.leadsData;
+  var cities = STATE.cities;
 
-  // Stats
+  $('analysisDesc').textContent = '基于5-7月签约数据 · 当前选中城市：' + cities.join('、');
+
+  // === Section 1: KPI Stats ===
   var totalPIDs = data.length;
-  var signedCount = data.filter(function(d) { return d.is_signed_eff || d.is_signed_agent || d.is_signed_brand; }).length;
-  var avgDPV = totalPIDs ? Math.round(data.reduce(function(s,d){ return s + (d.dpv_30d||0); },0) / totalPIDs) : 0;
-  var highPriorityCount = data.filter(function(d){ return d.high_priority_cat; }).length;
-  var penetrationRate = totalPIDs ? (signedCount / totalPIDs * 100).toFixed(1) : 0;
+  var signedAgent = data.filter(function(d){return d.is_signed_agent;}).length;
+  var signedEff = data.filter(function(d){return d.is_signed_eff;}).length;
+  var signedBrand = data.filter(function(d){return d.is_signed_brand;}).length;
+  var signedAny = data.filter(function(d){return d.is_signed_agent||d.is_signed_eff||d.is_signed_brand;}).length;
+  var avgDPV = totalPIDs ? Math.round(data.reduce(function(s,d){return s+(d.dpv_30d||0);},0)/totalPIDs) : 0;
+  var highPriCount = data.filter(function(d){return d.high_priority_cat;}).length;
+  var penRate = totalPIDs ? (signedAny/totalPIDs*100).toFixed(1) : 0;
 
   $('analysisStats').innerHTML =
-    '<div class="stat-card"><div class="label">在约PID数</div><div class="value blue">' + fmt(totalPIDs) + '</div><div class="sub">覆盖 ' + STATE.cities.length + ' 个城市</div></div>' +
-    '<div class="stat-card"><div class="label">已商业化</div><div class="value green">' + fmt(signedCount) + '</div><div class="sub">渗透率 ' + penetrationRate + '%</div></div>' +
-    '<div class="stat-card"><div class="label">平均DPV</div><div class="value amber">' + fmt(avgDPV) + '</div><div class="sub">签前30天日均</div></div>' +
-    '<div class="stat-card"><div class="label">高优类目PID</div><div class="value">' + fmt(highPriorityCount) + '</div><div class="sub">占比 ' + (totalPIDs ? (highPriorityCount/totalPIDs*100).toFixed(1) : 0) + '%</div></div>' +
-    '<div class="stat-card"><div class="label">未签约leads</div><div class="value blue">' + fmt(leads.length) + '</div><div class="sub">高优POI</div></div>';
+    '<div class="stat-card"><div class="label">在约PID数</div><div class="value blue">' + fmt(totalPIDs) + '</div><div class="sub">覆盖 ' + cities.length + ' 个城市</div></div>' +
+    '<div class="stat-card"><div class="label">已签约</div><div class="value green">' + fmt(signedAny) + '</div><div class="sub">渗透率 ' + penRate + '%</div></div>' +
+    '<div class="stat-card"><div class="label">智能体</div><div class="value">' + fmt(signedAgent) + '</div><div class="sub">签约PID</div></div>' +
+    '<div class="stat-card"><div class="label">效果广告</div><div class="value">' + fmt(signedEff) + '</div><div class="sub">签约PID</div></div>' +
+    '<div class="stat-card"><div class="label">高优类目</div><div class="value amber">' + fmt(highPriCount) + '</div><div class="sub">占比 ' + (totalPIDs?(highPriCount/totalPIDs*100).toFixed(1):0) + '%</div></div>';
 
-  $('analysisDesc').textContent = '基于5-7月签约数据 · 当前选中城市：' + STATE.cities.join('、');
+  // === Section 2: Historical Signing Analysis (by product × category) ===
+  renderSigningAnalysis(data, cities);
 
-  // Charts
-  renderAnalysisCharts(data);
-
-  // Category table
-  renderCategoryTable(data);
+  // === Section 3: High-priority categories ===
+  renderCategoryTable(data, cities);
 }
 
-function renderAnalysisCharts(data) {
-  var container = $('analysisCharts');
-  container.innerHTML =
-    '<div class="chart-box"><h4>各城市PID数量分布</h4><canvas id="chartCity"></canvas></div>' +
-    '<div class="chart-box"><h4>分层占比</h4><canvas id="chartTier"></canvas></div>' +
-    '<div class="chart-box"><h4>DPV分布</h4><canvas id="chartDPV"></canvas></div>' +
-    '<div class="chart-box"><h4>签约产品覆盖</h4><canvas id="chartProduct"></canvas></div>';
+function renderSigningAnalysis(data, cities) {
+  var container = $('analysisSigning');
+  var region = getRegion(cities[0] || '');
 
-  // Destroy old charts
-  Object.keys(STATE.charts).forEach(function(k) { if (STATE.charts[k]) STATE.charts[k].destroy(); });
-
-  var chartOpts = {
-    responsive: true,
-    plugins: { legend: { labels: { color: '#94a3b8', font: { size: 11 } } } },
-    scales: { x: { ticks: { color: '#94a3b8' }, grid: { color: '#334155' } }, y: { ticks: { color: '#94a3b8' }, grid: { color: '#334155' } } }
-  };
-
-  // City distribution
-  var cityCount = {};
-  data.forEach(function(d) { cityCount[d.city] = (cityCount[d.city]||0) + 1; });
-  STATE.charts.city = new Chart($('chartCity'), {
-    type: 'bar',
-    data: {
-      labels: Object.keys(cityCount),
-      datasets: [{ label: 'PID数', data: Object.values(cityCount), backgroundColor: '#3b82f699', borderRadius: 4 }]
-    },
-    options: chartOpts
-  });
-
-  // Tier distribution
-  var tierCount = {A1:0, A2:0, B1:0, B2:0};
-  data.forEach(function(d) { if (tierCount[d.tier] !== undefined) tierCount[d.tier]++; });
-  STATE.charts.tier = new Chart($('chartTier'), {
-    type: 'doughnut',
-    data: {
-      labels: ['A1-头部高DPV','A2-头部KA','B1-高DPV','B2-中DPV'],
-      datasets: [{ data: Object.values(tierCount), backgroundColor: ['#3b82f6','#8b5cf6','#10b981','#f59e0b'] }]
-    },
-    options: { responsive: true, plugins: { legend: { position: 'right', labels: { color: '#94a3b8' } } } }
-  });
-
-  // DPV distribution
-  var dpvBuckets = {'0-10':0,'10-50':0,'50-100':0,'100-200':0,'200-500':0,'500+':0};
+  // Check city-level data sufficiency
+  var cityCats = {};
   data.forEach(function(d) {
-    var v = d.dpv_30d || 0;
-    if (v <= 10) dpvBuckets['0-10']++;
-    else if (v <= 50) dpvBuckets['10-50']++;
-    else if (v <= 100) dpvBuckets['50-100']++;
-    else if (v <= 200) dpvBuckets['100-200']++;
-    else if (v <= 500) dpvBuckets['200-500']++;
-    else dpvBuckets['500+']++;
+    var cat = d.category_l2 || '其他';
+    if (!cityCats[cat]) cityCats[cat] = {count:0, signed:0};
+    cityCats[cat].count++;
+    if (d.is_signed_agent||d.is_signed_eff||d.is_signed_brand) cityCats[cat].signed++;
   });
-  STATE.charts.dpv = new Chart($('chartDPV'), {
-    type: 'bar',
-    data: {
-      labels: Object.keys(dpvBuckets),
-      datasets: [{ label: 'PID数', data: Object.values(dpvBuckets), backgroundColor: ['#94a3b8','#94a3b8','#3b82f6','#3b82f6','#1d4ed8','#1e40af'], borderRadius: 4 }]
-    },
-    options: chartOpts
+  var uniqueCats = Object.keys(cityCats).length;
+  var useRegion = uniqueCats < 3; // Fallback to region if city has <3 categories
+
+  var scope = useRegion ? region : (cities.length === 1 ? cities[0] : cities.join('、'));
+  var scopeLabel = useRegion ? '（城市签约数据不足，展示' + region + '聚合数据）' : '';
+
+  var html = '<h3 style="font-size:15px;font-weight:600;margin-bottom:4px;">历史签约效果分析</h3>';
+  html += '<p style="font-size:12px;color:var(--text3);margin-bottom:16px;">数据来源：5-7月直渠电新签广告主 · 范围：' + scope + scopeLabel + '</p>';
+
+  // Collect categories sorted by count
+  var catList = Object.entries(cityCats).sort(function(a,b){return b[1].count - a[1].count;});
+
+  // Show top categories with signing data
+  html += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:12px;">';
+
+  var shown = 0;
+  catList.forEach(function(item) {
+    var cat = item[0];
+    var info = item[1];
+    if (shown >= 6) return; // limit to 6 cards
+
+    // Find real case data
+    var xg = findCaseData(region, cat, 'xg');
+    var znt = findCaseData(region, cat, 'znt');
+    if (!xg && !znt) return;
+
+    html += '<div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);padding:16px;">';
+    html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">';
+    html += '<strong style="font-size:14px;">' + cat + '</strong>';
+    html += '<span style="font-size:12px;color:var(--text3);">在约' + info.count + '户 · 已签' + info.signed + '户</span>';
+    html += '</div>';
+
+    // Product cards
+    if (znt && znt.dp > 0) {
+      html += renderProductRow('品牌智能体', znt.n, znt.db, znt.da, znt.dp, znt.gb, znt.ga, znt.gp);
+    }
+    if (xg && xg.dp > 0) {
+      html += renderProductRow('效果广告', xg.n, xg.db, xg.da, xg.dp, xg.gb, xg.ga, xg.gp);
+    }
+
+    html += '</div>';
+    shown++;
   });
 
-  // Product coverage
-  var agentCount = data.filter(function(d){return d.is_signed_agent;}).length;
-  var effCount = data.filter(function(d){return d.is_signed_eff;}).length;
-  var brandCount = data.filter(function(d){return d.is_signed_brand;}).length;
-  var noneCount = data.filter(function(d){return !d.is_signed_agent && !d.is_signed_eff && !d.is_signed_brand;}).length;
-  STATE.charts.product = new Chart($('chartProduct'), {
-    type: 'doughnut',
-    data: {
-      labels: ['智能体','效果广告','品广','未签约'],
-      datasets: [{ data: [agentCount, effCount, brandCount, noneCount], backgroundColor: ['#10b981','#3b82f6','#8b5cf6','#475569'] }]
-    },
-    options: { responsive: true, plugins: { legend: { position: 'right', labels: { color: '#94a3b8' } } } }
-  });
+  if (shown === 0) {
+    html += '<p style="color:var(--text3);text-align:center;padding:20px;">暂无该城市/区域的历史签约效果数据</p>';
+  }
+  html += '</div>';
+
+  container.innerHTML = html;
 }
 
-function renderCategoryTable(data) {
-  // Group by category, show top categories with recommendations
+function renderProductRow(product, n, db, da, dp, gb, ga, gp) {
+  var dpvColor = dp > 0 ? 'var(--green)' : (dp < 0 ? 'var(--red)' : 'var(--text2)');
+  var gmvColor = gp > 0 ? 'var(--green)' : (gp < 0 ? 'var(--red)' : 'var(--text2)');
+  var dpvText = dp > 0 ? '↑' + dp + '%' : (dp < 0 ? '↓' + Math.abs(dp) + '%' : '持平');
+  var gmvText = gp > 0 ? '↑' + gp + '%' : (gp < 0 ? '↓' + Math.abs(gp) + '%' : '持平');
+
+  var h = '<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-top:1px solid var(--border);font-size:13px;">';
+  h += '<span class="badge badge-blue" style="flex-shrink:0;">' + product + '</span>';
+  h += '<span style="color:var(--text3);flex-shrink:0;">' + n + '户</span>';
+  h += '<span style="flex:1;text-align:right;">DPV ' + db + '→' + da + ' <strong style="color:' + dpvColor + ';">' + dpvText + '</strong></span>';
+  h += '<span style="flex:1;text-align:right;">GMV ¥' + gb + '→¥' + ga + ' <strong style="color:' + gmvColor + ';">' + gmvText + '</strong></span>';
+  h += '</div>';
+  return h;
+}
+
+function renderCategoryTable(data, cities) {
+  var region = getRegion(cities[0] || '');
+
+  // Group by category
   var catStats = {};
   data.forEach(function(d) {
     var cat = d.category_l2 || '其他';
-    if (!catStats[cat]) catStats[cat] = { count: 0, dpvSum: 0, signed: 0, highPriority: 0 };
+    if (!catStats[cat]) catStats[cat] = {count:0, dpvSum:0, signedAgent:0, signedEff:0, signedBrand:0, highPriority:0};
     catStats[cat].count++;
     catStats[cat].dpvSum += (d.dpv_30d || 0);
-    if (d.is_signed_eff || d.is_signed_agent || d.is_signed_brand) catStats[cat].signed++;
+    if (d.is_signed_agent) catStats[cat].signedAgent++;
+    if (d.is_signed_eff) catStats[cat].signedEff++;
+    if (d.is_signed_brand) catStats[cat].signedBrand++;
     if (d.high_priority_cat) catStats[cat].highPriority++;
   });
 
-  var sorted = Object.entries(catStats).sort(function(a,b){ return b[1].count - a[1].count; });
+  var sorted = Object.entries(catStats).sort(function(a,b){return b[1].count - a[1].count;});
 
-  var html = '<div class="data-table-wrap"><table class="data-table"><thead><tr>' +
-    '<th>类目</th><th class="num">PID数</th><th class="num">均DPV</th><th class="num">高优数</th><th class="num">已签约</th><th class="num">渗透率</th><th>推荐产品</th>' +
-    '</tr></thead><tbody>';
+  // Separate high-priority and normal categories
+  var highPriCats = sorted.filter(function(item){return item[1].highPriority > 0;});
+  var normalCats = sorted.filter(function(item){return item[1].highPriority === 0;});
 
-  sorted.forEach(function(item) {
-    var cat = item[0], s = item[1];
-    var avgDPV = Math.round(s.dpvSum / s.count);
-    var rate = (s.signed / s.count * 100).toFixed(1);
-    var rec = getRecommendation(cat, avgDPV);
-    html += '<tr><td><strong>' + cat + '</strong></td>' +
-      '<td class="num">' + fmt(s.count) + '</td>' +
-      '<td class="num">' + fmt(avgDPV) + '</td>' +
-      '<td class="num">' + fmt(s.highPriority) + '</td>' +
-      '<td class="num">' + fmt(s.signed) + '</td>' +
-      '<td class="num">' + rate + '%</td>' +
-      '<td>' + rec + '</td></tr>';
-  });
+  var html = '';
 
-  html += '</tbody></table></div>';
+  // High-priority categories section
+  if (highPriCats.length > 0) {
+    html += '<div style="margin-bottom:8px;font-size:13px;color:var(--text2);">以下类目包含高优作业PID，优先做工</div>';
+    html += '<div class="data-table-wrap"><table class="data-table"><thead><tr>' +
+      '<th>类目</th><th class="num">PID数</th><th class="num">高优数</th><th class="num">均DPV</th>' +
+      '<th class="num">智能体签约</th><th class="num">效广签约</th><th class="num">渗透率</th><th>签约效果</th>' +
+      '</tr></thead><tbody>';
+
+    highPriCats.forEach(function(item) {
+      var cat = item[0], s = item[1];
+      var avgDPV = Math.round(s.dpvSum / s.count);
+      var signedAny = s.signedAgent + s.signedEff + s.signedBrand;
+      var rate = (signedAny / s.count * 100).toFixed(1);
+
+      // Find real signing effect
+      var xg = findCaseData(region, cat, 'xg');
+      var znt = findCaseData(region, cat, 'znt');
+      var effectHtml = '';
+      if (znt && znt.dp > 0) effectHtml += '<span class="badge badge-green">智能体 DPV' + (znt.dp>0?'↑':'↓') + Math.abs(znt.dp) + '%</span> ';
+      if (xg && xg.dp > 0) effectHtml += '<span class="badge badge-blue">效广 DPV' + (xg.dp>0?'↑':'↓') + Math.abs(xg.dp) + '%</span>';
+      if (!effectHtml) effectHtml = '<span style="color:var(--text3);">-</span>';
+
+      html += '<tr><td><strong>' + cat + '</strong> <span class="badge badge-amber">高优</span></td>' +
+        '<td class="num">' + fmt(s.count) + '</td>' +
+        '<td class="num">' + fmt(s.highPriority) + '</td>' +
+        '<td class="num">' + fmt(avgDPV) + '</td>' +
+        '<td class="num">' + s.signedAgent + '</td>' +
+        '<td class="num">' + s.signedEff + '</td>' +
+        '<td class="num">' + rate + '%</td>' +
+        '<td>' + effectHtml + '</td></tr>';
+    });
+    html += '</tbody></table></div>';
+  }
+
+  // Normal categories
+  if (normalCats.length > 0) {
+    html += '<h3 style="font-size:15px;font-weight:600;margin:20px 0 8px;">其他类目</h3>';
+    html += '<div class="data-table-wrap"><table class="data-table"><thead><tr>' +
+      '<th>类目</th><th class="num">PID数</th><th class="num">均DPV</th>' +
+      '<th class="num">已签约</th><th class="num">渗透率</th><th>签约效果</th>' +
+      '</tr></thead><tbody>';
+
+    normalCats.forEach(function(item) {
+      var cat = item[0], s = item[1];
+      var avgDPV = Math.round(s.dpvSum / s.count);
+      var signedAny = s.signedAgent + s.signedEff + s.signedBrand;
+      var rate = (signedAny / s.count * 100).toFixed(1);
+
+      var xg = findCaseData(region, cat, 'xg');
+      var znt = findCaseData(region, cat, 'znt');
+      var effectHtml = '';
+      if (znt && znt.dp > 0) effectHtml += '<span class="badge badge-green">智能体 DPV' + (znt.dp>0?'↑':'↓') + Math.abs(znt.dp) + '%</span> ';
+      if (xg && xg.dp > 0) effectHtml += '<span class="badge badge-blue">效广 DPV' + (xg.dp>0?'↑':'↓') + Math.abs(xg.dp) + '%</span>';
+      if (!effectHtml) effectHtml = '<span style="color:var(--text3);">-</span>';
+
+      html += '<tr><td>' + cat + '</td>' +
+        '<td class="num">' + fmt(s.count) + '</td>' +
+        '<td class="num">' + fmt(avgDPV) + '</td>' +
+        '<td class="num">' + signedAny + '</td>' +
+        '<td class="num">' + rate + '%</td>' +
+        '<td>' + effectHtml + '</td></tr>';
+    });
+    html += '</tbody></table></div>';
+  }
+
   $('catTableWrap').innerHTML = html;
-}
-
-function getRecommendation(category, avgDPV) {
-  if (avgDPV >= 200) return '<span class="badge badge-blue">智能体+CPC</span> <span class="badge badge-purple">顶展</span>';
-  if (avgDPV >= 50) return '<span class="badge badge-blue">智能体</span> <span class="badge badge-green">获客宝+OCPC</span>';
-  return '<span class="badge badge-blue">智能体</span> <span class="badge badge-green">CPC入门</span>';
 }
 
 /* =============================================
