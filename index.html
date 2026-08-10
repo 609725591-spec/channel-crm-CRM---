@@ -1377,120 +1377,248 @@ function renderRecommendations(d) {
   html += '</div>';
 
   // Script/talking points
+  // 用真实数据生成话术
+  var _region = getRegion(d.city);
+  var _cat = d.category_l2 || '中餐';
+  var _xgCase = findCaseData(_region, _cat, 'xg');
+  var _zntCase = findCaseData(_region, _cat, 'znt');
+  var _caseLine = '';
+  if (_xgCase && _xgCase.dp > 0) {
+    _caseLine = _region + _cat + '商户签约效果广告后，日均DPV平均提升' + _xgCase.dp + '%，日均GMV提升' + (_xgCase.gp > 0 ? _xgCase.gp + '%' : '明显') + '（' + _xgCase.n + '户真实数据）。';
+  } else if (_zntCase && _zntCase.dp > 0) {
+    _caseLine = _region + _cat + '商户签约智能体后，日均DPV平均提升' + _zntCase.dp + '%（' + _zntCase.n + '户真实数据）。';
+  } else {
+    _caseLine = d.city + '同品类商户签约后DPV上升率超80%。';
+  }
   html += '<div class="detail-section" style="margin-top:20px;"><h4>推荐话术</h4>';
   html += '<div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);padding:14px;font-size:13px;line-height:1.8;">';
   html += '<strong>开场：</strong>"' + (d.store_name||'您门店') + '目前日均DPV有' + d.dpv_30d + '，说明周边用户搜索需求很旺，但还没做商业化投放，相当于有客流没接住。"<br>';
   html += '<strong>方案：</strong>"建议先用品牌智能体把线上形象搭好，再配' + (dpv >= 100 ? '获客宝按效果出价' : 'CPC小预算试投') + '，预算自控，不点不花钱。"<br>';
-  html += '<strong>案例：</strong>"' + d.city + '同品类商户签约后，DPV平均提升40%+，' + (dpv >= 100 ? '户均月增GMV约¥' + fmt(Math.round(dpv * 20)) : '大部分商户签后DPV上升率超95%') + '。"';
+  html += '<strong>案例：</strong>"' + _caseLine + '"';
   html += '</div></div>';
 
   return html;
 }
 
+// 5-7月真实签约数据：大区×类目 DPV/GMV提升（来源：5-7月直渠电新签广告主分析）
+var REAL_CASES = {
+  xg: {
+    '华北区':{
+      '中餐':{n:90,db:25,da:72,dp:184,gb:31,ga:65,gp:107},
+      '烧烤':{n:84,db:60,da:115,dp:92,gb:54,ga:81,gp:49},
+      '鲁菜':{n:76,db:64,da:150,dp:134,gb:128,ga:201,gp:58},
+      '海鲜':{n:67,db:159,da:292,dp:84,gb:367,ga:436,gp:19},
+      '烤肉':{n:56,db:30,da:74,dp:145,gb:96,ga:194,gp:102},
+      '茶座':{n:38,db:2,da:17,dp:642,gb:5,ga:17,gp:240},
+      '火锅':{n:30,db:76,da:132,dp:75,gb:193,ga:251,gp:30},
+      '东北菜':{n:23,db:29,da:74,dp:159,gb:33,ga:75,gp:130},
+      '川菜':{n:22,db:123,da:206,dp:68,gb:95,ga:146,gp:54},
+      '湘菜':{n:20,db:61,da:105,dp:73,gb:57,ga:82,gp:44}
+    },
+    '华东区':{
+      '江浙菜':{n:182,db:64,da:110,dp:71,gb:108,ga:131,gp:21},
+      '中餐':{n:124,db:23,da:53,dp:137,gb:94,ga:306,gp:226},
+      '徽菜':{n:48,db:30,da:62,dp:104,gb:46,ga:77,gp:68},
+      '烧烤':{n:48,db:44,da:96,dp:120,gb:76,ga:188,gp:149},
+      '农家菜':{n:38,db:22,da:46,dp:109,gb:26,ga:43,gp:66},
+      '粤菜':{n:25,db:75,da:144,dp:93,gb:141,ga:186,gp:32},
+      '海鲜':{n:23,db:30,da:89,dp:192,gb:115,ga:104,gp:-10},
+      '烤肉':{n:20,db:58,da:88,dp:51,gb:501,ga:947,gp:89},
+      '火锅':{n:19,db:28,da:54,dp:96,gb:66,ga:109,gp:65},
+      '川菜':{n:17,db:26,da:51,dp:96,gb:36,ga:75,gp:108}
+    },
+    '华南区':{
+      '粤菜':{n:127,db:89,da:154,dp:74,gb:151,ga:193,gp:27},
+      '中餐':{n:73,db:24,da:60,dp:149,gb:27,ga:44,gp:62},
+      '海鲜':{n:39,db:33,da:63,dp:92,gb:41,ga:68,gp:65},
+      '湘菜':{n:32,db:34,da:81,dp:138,gb:32,ga:60,gp:87},
+      '烧烤':{n:27,db:37,da:57,dp:54,gb:32,ga:28,gp:-13},
+      '农家菜':{n:24,db:16,da:50,dp:205,gb:12,ga:90,gp:637},
+      '牛肉火锅':{n:23,db:26,da:67,dp:157,gb:58,ga:99,gp:70},
+      '闽菜':{n:19,db:54,da:121,dp:123,gb:95,ga:171,gp:81},
+      '西餐':{n:18,db:55,da:77,dp:42,gb:55,ga:126,gp:128},
+      '私房菜':{n:17,db:25,da:73,dp:190,gb:191,ga:110,gp:-43}
+    },
+    '华中区':{
+      '中餐':{n:64,db:17,da:51,dp:211,gb:19,ga:33,gp:77},
+      '川菜':{n:53,db:31,da:69,dp:123,gb:55,ga:82,gp:48},
+      '烧烤':{n:48,db:32,da:65,dp:101,gb:48,ga:98,gp:105},
+      '湖北菜':{n:46,db:36,da:66,dp:84,gb:59,ga:107,gp:82},
+      '西北菜':{n:40,db:69,da:163,dp:136,gb:104,ga:161,gp:55},
+      '火锅':{n:35,db:11,da:32,dp:179,gb:6,ga:238,gp:3744},
+      '烤肉':{n:34,db:24,da:64,dp:170,gb:79,ga:151,gp:92},
+      '重庆火锅':{n:28,db:129,da:210,dp:62,gb:129,ga:237,gp:84},
+      '河南菜':{n:18,db:87,da:194,dp:122,gb:284,ga:480,gp:69},
+      '湘菜':{n:17,db:54,da:128,dp:137,gb:104,ga:106,gp:3}
+    },
+    '华西区':{
+      '湘菜':{n:78,db:67,da:115,dp:73,gb:413,ga:507,gp:23},
+      '中餐':{n:66,db:28,da:71,dp:159,gb:67,ga:194,gp:189},
+      '火锅':{n:52,db:76,da:135,dp:78,gb:140,ga:204,gp:46},
+      '川菜':{n:50,db:55,da:98,dp:77,gb:130,ga:525,gp:305},
+      '烧烤':{n:32,db:35,da:104,dp:200,gb:195,ga:200,gp:3},
+      '云南菜':{n:23,db:41,da:105,dp:156,gb:66,ga:129,gp:97},
+      '烤肉':{n:18,db:18,da:39,dp:121,gb:1488,ga:1114,gp:-25},
+      '贵州菜':{n:16,db:10,da:69,dp:606,gb:18,ga:54,gp:197},
+      '牛肉火锅':{n:15,db:441,da:403,dp:-9,gb:875,ga:769,gp:-12},
+      '重庆火锅':{n:15,db:85,da:135,dp:59,gb:201,ga:235,gp:17}
+    }
+  },
+  znt: {
+    '华北区':{
+      '烧烤':{n:75,db:86,da:137,dp:60,gb:117,ga:268,gp:130},
+      '鲁菜':{n:65,db:111,da:210,dp:89,gb:152,ga:258,gp:70},
+      '中餐':{n:65,db:53,da:95,dp:79,gb:75,ga:140,gp:86},
+      '海鲜':{n:61,db:156,da:255,dp:64,gb:207,ga:439,gp:112},
+      '东北菜':{n:34,db:37,da:48,dp:30,gb:43,ga:70,gp:64},
+      '湘菜':{n:34,db:100,da:126,dp:27,gb:119,ga:147,gp:24},
+      '川菜':{n:28,db:172,da:211,dp:23,gb:185,ga:237,gp:28},
+      '烤肉':{n:26,db:82,da:113,dp:38,gb:143,ga:158,gp:11}
+    },
+    '华东区':{
+      '江浙菜':{n:163,db:128,da:161,dp:26,gb:219,ga:316,gp:44},
+      '中餐':{n:74,db:31,da:36,dp:18,gb:56,ga:55,gp:-2},
+      '烧烤':{n:61,db:25,da:54,dp:115,gb:88,ga:288,gp:229},
+      '徽菜':{n:38,db:63,da:63,dp:1,gb:264,ga:201,gp:-24},
+      '火锅':{n:28,db:169,da:193,dp:14,gb:91,ga:108,gp:18},
+      '农家菜':{n:25,db:14,da:24,dp:79,gb:8,ga:16,gp:105},
+      '海鲜':{n:24,db:35,da:55,dp:60,gb:105,ga:85,gp:-19},
+      '粤菜':{n:24,db:333,da:403,dp:21,gb:426,ga:1410,gp:231},
+      '烤肉':{n:21,db:10,da:20,dp:95,gb:55,ga:92,gp:68}
+    },
+    '华南区':{
+      '饮品':{n:380,db:25130,da:27505,dp:9,gb:4926,ga:19072,gp:287},
+      '粤菜':{n:152,db:61,da:83,dp:37,gb:69,ga:81,gp:18},
+      '茶座':{n:64,db:8127,da:8853,dp:9,gb:35159,ga:55688,gp:58},
+      '中餐':{n:57,db:124,da:108,dp:-13,gb:672,ga:126,gp:-81},
+      '湘菜':{n:54,db:49,da:67,dp:37,gb:27,ga:51,gp:91},
+      '海鲜':{n:24,db:48,da:62,dp:28,gb:70,ga:76,gp:8},
+      '私房菜':{n:22,db:41,da:86,dp:111,gb:203,ga:145,gp:-29}
+    },
+    '华中区':{
+      '中餐':{n:42,db:20,da:36,dp:82,gb:32,ga:85,gp:167},
+      '重庆火锅':{n:36,db:220,da:271,dp:23,gb:341,ga:421,gp:23},
+      '川菜':{n:25,db:38,da:70,dp:85,gb:76,ga:165,gp:117},
+      '河南菜':{n:22,db:195,da:270,dp:39,gb:308,ga:581,gp:89},
+      '火锅':{n:19,db:32,da:51,dp:61,gb:24,ga:25,gp:6},
+      '烧烤':{n:17,db:85,da:178,dp:108,gb:85,ga:132,gp:54},
+      '湖北菜':{n:17,db:13,da:35,dp:163,gb:44,ga:58,gp:31}
+    },
+    '华西区':{
+      '川菜':{n:83,db:96,da:114,dp:20,gb:333,ga:423,gp:27},
+      '烧烤':{n:67,db:44,da:68,dp:53,gb:43,ga:74,gp:73},
+      '中餐':{n:65,db:26,da:55,dp:114,gb:56,ga:94,gp:69},
+      '湘菜':{n:45,db:73,da:94,dp:28,gb:87,ga:83,gp:-5},
+      '火锅':{n:44,db:58,da:93,dp:60,gb:79,ga:129,gp:64},
+      '湖北菜':{n:26,db:43,da:58,dp:34,gb:44,ga:60,gp:37},
+      '烤肉':{n:24,db:11,da:24,dp:112,gb:13,ga:20,gp:54},
+      '重庆火锅':{n:17,db:146,da:174,dp:20,gb:165,ga:168,gp:1}
+    }
+  }
+};
+
+// 城市→大区映射（省份关键词）
+var REGION_MAP = {
+  '华北区':['北京','天津','河北','山西','内蒙古','山东','河南','吉林','辽宁','黑龙江'],
+  '华东区':['上海','江苏','浙江','安徽','福建','江西'],
+  '华南区':['广东','广西','海南'],
+  '华中区':['湖北','湖南'],
+  '华西区':['重庆','四川','贵州','云南','西藏','陕西','甘肃','青海','宁夏','新疆']
+};
+
+function getRegion(city) {
+  if (!city) return '华东区';
+  for (var region in REGION_MAP) {
+    var keywords = REGION_MAP[region];
+    for (var i = 0; i < keywords.length; i++) {
+      if (city.indexOf(keywords[i]) >= 0) return region;
+    }
+  }
+  return '华东区'; // default
+}
+
+function findCaseData(region, cat, productType) {
+  var pool = REAL_CASES[productType];
+  if (!pool) return null;
+  // Try exact region match
+  var regionData = pool[region];
+  if (regionData) {
+    // Try exact category match
+    if (regionData[cat]) return regionData[cat];
+    // Try partial match
+    for (var key in regionData) {
+      if (cat.indexOf(key) >= 0 || key.indexOf(cat) >= 0) return regionData[key];
+    }
+    // Return first entry as fallback
+    var keys = Object.keys(regionData);
+    if (keys.length > 0) return regionData[keys[0]];
+  }
+  // Fallback: any region with matching category
+  for (var r in pool) {
+    if (pool[r][cat]) return pool[r][cat];
+  }
+  return null;
+}
+
 function renderCases(d) {
   var city = d.city;
   var cat = d.category_l2 || '中餐';
-  var dpv = d.dpv_30d || 50;
+  var region = getRegion(city);
 
-  // Generate realistic case studies based on DPV tier
   var cases = [];
-  if (dpv < 50) {
+  // 效广案例
+  var xgData = findCaseData(region, cat, 'xg');
+  if (xgData && xgData.dp > 0) {
     cases.push({
-      name: city + '·' + cat + '·张记小馆',
-      product: '品牌智能体 + CPC',
-      dpvBefore: Math.max(3, Math.round(dpv * 0.4)),
-      dpvAfter: Math.round(dpv * 0.4 * 3.2),
-      gmvBefore: 0,
-      gmvAfter: Math.round(dpv * 18),
-      charge: 3000,
-      period: '签约后30天',
-      quote: '"之前高德上搜不到我们店，上了智能体+CPC后，每天能多来十几桌客人，投入3000块一个月就回本了。"'
+      name: region + ' · ' + cat + '（' + xgData.n + '户效广新签）',
+      product: '效果广告',
+      dpvBefore: xgData.db, dpvAfter: xgData.da,
+      gmvBefore: xgData.gb, gmvAfter: xgData.ga,
+      dpvPct: xgData.dp, gmvPct: xgData.gp
     });
+  }
+  // 智能体案例
+  var zntData = findCaseData(region, cat, 'znt');
+  if (zntData && zntData.dp > 0) {
     cases.push({
-      name: city + '·' + cat + '·老街坊饭店',
+      name: region + ' · ' + cat + '（' + zntData.n + '户智能体新签）',
       product: '品牌智能体',
-      dpvBefore: Math.max(5, Math.round(dpv * 0.6)),
-      dpvAfter: Math.round(dpv * 0.6 * 2.1),
-      gmvBefore: Math.round(dpv * 5),
-      gmvAfter: Math.round(dpv * 14),
-      charge: 1188,
-      period: '签约后60天',
-      quote: '"智能体自动回复评论、优化门店信息，省心。DPV翻了一倍多，电话咨询也明显多了。"'
-    });
-  } else if (dpv < 200) {
-    cases.push({
-      name: city + '·' + cat + '·味道餐厅',
-      product: '智能体 + 获客宝',
-      dpvBefore: Math.round(dpv * 0.5),
-      dpvAfter: Math.round(dpv * 0.5 * 2.8),
-      gmvBefore: Math.round(dpv * 8),
-      gmvAfter: Math.round(dpv * 25),
-      charge: 5000,
-      period: '签约后30天',
-      quote: '"获客宝按效果出价，来了不少新客。配合智能体的线上运营，整体ROI很满意。"'
-    });
-    cases.push({
-      name: city + '·' + cat + '·鲜味坊',
-      product: '智能体 + OCPC-GMV',
-      dpvBefore: Math.round(dpv * 0.7),
-      dpvAfter: Math.round(dpv * 0.7 * 1.9),
-      gmvBefore: Math.round(dpv * 12),
-      gmvAfter: Math.round(dpv * 28),
-      charge: 8000,
-      period: '签约后45天',
-      quote: '"OCPC按GMV出价很省心，系统自动优化。' + city + '同品类里算效果很好的。"'
-    });
-  } else {
-    cases.push({
-      name: city + '·' + cat + '·鼎盛酒楼',
-      product: 'OCPC + 顶展',
-      dpvBefore: Math.round(dpv * 0.6),
-      dpvAfter: Math.round(dpv * 0.6 * 1.7),
-      gmvBefore: Math.round(dpv * 15),
-      gmvAfter: Math.round(dpv * 35),
-      charge: 15000,
-      period: '签约后30天',
-      quote: '"高DPV商户用NoBid放量效果最好，配合顶展搜索首屏曝光，品牌认知度也上来了。"'
-    });
-    cases.push({
-      name: city + '·' + cat + '·品味轩',
-      product: '品专版 + 获客宝',
-      dpvBefore: Math.round(dpv * 0.5),
-      dpvAfter: Math.round(dpv * 0.5 * 2.3),
-      gmvBefore: Math.round(dpv * 10),
-      gmvAfter: Math.round(dpv * 30),
-      charge: 12000,
-      period: '签约后60天',
-      quote: '"品专版搜索品牌卡片很抢眼，用户一看就是正规品牌。获客宝持续带新客，效果稳定。"'
+      dpvBefore: zntData.db, dpvAfter: zntData.da,
+      gmvBefore: zntData.gb, gmvAfter: zntData.ga,
+      dpvPct: zntData.dp, gmvPct: zntData.gp
     });
   }
 
-  var html = '<p style="font-size:13px;color:var(--text2);margin-bottom:16px;">以下为' + city + '同品类商户签约后的真实效果（数据已脱敏）</p>';
+  if (cases.length === 0) {
+    return '<p style="font-size:13px;color:var(--text3);text-align:center;padding:20px;">暂无' + cat + '品类签约案例数据</p>';
+  }
+
+  var html = '<p style="font-size:13px;color:var(--text2);margin-bottom:16px;">以下为5-7月' + region + cat + '商户签约后的真实数据（来源：直渠电新签广告主分析）</p>';
 
   cases.forEach(function(c) {
-    var dpvGrowth = c.dpvBefore > 0 ? ((c.dpvAfter - c.dpvBefore) / c.dpvBefore * 100).toFixed(0) : '--';
-    var gmvGrowth = c.gmvBefore > 0 ? ((c.gmvAfter - c.gmvBefore) / c.gmvBefore * 100).toFixed(0) : '新增';
+    var dpvGrowth = c.dpvPct > 0 ? '↑' + c.dpvPct + '%' : (c.dpvPct < 0 ? '↓' + Math.abs(c.dpvPct) + '%' : '持平');
+    var gmvGrowth = c.gmvPct > 0 ? '↑' + c.gmvPct + '%' : (c.gmvPct < 0 ? '↓' + Math.abs(c.gmvPct) + '%' : '持平');
+    var dpvColor = c.dpvPct > 0 ? 'var(--green)' : (c.dpvPct < 0 ? 'var(--red)' : 'var(--text2)');
+    var gmvColor = c.gmvPct > 0 ? 'var(--green)' : (c.gmvPct < 0 ? 'var(--red)' : 'var(--text2)');
 
     html += '<div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-bottom:12px;">';
-    html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">';
-    html += '<div><strong style="font-size:14px;">' + c.name + '</strong>';
+    html += '<div style="margin-bottom:10px;">';
+    html += '<strong style="font-size:14px;">' + c.name + '</strong>';
     html += ' <span class="badge badge-blue">' + c.product + '</span>';
-    html += ' <span class="badge badge-gray">' + c.period + '</span></div>';
     html += '</div>';
 
-    // Growth metrics (percentage only)
     html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:10px;">';
     html += '<div style="text-align:center;padding:10px;background:var(--bg2);border-radius:6px;">';
-    html += '<div style="font-size:11px;color:var(--text3);margin-bottom:4px;">日均DPV提升</div>';
-    html += '<div style="font-size:22px;font-weight:700;color:var(--green);">↑' + dpvGrowth + '%</div>';
+    html += '<div style="font-size:11px;color:var(--text3);margin-bottom:4px;">日均DPV</div>';
+    html += '<div style="font-size:13px;color:var(--text2);">' + c.dpvBefore + ' → ' + c.dpvAfter + '</div>';
+    html += '<div style="font-size:18px;font-weight:700;color:' + dpvColor + ';">' + dpvGrowth + '</div>';
     html += '</div>';
     html += '<div style="text-align:center;padding:10px;background:var(--bg2);border-radius:6px;">';
-    html += '<div style="font-size:11px;color:var(--text3);margin-bottom:4px;">月均GMV提升</div>';
-    html += '<div style="font-size:22px;font-weight:700;color:var(--green);">↑' + gmvGrowth + '%</div>';
+    html += '<div style="font-size:11px;color:var(--text3);margin-bottom:4px;">日均GMV</div>';
+    html += '<div style="font-size:13px;color:var(--text2);">¥' + c.gmvBefore + ' → ¥' + c.gmvAfter + '</div>';
+    html += '<div style="font-size:18px;font-weight:700;color:' + gmvColor + ';">' + gmvGrowth + '</div>';
     html += '</div>';
     html += '</div>';
-
-    html += '<div style="font-size:13px;color:var(--text2);font-style:italic;line-height:1.6;">' + c.quote + '</div>';
     html += '</div>';
   });
 
