@@ -902,7 +902,7 @@ async function loadData() {
       var empRes = await fetchAll(empQuery);
       if (empRes.data) {
         STATE.employees = empRes.data.map(function(e) {
-          return e.name + (e.is_boss ? '（负责人）' : e.role ? '（' + e.role + '）' : '');
+          return e.name;
         });
       }
 
