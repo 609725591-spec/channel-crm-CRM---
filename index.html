@@ -2025,12 +2025,19 @@ function renderCases(d) {
   var cityCases = [];
   if (STATE.signedCases && STATE.signedCases.length > 0) {
     STATE.signedCases.forEach(function(c) {
-      if (c.city === city && c.metrics && (c.metrics.dpv_pct > 0 || c.metrics.gmv_pct > 0)) {
-        cityCases.push(c);
-      }
+      if (c.city !== city || !c.metrics) return;
+      var m = c.metrics;
+      // 过滤基数过小导致的异常增幅（签约前DPV至少>=5）
+      if ((m.dpv_before || 0) < 5 && (m.gmv_before || 0) < 5) return;
+      if ((m.dpv_pct || 0) <= 0 && (m.gmv_pct || 0) <= 0) return;
+      cityCases.push(c);
     });
-    // 按DPV增幅排序，取Top5
-    cityCases.sort(function(a, b) { return (b.metrics.dpv_pct || 0) - (a.metrics.dpv_pct || 0); });
+    // 加权排序：增幅 × sqrt(签约后值)，避免低基数虚假高增长
+    cityCases.sort(function(a, b) {
+      var scoreA = (a.metrics.dpv_pct || 0) * Math.sqrt(a.metrics.dpv_after || 1) + (a.metrics.gmv_pct || 0) * Math.sqrt(a.metrics.gmv_after || 1);
+      var scoreB = (b.metrics.dpv_pct || 0) * Math.sqrt(b.metrics.dpv_after || 1) + (b.metrics.gmv_pct || 0) * Math.sqrt(b.metrics.gmv_after || 1);
+      return scoreB - scoreA;
+    });
     cityCases = cityCases.slice(0, 5);
   }
 
@@ -2093,8 +2100,10 @@ function renderCases(d) {
     cityCases.forEach(function(c) {
       var m = c.metrics;
       var masked = maskName(c.title || '');
-      var dpvStr = m.dpv_pct > 0 ? '↑' + m.dpv_pct + '%' : (m.dpv_pct < 0 ? '↓' + Math.abs(m.dpv_pct) + '%' : '持平');
-      var gmvStr = m.gmv_pct > 0 ? '↑' + m.gmv_pct + '%' : (m.gmv_pct < 0 ? '↓' + Math.abs(m.gmv_pct) + '%' : '持平');
+      var dpvCap = Math.min(Math.abs(m.dpv_pct || 0), 999);
+      var gmvCap = Math.min(Math.abs(m.gmv_pct || 0), 999);
+      var dpvStr = m.dpv_pct > 0 ? '↑' + dpvCap + '%' : (m.dpv_pct < 0 ? '↓' + dpvCap + '%' : '持平');
+      var gmvStr = m.gmv_pct > 0 ? '↑' + gmvCap + '%' : (m.gmv_pct < 0 ? '↓' + gmvCap + '%' : '持平');
       var dpvColor = m.dpv_pct > 0 ? 'var(--green)' : (m.dpv_pct < 0 ? 'var(--red)' : 'var(--text2)');
       var gmvColor = m.gmv_pct > 0 ? 'var(--green)' : (m.gmv_pct < 0 ? 'var(--red)' : 'var(--text2)');
 
