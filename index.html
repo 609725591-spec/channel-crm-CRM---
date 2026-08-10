@@ -649,27 +649,7 @@ function genDemoLeads() {
   return data;
 }
 
-// Demo follow-ups
-function genDemoFollowUps(targetType, targetId) {
-  var statuses = CONFIG.statusMachine[targetType === 'lead' ? 'leads' : 'commercial'];
-  var records = [];
-  var count = Math.floor(Math.random() * 4);
-  for (var i = 0; i < count; i++) {
-    var d = new Date();
-    d.setDate(d.getDate() - (count - i) * 3);
-    records.push({
-      id: 'fu_' + Math.random().toString(36).substring(2,8),
-      target_type: targetType,
-      target_id: targetId,
-      employee_name: ['李小明','王小红','张大力'][i%3],
-      status: statuses[Math.min(i+1, statuses.length-1)],
-      product_interest: ['效果广告-CPC','获客宝','顶展','品牌智能体'][i%4],
-      note: ['初次电话联系，店主表示有兴趣了解','发送了方案书，店主说考虑一下','二次回访，对ROI有疑问已解答','店主同意签约，约下周见面'][i%4],
-      created_at: d.toISOString()
-    });
-  }
-  return records;
-}
+// genDemoFollowUps removed - no fake follow-up data for real users
 
 /* =============================================
    UTILITY FUNCTIONS
@@ -1690,22 +1670,35 @@ function renderJobs() {
 }
 
 function renderJobsTable(level) {
-  var names = level === 'employee' ? ['李小明','王小红','张大力','刘芳','陈明'] :
-    level === 'provider' ? ['鼎盛传媒','华创科技','云帆广告','聚能传媒'] :
-    level === 'manager' ? ['张三','李四','王五'] :
-    ['华东大区','华南大区','华中大区','华北大区','西南大区'];
+  // Aggregate real follow-up data from STATE
+  var allRecords = [];
+  Object.keys(STATE.followUps).forEach(function(key) {
+    STATE.followUps[key].forEach(function(r) { allRecords.push(r); });
+  });
+
+  if (allRecords.length === 0) {
+    return '<div class="empty-state" style="margin-top:24px;"><div class="icon">📋</div><div class="msg">暂无作业数据，开始跟进商户后这里会显示统计</div></div>';
+  }
+
+  // Group by employee_name
+  var groups = {};
+  allRecords.forEach(function(r) {
+    var name = r.employee_name || '系统';
+    if (!groups[name]) groups[name] = { followups: 0, signed: 0 };
+    groups[name].followups++;
+    if (r.status === '已签约') groups[name].signed++;
+  });
 
   var html = '<div class="data-table-wrap" style="margin-top:16px;"><table class="data-table"><thead><tr>' +
-    '<th>' + (level==='employee'?'小二':level==='provider'?'服务商':level==='manager'?'渠道经理':'大区') + '</th>' +
-    '<th class="num">跟进数</th><th class="num">签约数</th><th class="num">leads触达</th><th class="num">签约金额</th>' +
+    '<th>小二</th>' +
+    '<th class="num">跟进数</th><th class="num">签约数</th>' +
     '</tr></thead><tbody>';
 
-  names.forEach(function(name) {
+  Object.keys(groups).forEach(function(name) {
+    var g = groups[name];
     html += '<tr><td><strong>' + name + '</strong></td>' +
-      '<td class="num">' + (Math.floor(Math.random()*30)+5) + '</td>' +
-      '<td class="num">' + Math.floor(Math.random()*5) + '</td>' +
-      '<td class="num">' + (Math.floor(Math.random()*20)+3) + '</td>' +
-      '<td class="num">' + fmtMoney(Math.floor(Math.random()*30000)+5000) + '</td></tr>';
+      '<td class="num">' + g.followups + '</td>' +
+      '<td class="num">' + g.signed + '</td></tr>';
   });
 
   html += '</tbody></table></div>';
@@ -1721,31 +1714,20 @@ function renderAdmin() {
     return;
   }
 
-  // Usage stats
-  $('usageStats').innerHTML =
-    '<div class="stat-card"><div class="label">今日登录</div><div class="value blue">' + (Math.floor(Math.random()*20)+5) + '</div></div>' +
-    '<div class="stat-card"><div class="label">活跃服务商</div><div class="value green">' + (Math.floor(Math.random()*30)+10) + '</div></div>' +
-    '<div class="stat-card"><div class="label">今日跟进</div><div class="value amber">' + (Math.floor(Math.random()*100)+20) + '</div></div>';
-
-  // Usage table
-  var providers = ['鼎盛传媒','华创科技','云帆广告','聚能传媒','盛世文化','蓝海传媒','星辰广告','金桥传媒'];
-  var html = '<div class="data-table-wrap"><table class="data-table"><thead><tr>' +
-    '<th>服务商</th><th class="num">登录次数</th><th class="num">跟进数</th><th class="num">最后活跃</th><th>状态</th>' +
-    '</tr></thead><tbody>';
-
-  providers.forEach(function(name) {
-    var logins = Math.floor(Math.random()*20)+1;
-    var followups = Math.floor(Math.random()*50)+3;
-    var d = new Date(); d.setHours(d.getHours() - Math.floor(Math.random()*48));
-    html += '<tr><td><strong>' + name + '</strong></td>' +
-      '<td class="num">' + logins + '</td>' +
-      '<td class="num">' + followups + '</td>' +
-      '<td>' + fmtTime(d) + '</td>' +
-      '<td>' + (logins > 5 ? '<span class="badge badge-green">活跃</span>' : '<span class="badge badge-gray">低频</span>') + '</td></tr>';
+  // Count real follow-ups
+  var totalFollowUps = 0;
+  Object.keys(STATE.followUps).forEach(function(key) {
+    totalFollowUps += STATE.followUps[key].length;
   });
 
-  html += '</tbody></table></div>';
-  $('usageTable').innerHTML = html;
+  // Usage stats from real data
+  $('usageStats').innerHTML =
+    '<div class="stat-card"><div class="label">在约PID</div><div class="value blue">' + STATE.commercialData.length + '</div></div>' +
+    '<div class="stat-card"><div class="label">Leads数</div><div class="value green">' + STATE.leadsData.length + '</div></div>' +
+    '<div class="stat-card"><div class="label">跟进记录</div><div class="value amber">' + totalFollowUps + '</div></div>';
+
+  // Usage table - show real data summary
+  $('usageTable').innerHTML = '<div class="empty-state" style="margin-top:16px;"><div class="icon">📊</div><div class="msg">使用统计功能开发中</div></div>';
 }
 
 function uploadData(type, file) {
