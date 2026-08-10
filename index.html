@@ -1635,39 +1635,60 @@ function renderJobs() {
   var period = $('jobPeriod').value;
   var level = $('jobLevel').value;
 
-  // In demo mode, generate mock data
+  // Aggregate real follow-up data
+  var allRecords = [];
+  Object.keys(STATE.followUps).forEach(function(key) {
+    STATE.followUps[key].forEach(function(r) { allRecords.push(r); });
+  });
+
+  var now = new Date();
+  var todayStr = now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0') + '-' + String(now.getDate()).padStart(2,'0');
+
+  var todayFollowups = allRecords.filter(function(r) {
+    return r.created_at && r.created_at.substring(0,10) === todayStr;
+  }).length;
+
+  var signedCount = STATE.commercialData.filter(function(d) {
+    return d.is_signed_eff || d.is_signed_agent || d.is_signed_brand;
+  }).length;
+
   var stats = {
-    totalFollowups: Math.floor(Math.random() * 50) + 10,
-    newFollowups: Math.floor(Math.random() * 20) + 3,
-    signedToday: Math.floor(Math.random() * 5),
-    leadsContacted: Math.floor(Math.random() * 30) + 5
+    totalFollowups: allRecords.length,
+    newFollowups: todayFollowups,
+    signedToday: signedCount,
+    leadsContacted: STATE.leadsData.length
   };
 
   $('jobsStats').innerHTML =
-    '<div class="stat-card"><div class="label">' + (period==='day'?'今日':'本期') + '跟进数</div><div class="value blue">' + stats.totalFollowups + '</div></div>' +
-    '<div class="stat-card"><div class="label">新增跟进</div><div class="value green">' + stats.newFollowups + '</div></div>' +
-    '<div class="stat-card"><div class="label">' + (period==='day'?'今日':'本期') + '签约</div><div class="value amber">' + stats.signedToday + '</div></div>' +
-    '<div class="stat-card"><div class="label">leads触达</div><div class="value">' + stats.leadsContacted + '</div></div>';
+    '<div class="stat-card"><div class="label">累计跟进</div><div class="value blue">' + stats.totalFollowups + '</div></div>' +
+    '<div class="stat-card"><div class="label">今日跟进</div><div class="value green">' + stats.newFollowups + '</div></div>' +
+    '<div class="stat-card"><div class="label">已签约</div><div class="value amber">' + stats.signedToday + '</div></div>' +
+    '<div class="stat-card"><div class="label">Leads总数</div><div class="value">' + stats.leadsContacted + '</div></div>';
 
-  // Charts
+  // Charts - trend by date from real follow-up records
   var container = $('jobsCharts');
-  container.innerHTML = '<div class="chart-box full"><h4>跟进趋势（近' + (period==='day'?'7天':period==='week'?'8周':'6月') + '）</h4><canvas id="chartJobsTrend"></canvas></div>';
+
+  if (allRecords.length === 0) {
+    container.innerHTML = '<div class="empty-state" style="margin-top:24px;"><div class="icon">📈</div><div class="msg">暂无跟进数据，开始跟进后这里会显示趋势图</div></div>';
+    $('jobsTable').innerHTML = renderJobsTable(level);
+    return;
+  }
+
+  container.innerHTML = '<div class="chart-box full"><h4>跟进趋势（近7天）</h4><canvas id="chartJobsTrend"></canvas></div>';
 
   if (STATE.charts.jobsTrend) STATE.charts.jobsTrend.destroy();
 
   var labels = [], data1 = [], data2 = [];
-  var count = period === 'day' ? 7 : period === 'week' ? 8 : 6;
-  for (var i = count - 1; i >= 0; i--) {
-    if (period === 'day') {
-      var d = new Date(); d.setDate(d.getDate() - i);
-      labels.push((d.getMonth()+1) + '/' + d.getDate());
-    } else if (period === 'week') {
-      labels.push('第' + (count - i) + '周');
-    } else {
-      labels.push((new Date().getMonth() - i + 12) % 12 + 1 + '月');
-    }
-    data1.push(Math.floor(Math.random() * 30) + 5);
-    data2.push(Math.floor(Math.random() * 10) + 1);
+  for (var i = 6; i >= 0; i--) {
+    var d = new Date(); d.setDate(d.getDate() - i);
+    var ds = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+    labels.push((d.getMonth()+1) + '/' + d.getDate());
+
+    var dayFollowups = allRecords.filter(function(r) {
+      return r.created_at && r.created_at.substring(0,10) === ds;
+    });
+    data1.push(dayFollowups.length);
+    data2.push(dayFollowups.filter(function(r) { return r.status === '已签约'; }).length);
   }
 
   STATE.charts.jobsTrend = new Chart($('chartJobsTrend'), {
@@ -1682,7 +1703,7 @@ function renderJobs() {
     options: {
       responsive: true,
       plugins: { legend: { labels: { color: '#94a3b8' } } },
-      scales: { x: { ticks: { color: '#94a3b8' }, grid: { color: '#334155' } }, y: { ticks: { color: '#94a3b8' }, grid: { color: '#334155' } } }
+      scales: { x: { ticks: { color: '#94a3b8' }, grid: { color: '#334155' } }, y: { ticks: { color: '#94a3b8' }, grid: { color: '#334155' }, beginAtZero: true } }
     }
   });
 
