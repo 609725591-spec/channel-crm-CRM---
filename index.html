@@ -556,6 +556,7 @@ var STATE = {
   employees: [],     // employee names for current provider
   occupancy: [],     // occupancy data for current cities
   allSignedPids: [], // all signed PIDs across all providers (for same-city cases)
+  signedCases: [],   // signed merchant cases from crm_cases table (with before/after metrics)
   charts: {}         // chart instances
 };
 
@@ -871,27 +872,18 @@ async function loadData() {
       var occQuery = sb.from('crm_occupancy').select('*');
       if (STATE.cities.length > 0) occQuery = occQuery.in('city_name', STATE.cities);
 
-      // Query all signed PIDs across all providers (for same-city case display)
-      var signedQuery = sb.from('crm_pids').select('*')
-        .or('is_signed_agent.eq.true,is_signed_eff.eq.true,is_signed_brand.eq.true')
-        .order('dpv_30d', {ascending: false});
-      if (STATE.cities.length > 0) signedQuery = signedQuery.in('city', STATE.cities);
+      // Query signed merchant cases from crm_cases (imported from 5-7月签约Excel)
+      var casesQuery = sb.from('crm_cases').select('*');
+      if (STATE.cities.length > 0) casesQuery = casesQuery.in('city', STATE.cities);
 
-      var [pidsRes, leadsRes, occRes, signedRes] = await Promise.all([
-        fetchAll(pidQuery), fetchAll(leadQuery), fetchAll(occQuery), fetchAll(signedQuery)
+      var [pidsRes, leadsRes, occRes, casesRes] = await Promise.all([
+        fetchAll(pidQuery), fetchAll(leadQuery), fetchAll(occQuery), fetchAll(casesQuery)
       ]);
 
       STATE.commercialData = (pidsRes.data) ? pidsRes.data : [];
       STATE.leadsData = (leadsRes.data) ? leadsRes.data : [];
       STATE.occupancy = (occRes.data) ? occRes.data : [];
-      STATE.allSignedPids = (signedRes.data) ? signedRes.data : [];
-      // Deduplicate signed PIDs
-      var seenSigned = {};
-      STATE.allSignedPids = STATE.allSignedPids.filter(function(d) {
-        if (seenSigned[d.pid]) return false;
-        seenSigned[d.pid] = true;
-        return true;
-      });
+      STATE.signedCases = (casesRes.data) ? casesRes.data : [];
 
       // Deduplicate by unique ID (database may have duplicate imports)
       var seenPids = {};
@@ -931,19 +923,19 @@ async function loadData() {
         });
       }
 
-      console.log('Loaded from Supabase:', STATE.commercialData.length, 'PIDs,', STATE.leadsData.length, 'leads,', STATE.occupancy.length, 'occupancy,', STATE.allSignedPids.length, 'signed(all providers)');
+      console.log('Loaded from Supabase:', STATE.commercialData.length, 'PIDs,', STATE.leadsData.length, 'leads,', STATE.occupancy.length, 'occupancy,', STATE.signedCases.length, 'signed cases');
     } catch(e) {
       console.warn('Supabase query failed, using demo data:', e);
       STATE.commercialData = genDemoPIDs();
       STATE.leadsData = genDemoLeads();
       STATE.occupancy = [];
-      STATE.allSignedPids = [];
+      STATE.signedCases = [];
     }
   } else {
     STATE.commercialData = genDemoPIDs();
     STATE.leadsData = genDemoLeads();
     STATE.occupancy = [];
-    STATE.allSignedPids = [];
+    STATE.signedCases = [];
   }
 
   // Populate category filters
@@ -2029,21 +2021,23 @@ function renderCases(d) {
     }
   });
 
-  // === 查同城已签PID（全渠道），用于展示具体商户 ===
-  var citySigned = [];
-  var src = STATE.allSignedPids && STATE.allSignedPids.length > 0 ? STATE.allSignedPids : STATE.commercialData;
-  if (src) {
-    src.forEach(function(p) {
-      if (p.city === city && (p.is_signed_agent || p.is_signed_eff || p.is_signed_brand) && p.pid !== d.pid) {
-        citySigned.push(p);
+  // === 查同城签约商户（crm_cases真实签约数据，含前后对比）===
+  var cityCases = [];
+  if (STATE.signedCases && STATE.signedCases.length > 0) {
+    STATE.signedCases.forEach(function(c) {
+      if (c.city === city && c.metrics && (c.metrics.dpv_pct > 0 || c.metrics.gmv_pct > 0)) {
+        cityCases.push(c);
       }
     });
+    // 按DPV增幅排序，取Top5
+    cityCases.sort(function(a, b) { return (b.metrics.dpv_pct || 0) - (a.metrics.dpv_pct || 0); });
+    cityCases = cityCases.slice(0, 5);
   }
 
-  // === Fallback：同城无已签PID时，取同城DPV最高的商户作参考 ===
+  // === Fallback：同城无签约案例时，取同城DPV最高的商户作参考 ===
   var cityRef = [];
-  var isSignedCity = citySigned.length > 0;
-  if (!isSignedCity && STATE.commercialData) {
+  var hasCityCases = cityCases.length > 0;
+  if (!hasCityCases && STATE.commercialData) {
     STATE.commercialData.forEach(function(p) {
       if (p.city === city && p.pid !== d.pid && (p.dpv_30d || 0) > 0) {
         cityRef.push(p);
@@ -2053,7 +2047,7 @@ function renderCases(d) {
     cityRef = cityRef.slice(0, 5);
   }
 
-  if (cases.length === 0 && citySigned.length === 0 && cityRef.length === 0) {
+  if (cases.length === 0 && cityCases.length === 0 && cityRef.length === 0) {
     return '<p style="font-size:13px;color:var(--text3);text-align:center;padding:20px;">暂无' + cat + '品类签约案例数据</p>';
   }
 
@@ -2064,11 +2058,11 @@ function renderCases(d) {
     return name.charAt(0) + Array(name.length - 1).join('*') + name.charAt(name.length - 1);
   }
 
-  var hasCityData = isSignedCity || cityRef.length > 0;
   var html = '<p style="font-size:13px;color:var(--text2);margin-bottom:16px;">';
   html += '以下为5-7月' + region + cat + '商户签约后的真实效果（含直营、渠道、电销全渠道）';
-  if (isSignedCity) {
-    html += '。<span style="color:var(--green);font-weight:600;">本城已有' + citySigned.length + '户签约</span>';
+  if (hasCityCases) {
+    var totalCityCount = STATE.signedCases.filter(function(c){return c.city === city;}).length;
+    html += '。<span style="color:var(--green);font-weight:600;">本城已有' + totalCityCount + '户签约</span>';
   }
   html += '</p>';
 
@@ -2091,35 +2085,48 @@ function renderCases(d) {
     html += '</div>';
   }
 
-  // === 同城商户展示 ===
-  var showMerchants = isSignedCity ? citySigned.sort(function(a, b) {
-    return ((b.dpv_30d || 0) + (b.gmv_90d || 0)) - ((a.dpv_30d || 0) + (a.gmv_90d || 0));
-  }).slice(0, 5) : cityRef;
-
-  if (showMerchants.length > 0) {
+  // === 同城签约商户展示：真实前后对比增幅 ===
+  if (hasCityCases) {
     html += '<div style="margin-top:4px;">';
-    html += '<div style="font-size:13px;font-weight:600;margin-bottom:10px;color:var(--text1);">' + city + (isSignedCity ? '同城签约商户' : '同城活跃商户参考') + '</div>';
+    html += '<div style="font-size:13px;font-weight:600;margin-bottom:10px;color:var(--text1);">' + city + '同城签约商户</div>';
 
-    showMerchants.forEach(function(p) {
-      var products = [];
-      if (p.is_signed_agent) products.push('智能体');
-      if (p.is_signed_eff) products.push('效广');
-      if (p.is_signed_brand) products.push('品广');
+    cityCases.forEach(function(c) {
+      var m = c.metrics;
+      var masked = maskName(c.title || '');
+      var dpvStr = m.dpv_pct > 0 ? '↑' + m.dpv_pct + '%' : (m.dpv_pct < 0 ? '↓' + Math.abs(m.dpv_pct) + '%' : '持平');
+      var gmvStr = m.gmv_pct > 0 ? '↑' + m.gmv_pct + '%' : (m.gmv_pct < 0 ? '↓' + Math.abs(m.gmv_pct) + '%' : '持平');
+      var dpvColor = m.dpv_pct > 0 ? 'var(--green)' : (m.dpv_pct < 0 ? 'var(--red)' : 'var(--text2)');
+      var gmvColor = m.gmv_pct > 0 ? 'var(--green)' : (m.gmv_pct < 0 ? 'var(--red)' : 'var(--text2)');
 
+      html += '<div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);padding:12px 16px;margin-bottom:8px;display:flex;align-items:center;justify-content:space-between;">';
+      html += '<div style="flex:1;">';
+      html += '<div style="font-size:14px;font-weight:600;">' + city + ' · ' + (c.category || cat) + ' · ' + masked + '</div>';
+      html += '<div style="margin-top:4px;">';
+      html += '<span class="badge badge-blue" style="font-size:10px;margin-right:4px;">' + c.product + '</span>';
+      if (m.channel) html += '<span class="badge" style="font-size:10px;background:var(--bg2);color:var(--text3);margin-right:4px;">' + m.channel + '</span>';
+      html += '</div>';
+      html += '</div>';
+      html += '<div style="display:flex;gap:12px;text-align:center;flex-shrink:0;">';
+      html += '<div><div style="font-size:10px;color:var(--text3);">DPV提升</div><div style="font-size:15px;font-weight:700;color:' + dpvColor + ';">' + dpvStr + '</div></div>';
+      html += '<div><div style="font-size:10px;color:var(--text3);">GMV提升</div><div style="font-size:15px;font-weight:700;color:' + gmvColor + ';">' + gmvStr + '</div></div>';
+      html += '</div>';
+      html += '</div>';
+    });
+    html += '</div>';
+  }
+
+  // === Fallback: 同城活跃商户参考 ===
+  if (!hasCityCases && cityRef.length > 0) {
+    html += '<div style="margin-top:4px;">';
+    html += '<div style="font-size:13px;font-weight:600;margin-bottom:10px;color:var(--text1);">' + city + '同城活跃商户参考</div>';
+
+    cityRef.forEach(function(p) {
       var masked = maskName(p.store_name || '');
       html += '<div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);padding:12px 16px;margin-bottom:8px;display:flex;align-items:center;justify-content:space-between;">';
       html += '<div style="flex:1;">';
       html += '<div style="font-size:14px;font-weight:600;">' + city + ' · ' + (p.category_l2 || cat) + ' · ' + masked + '</div>';
-      html += '<div style="margin-top:4px;">';
-      if (products.length > 0) {
-        products.forEach(function(prod) {
-          html += '<span class="badge badge-blue" style="font-size:10px;margin-right:4px;">' + prod + '</span>';
-        });
-      }
-      html += '</div>';
       html += '</div>';
       html += '<div style="display:flex;gap:12px;text-align:center;flex-shrink:0;">';
-      // 按该商户自己的类目查REAL_CASES增幅
       var mCat = p.category_l2 || cat;
       var mProds = [{k:'xg'},{k:'znt'},{k:'dz'},{k:'zx'},{k:'dj'}];
       var mBestDpv = null, mBestGmv = null;
@@ -2131,14 +2138,14 @@ function renderCases(d) {
         }
       });
       if (mBestDpv) {
-        var dpvStr = mBestDpv.dp > 0 ? '↑' + mBestDpv.dp + '%' : '持平';
-        var dpvColor = mBestDpv.dp > 0 ? 'var(--green)' : 'var(--text2)';
-        html += '<div><div style="font-size:10px;color:var(--text3);">DPV提升</div><div style="font-size:15px;font-weight:700;color:' + dpvColor + ';">' + dpvStr + '</div></div>';
+        var dpvStr2 = mBestDpv.dp > 0 ? '↑' + mBestDpv.dp + '%' : '持平';
+        var dpvColor2 = mBestDpv.dp > 0 ? 'var(--green)' : 'var(--text2)';
+        html += '<div><div style="font-size:10px;color:var(--text3);">DPV提升</div><div style="font-size:15px;font-weight:700;color:' + dpvColor2 + ';">' + dpvStr2 + '</div></div>';
       }
       if (mBestGmv) {
-        var gmvStr = mBestGmv.gp > 0 ? '↑' + mBestGmv.gp + '%' : '持平';
-        var gmvColor = mBestGmv.gp > 0 ? 'var(--green)' : 'var(--text2)';
-        html += '<div><div style="font-size:10px;color:var(--text3);">GMV提升</div><div style="font-size:15px;font-weight:700;color:' + gmvColor + ';">' + gmvStr + '</div></div>';
+        var gmvStr2 = mBestGmv.gp > 0 ? '↑' + mBestGmv.gp + '%' : '持平';
+        var gmvColor2 = mBestGmv.gp > 0 ? 'var(--green)' : 'var(--text2)';
+        html += '<div><div style="font-size:10px;color:var(--text3);">GMV提升</div><div style="font-size:15px;font-weight:700;color:' + gmvColor2 + ';">' + gmvStr2 + '</div></div>';
       }
       html += '</div>';
       html += '</div>';
