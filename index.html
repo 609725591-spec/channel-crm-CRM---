@@ -482,6 +482,7 @@ a { color:var(--accent2); text-decoration:none; }
     </div>
     <div class="modal-body">
       <div class="follow-form">
+        <div id="fuEmpWrap"></div>
         <div class="form-row">
           <div style="flex:1">
             <label>跟进状态</label>
@@ -1777,6 +1778,11 @@ function openFollowUp(targetType, targetId) {
   $('fuNote').value = '';
   $('fuNextDate').value = '';
   $('fuNextAction').value = '';
+
+  // Render 跟进人 combobox
+  $('fuEmpWrap').innerHTML = renderEmpCombo('fuEmp');
+  initEmpCombo('fuEmp');
+
   $('followModal').classList.add('active');
 }
 
@@ -1784,11 +1790,13 @@ function closeFollowModal() { $('followModal').classList.remove('active'); curre
 
 async function saveFollowUp() {
   if (!currentFollowTarget) return;
-  // Get selected employee from combobox (PID or Lead detail)
+  // Get selected employee: prefer fuEmp (follow modal), fallback to detail modal combobox
   var empName = '';
+  var fuEmpEl = $('fuEmp');
   var pidEmpEl = $('pidEmp');
   var leadEmpEl = $('leadEmp');
-  if (pidEmpEl && pidEmpEl.value) empName = pidEmpEl.value;
+  if (fuEmpEl && fuEmpEl.value) empName = fuEmpEl.value;
+  else if (pidEmpEl && pidEmpEl.value) empName = pidEmpEl.value;
   else if (leadEmpEl && leadEmpEl.value) empName = leadEmpEl.value;
   if (!empName) empName = STATE.user.provider_name;
 
