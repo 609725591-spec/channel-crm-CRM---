@@ -1019,10 +1019,13 @@ function renderSigningAnalysis(data, cities) {
     var info = item[1];
     if (shown >= 6) return; // limit to 6 cards
 
-    // Find real case data
+    // Find real case data for all products
     var xg = findCaseData(region, cat, 'xg');
     var znt = findCaseData(region, cat, 'znt');
-    if (!xg && !znt) return;
+    var dz = findCaseData(region, cat, 'dz');
+    var zx = findCaseData(region, cat, 'zx');
+    var dj = findCaseData(region, cat, 'dj');
+    if (!xg && !znt && !dz && !zx && !dj) return;
 
     html += '<div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);padding:16px;">';
     html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">';
@@ -1030,12 +1033,21 @@ function renderSigningAnalysis(data, cities) {
     html += '<span style="font-size:12px;color:var(--text3);">在约' + info.count + '户 · 已签' + info.signed + '户</span>';
     html += '</div>';
 
-    // Product cards
+    // Product cards - order: 智能体→效广→顶展→钻展→导结
     if (znt && znt.dp > 0) {
       html += renderProductRow('品牌智能体', znt.n, znt.db, znt.da, znt.dp, znt.gb, znt.ga, znt.gp);
     }
     if (xg && xg.dp > 0) {
       html += renderProductRow('效果广告', xg.n, xg.db, xg.da, xg.dp, xg.gb, xg.ga, xg.gp);
+    }
+    if (dz && dz.dp > 0) {
+      html += renderProductRow('顶展', dz.n, dz.db, dz.da, dz.dp, dz.gb, dz.ga, dz.gp);
+    }
+    if (zx && zx.dp > 0) {
+      html += renderProductRow('钻展', zx.n, zx.db, zx.da, zx.dp, zx.gb, zx.ga, zx.gp);
+    }
+    if (dj && dj.dp > 0) {
+      html += renderProductRow('导结', dj.n, dj.db, dj.da, dj.dp, dj.gb, dj.ga, dj.gp);
     }
 
     html += '</div>';
@@ -1103,12 +1115,18 @@ function renderCategoryTable(data, cities) {
       var signedAny = s.signedAgent + s.signedEff + s.signedBrand;
       var rate = (signedAny / s.count * 100).toFixed(1);
 
-      // Find real signing effect
+      // Find real signing effect for all products
       var xg = findCaseData(region, cat, 'xg');
       var znt = findCaseData(region, cat, 'znt');
+      var dz = findCaseData(region, cat, 'dz');
+      var zx = findCaseData(region, cat, 'zx');
+      var dj = findCaseData(region, cat, 'dj');
       var effectHtml = '';
       if (znt && znt.dp > 0) effectHtml += '<span class="badge badge-green">智能体 DPV' + (znt.dp>0?'↑':'↓') + Math.abs(znt.dp) + '%</span> ';
-      if (xg && xg.dp > 0) effectHtml += '<span class="badge badge-blue">效广 DPV' + (xg.dp>0?'↑':'↓') + Math.abs(xg.dp) + '%</span>';
+      if (xg && xg.dp > 0) effectHtml += '<span class="badge badge-blue">效广 DPV' + (xg.dp>0?'↑':'↓') + Math.abs(xg.dp) + '%</span> ';
+      if (dz && dz.dp > 0) effectHtml += '<span class="badge badge-purple">顶展 DPV' + (dz.dp>0?'↑':'↓') + Math.abs(dz.dp) + '%</span> ';
+      if (zx && zx.dp > 0) effectHtml += '<span class="badge badge-amber">钻展 DPV' + (zx.dp>0?'↑':'↓') + Math.abs(zx.dp) + '%</span> ';
+      if (dj && dj.dp > 0) effectHtml += '<span class="badge badge-amber">导结 DPV' + (dj.dp>0?'↑':'↓') + Math.abs(dj.dp) + '%</span>';
       if (!effectHtml) effectHtml = '<span style="color:var(--text3);">-</span>';
 
       html += '<tr><td><strong>' + cat + '</strong> <span class="badge badge-amber">高优</span></td>' +
@@ -1139,9 +1157,15 @@ function renderCategoryTable(data, cities) {
 
       var xg = findCaseData(region, cat, 'xg');
       var znt = findCaseData(region, cat, 'znt');
+      var dz = findCaseData(region, cat, 'dz');
+      var zx = findCaseData(region, cat, 'zx');
+      var dj = findCaseData(region, cat, 'dj');
       var effectHtml = '';
       if (znt && znt.dp > 0) effectHtml += '<span class="badge badge-green">智能体 DPV' + (znt.dp>0?'↑':'↓') + Math.abs(znt.dp) + '%</span> ';
-      if (xg && xg.dp > 0) effectHtml += '<span class="badge badge-blue">效广 DPV' + (xg.dp>0?'↑':'↓') + Math.abs(xg.dp) + '%</span>';
+      if (xg && xg.dp > 0) effectHtml += '<span class="badge badge-blue">效广 DPV' + (xg.dp>0?'↑':'↓') + Math.abs(xg.dp) + '%</span> ';
+      if (dz && dz.dp > 0) effectHtml += '<span class="badge badge-purple">顶展 DPV' + (dz.dp>0?'↑':'↓') + Math.abs(dz.dp) + '%</span> ';
+      if (zx && zx.dp > 0) effectHtml += '<span class="badge badge-amber">钻展 DPV' + (zx.dp>0?'↑':'↓') + Math.abs(zx.dp) + '%</span> ';
+      if (dj && dj.dp > 0) effectHtml += '<span class="badge badge-amber">导结 DPV' + (dj.dp>0?'↑':'↓') + Math.abs(dj.dp) + '%</span>';
       if (!effectHtml) effectHtml = '<span style="color:var(--text3);">-</span>';
 
       html += '<tr><td>' + cat + '</td>' +
@@ -1447,11 +1471,20 @@ function renderRecommendations(d) {
   var _cat = d.category_l2 || '中餐';
   var _xgCase = findCaseData(_region, _cat, 'xg');
   var _zntCase = findCaseData(_region, _cat, 'znt');
+  var _dzCase = findCaseData(_region, _cat, 'dz');
+  var _zxCase = findCaseData(_region, _cat, 'zx');
+  var _djCase = findCaseData(_region, _cat, 'dj');
   var _caseLine = '';
   if (_xgCase && _xgCase.dp > 0) {
     _caseLine = _region + _cat + '商户签约效果广告后，日均DPV平均提升' + _xgCase.dp + '%，日均GMV提升' + (_xgCase.gp > 0 ? _xgCase.gp + '%' : '明显') + '（' + _xgCase.n + '户真实数据）。';
   } else if (_zntCase && _zntCase.dp > 0) {
     _caseLine = _region + _cat + '商户签约智能体后，日均DPV平均提升' + _zntCase.dp + '%（' + _zntCase.n + '户真实数据）。';
+  } else if (_dzCase && _dzCase.dp > 0) {
+    _caseLine = _region + _cat + '商户签约顶展后，日均DPV平均提升' + _dzCase.dp + '%，日均GMV提升' + (_dzCase.gp > 0 ? _dzCase.gp + '%' : '明显') + '（' + _dzCase.n + '户真实数据）。';
+  } else if (_zxCase && _zxCase.dp > 0) {
+    _caseLine = _region + _cat + '商户签约钻展后，日均DPV平均提升' + _zxCase.dp + '%（' + _zxCase.n + '户真实数据）。';
+  } else if (_djCase && _djCase.dp > 0) {
+    _caseLine = _region + _cat + '商户签约导结后，日均DPV平均提升' + _djCase.dp + '%（' + _djCase.n + '户真实数据）。';
   } else {
     _caseLine = d.city + '同品类商户签约后DPV上升率超80%。';
   }
@@ -1579,6 +1612,125 @@ var REAL_CASES = {
       '烤肉':{n:24,db:11,da:24,dp:112,gb:13,ga:20,gp:54},
       '重庆火锅':{n:17,db:146,da:174,dp:20,gb:165,ga:168,gp:1}
     }
+  },
+  dz: {
+    '华北区':{
+      '烧烤':{n:20,db:239,da:328,dp:37,gb:156,ga:330,gp:112},
+      '鲁菜':{n:15,db:384,da:491,dp:28,gb:5225,ga:5893,gp:13},
+      '海鲜':{n:14,db:235,da:313,dp:33,gb:839,ga:727,gp:-13},
+      '东北菜':{n:13,db:49,da:74,dp:51,gb:34,ga:85,gp:151},
+      '西餐':{n:10,db:189,da:266,dp:41,gb:587,ga:1387,gp:136},
+      '自助餐':{n:9,db:128,da:172,dp:34,gb:1625,ga:1549,gp:-5},
+      '涮羊肉':{n:7,db:387,da:459,dp:19,gb:568,ga:833,gp:47},
+      '小吃快餐':{n:7,db:158,da:196,dp:25,gb:169,ga:235,gp:39},
+      '面馆':{n:5,db:289,da:355,dp:23,gb:448,ga:377,gp:-16},
+      '湘菜':{n:5,db:190,da:253,dp:34,gb:208,ga:199,gp:-4}
+    },
+    '华东区':{
+      '烧烤':{n:17,db:141,da:235,dp:67,gb:102,ga:171,gp:68},
+      '江浙菜':{n:17,db:121,da:132,dp:10,gb:88,ga:146,gp:66},
+      '徽菜':{n:9,db:85,da:70,dp:-18,gb:418,ga:220,gp:-47},
+      '海鲜':{n:6,db:79,da:81,dp:3,gb:315,ga:315,gp:0},
+      '农家菜':{n:6,db:52,da:76,dp:47,gb:47,ga:156,gp:231},
+      '面馆':{n:5,db:88,da:112,dp:28,gb:21,ga:42,gp:102},
+      '粤菜':{n:4,db:45,da:61,dp:36,gb:17,ga:25,gp:48},
+      '私房菜':{n:4,db:57,da:107,dp:90,gb:183,ga:490,gp:168},
+      '西餐':{n:4,db:211,da:272,dp:29,gb:277,ga:511,gp:84},
+      '中餐':{n:4,db:313,da:353,dp:13,gb:495,ga:352,gp:-29}
+    },
+    '华南区':{
+      '粤菜':{n:19,db:162,da:199,dp:23,gb:248,ga:307,gp:24},
+      '牛肉火锅':{n:10,db:111,da:143,dp:29,gb:297,ga:356,gp:20},
+      '海鲜':{n:10,db:65,da:76,dp:17,gb:168,ga:166,gp:-1},
+      '湘菜':{n:8,db:51,da:101,dp:96,gb:8,ga:46,gp:474},
+      '农家菜':{n:5,db:50,da:64,dp:28,gb:25,ga:61,gp:146},
+      '江西菜':{n:5,db:117,da:141,dp:20,gb:168,ga:162,gp:-4},
+      '水产海鲜':{n:4,db:86,da:114,dp:34,gb:66,ga:97,gp:46},
+      '面馆':{n:4,db:72,da:219,dp:206,gb:8,ga:133,gp:1589},
+      '烧烤':{n:4,db:21,da:37,dp:75,gb:10,ga:226,gp:2170},
+      '西餐':{n:4,db:427,da:521,dp:22,gb:1073,ga:1096,gp:2}
+    },
+    '华中区':{
+      '湖北菜':{n:9,db:29,da:43,dp:49,gb:94,ga:57,gp:-39},
+      '烧烤':{n:8,db:91,da:118,dp:30,gb:209,ga:522,gp:150},
+      '自助餐':{n:7,db:156,da:191,dp:23,gb:2056,ga:1860,gp:-10},
+      '鱼火锅':{n:6,db:228,da:319,dp:40,gb:478,ga:1112,gp:133},
+      '西北菜':{n:6,db:193,da:334,dp:73,gb:208,ga:388,gp:87},
+      '中餐':{n:4,db:34,da:55,dp:61,gb:1517,ga:5524,gp:264},
+      '河南菜':{n:4,db:240,da:424,dp:77,gb:196,ga:397,gp:102},
+      '面馆':{n:3,db:669,da:877,dp:31,gb:132,ga:1596,gp:1106},
+      '西式糕点':{n:3,db:204,da:264,dp:29,gb:728,ga:315,gp:-57},
+      '川菜':{n:3,db:38,da:54,dp:40,gb:24,ga:26,gp:10}
+    },
+    '华西区':{
+      '烧烤':{n:18,db:116,da:176,dp:51,gb:55,ga:82,gp:49},
+      '湘菜':{n:12,db:273,da:328,dp:20,gb:365,ga:544,gp:49},
+      '火锅':{n:10,db:477,da:560,dp:17,gb:203,ga:302,gp:49},
+      '川菜':{n:9,db:153,da:208,dp:36,gb:421,ga:561,gp:33},
+      '重庆火锅':{n:8,db:235,da:248,dp:6,gb:220,ga:183,gp:-17},
+      '贵州菜':{n:6,db:195,da:367,dp:88,gb:217,ga:278,gp:28},
+      '米粉':{n:6,db:64,da:117,dp:83,gb:6,ga:19,gp:218},
+      '牛肉火锅':{n:5,db:27,da:61,dp:127,gb:34,ga:99,gp:191},
+      '菌菇火锅':{n:5,db:661,da:979,dp:48,gb:1382,ga:2318,gp:68},
+      '中餐':{n:5,db:88,da:107,dp:21,gb:304,ga:290,gp:-4}
+    }
+  },
+  zx: {
+    '华北区':{
+      '烧烤':{n:10,db:137,da:203,dp:48,gb:316,ga:329,gp:4},
+      '海鲜':{n:5,db:507,da:694,dp:37,gb:971,ga:954,gp:-2},
+      '中餐':{n:3,db:159,da:303,dp:91,gb:142,ga:652,gp:360},
+      '东北菜':{n:3,db:33,da:65,dp:99,gb:34,ga:206,gp:509}
+    },
+    '华东区':{
+      '烧烤':{n:2,db:57,da:89,dp:57,gb:3,ga:2,gp:-38},
+      '海鲜':{n:2,db:32,da:53,dp:67,gb:44,ga:41,gp:-7},
+      '江浙菜':{n:1,db:24,da:102,dp:332,gb:49,ga:135,gp:175},
+      '农家菜':{n:1,db:215,da:294,dp:37,gb:197,ga:130,gp:-34},
+      '日本料理':{n:1,db:73,da:92,dp:26,gb:39,ga:76,gp:96},
+      '徽菜':{n:1,db:28,da:62,dp:117,gb:16,ga:38,gp:143}
+    },
+    '华南区':{
+      '粤菜':{n:2,db:39,da:72,dp:84,gb:0,ga:44,gp:0},
+      '海鲜火锅':{n:1,db:279,da:342,dp:23,gb:752,ga:964,gp:28},
+      '中餐':{n:1,db:79,da:82,dp:4,gb:77,ga:194,gp:151}
+    },
+    '华中区':{
+      '西北菜':{n:3,db:118,da:159,dp:35,gb:74,ga:134,gp:81},
+      '烧烤':{n:2,db:99,da:140,dp:41,gb:42,ga:49,gp:19},
+      '川菜':{n:1,db:148,da:192,dp:30,gb:27,ga:166,gp:523}
+    },
+    '华西区':{
+      '云南菜':{n:3,db:27,da:51,dp:87,gb:34,ga:44,gp:33},
+      '川菜':{n:3,db:119,da:145,dp:22,gb:410,ga:606,gp:48},
+      '火锅':{n:2,db:69,da:155,dp:124,gb:79,ga:233,gp:194}
+    }
+  },
+  dj: {
+    '华北区':{
+      '西餐':{n:2,db:77,da:199,dp:160,gb:20,ga:66,gp:231},
+      '海鲜':{n:2,db:377,da:794,dp:111,gb:837,ga:1238,gp:48}
+    },
+    '华东区':{
+      '江浙菜':{n:2,db:106,da:94,dp:-11,gb:113,ga:102,gp:-10},
+      '海鲜':{n:2,db:33,da:65,dp:96,gb:57,ga:103,gp:81},
+      '火锅':{n:1,db:57,da:82,dp:45,gb:154,ga:337,gp:118},
+      '湘菜':{n:1,db:68,da:102,dp:49,gb:61,ga:290,gp:378}
+    },
+    '华南区':{
+      '私房菜':{n:1,db:78,da:144,dp:84,gb:5,ga:260,gp:4706},
+      '牛肉火锅':{n:1,db:367,da:435,dp:19,gb:506,ga:438,gp:-13}
+    },
+    '华中区':{
+      '鱼火锅':{n:3,db:301,da:441,dp:46,gb:25626,ga:26798,gp:5},
+      '山西菜':{n:1,db:121,da:222,dp:83,gb:98,ga:184,gp:88},
+      '重庆火锅':{n:1,db:737,da:847,dp:15,gb:519,ga:820,gp:58}
+    },
+    '华西区':{
+      '川菜':{n:4,db:221,da:368,dp:67,gb:698,ga:5295,gp:658},
+      '海鲜':{n:2,db:736,da:1079,dp:47,gb:265,ga:502,gp:89},
+      '小吃快餐':{n:2,db:227,da:296,dp:30,gb:10,ga:8,gp:-16}
+    }
   }
 };
 
@@ -1651,6 +1803,39 @@ function renderCases(d) {
       dpvBefore: zntData.db, dpvAfter: zntData.da,
       gmvBefore: zntData.gb, gmvAfter: zntData.ga,
       dpvPct: zntData.dp, gmvPct: zntData.gp
+    });
+  }
+  // 顶展案例
+  var dzData = findCaseData(region, cat, 'dz');
+  if (dzData && dzData.dp > 0) {
+    cases.push({
+      name: region + ' · ' + cat + '（' + dzData.n + '户顶展新签）',
+      product: '顶展',
+      dpvBefore: dzData.db, dpvAfter: dzData.da,
+      gmvBefore: dzData.gb, gmvAfter: dzData.ga,
+      dpvPct: dzData.dp, gmvPct: dzData.gp
+    });
+  }
+  // 钻展案例
+  var zxData = findCaseData(region, cat, 'zx');
+  if (zxData && zxData.dp > 0) {
+    cases.push({
+      name: region + ' · ' + cat + '（' + zxData.n + '户钻展新签）',
+      product: '钻展',
+      dpvBefore: zxData.db, dpvAfter: zxData.da,
+      gmvBefore: zxData.gb, gmvAfter: zxData.ga,
+      dpvPct: zxData.dp, gmvPct: zxData.gp
+    });
+  }
+  // 导结案例
+  var djData = findCaseData(region, cat, 'dj');
+  if (djData && djData.dp > 0) {
+    cases.push({
+      name: region + ' · ' + cat + '（' + djData.n + '户导结新签）',
+      product: '导结',
+      dpvBefore: djData.db, dpvAfter: djData.da,
+      gmvBefore: djData.gb, gmvAfter: djData.ga,
+      dpvPct: djData.dp, gmvPct: djData.gp
     });
   }
 
