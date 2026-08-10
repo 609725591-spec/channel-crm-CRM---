@@ -866,8 +866,8 @@ async function loadData() {
 
       var [pidsRes, leadsRes, occRes] = await Promise.all([pidQuery, leadQuery, occQuery]);
 
-      STATE.commercialData = (pidsRes.data && pidsRes.data.length > 0) ? pidsRes.data : genDemoPIDs();
-      STATE.leadsData = (leadsRes.data && leadsRes.data.length > 0) ? leadsRes.data : genDemoLeads();
+      STATE.commercialData = (pidsRes.data) ? pidsRes.data : [];
+      STATE.leadsData = (leadsRes.data) ? leadsRes.data : [];
       STATE.occupancy = (occRes.data) ? occRes.data : [];
 
       // Load follow-ups for this provider
@@ -1593,12 +1593,6 @@ async function saveFollowUp() {
 function renderFollowUpTimeline(targetType, targetId) {
   var key = targetType + '_' + targetId;
   var records = STATE.followUps[key] || [];
-
-  // Generate demo records if empty
-  if (records.length === 0) {
-    records = genDemoFollowUps(targetType, targetId);
-    STATE.followUps[key] = records;
-  }
 
   if (records.length === 0) {
     return '<div class="empty-state"><div class="icon">📝</div><div class="msg">暂无跟进记录</div></div>';
