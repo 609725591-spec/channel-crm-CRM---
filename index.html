@@ -245,6 +245,16 @@ a { color:var(--accent2); text-decoration:none; }
   .data-table { font-size:12px; }
   .data-table th, .data-table td { padding:6px 8px; }
 }
+/* Employee combobox */
+.emp-combo { position:relative; margin-bottom:12px; }
+.emp-combo label { display:block; font-size:13px; color:var(--text2); margin-bottom:4px; }
+.emp-combo input { width:100%; padding:8px 12px; border:1px solid var(--border); border-radius:var(--radius); background:var(--bg2); color:var(--text1); font-size:14px; box-sizing:border-box; }
+.emp-combo input:focus { border-color:var(--blue); outline:none; }
+.emp-combo .emp-dropdown { position:absolute; top:100%; left:0; right:0; background:var(--bg2); border:1px solid var(--border); border-radius:0 0 var(--radius) var(--radius); max-height:180px; overflow-y:auto; z-index:100; display:none; }
+.emp-combo .emp-dropdown.show { display:block; }
+.emp-combo .emp-option { padding:8px 12px; cursor:pointer; font-size:13px; color:var(--text1); }
+.emp-combo .emp-option:hover { background:var(--blue); color:#fff; }
+.emp-combo .emp-empty { padding:8px 12px; color:var(--text3); font-size:13px; }
 </style>
 </head>
 <body>
@@ -546,6 +556,7 @@ var STATE = {
   leadsFiltered: [],
   leadsPage: 1,
   followUps: {},     // {targetType_targetId: [records]}
+  employees: [],     // employee names for current provider
   occupancy: [],     // occupancy data for current cities
   charts: {}         // chart instances
 };
@@ -883,6 +894,17 @@ async function loadData() {
         seenPois[d.poi_id] = true;
         return true;
       });
+
+      // Load employees for this provider (for 跟进人 selector)
+      var empQuery = sb.from('crm_employees').select('name,role,is_boss')
+        .eq('provider_id', STATE.user.provider_id)
+        .order('is_boss', {ascending: false});
+      var empRes = await fetchAll(empQuery);
+      if (empRes.data) {
+        STATE.employees = empRes.data.map(function(e) {
+          return e.name + (e.is_boss ? '（负责人）' : e.role ? '（' + e.role + '）' : '');
+        });
+      }
 
       // Load follow-ups for this provider
       var fuQuery = sb.from('crm_follow_ups').select('*')
@@ -1283,6 +1305,9 @@ function showPIDDetail(pid) {
     detailItem('30天DPV', fmt(d.dpv_30d)) + detailItem('90天GMV', fmtMoney(d.gmv_90d)) +
     '</div></div>';
 
+  // 跟进人 selector
+  body += renderEmpCombo('pidEmp');
+
   // Occupancy check
   var occ = checkOccupancy(d.city, d.category_l2);
   if (occ.occupied) {
@@ -1320,6 +1345,7 @@ function showPIDDetail(pid) {
 
   $('modalBody').innerHTML = body;
   $('detailModal').classList.add('active');
+  initEmpCombo('pidEmp');
 }
 
 function renderRecommendations(d) {
@@ -1497,6 +1523,10 @@ function showLeadDetail(poiId) {
     detailItem('烟火档位', d.smoke_level) + detailItem('30天DPV', fmt(d.dpv_30d)) +
     detailItem('城市高优', d.is_high_priority ? '✅ 是' : '否') +
     '</div></div>';
+
+  // 跟进人 selector
+  body += renderEmpCombo('leadEmp');
+
   body += '<div class="detail-section"><h4>开店引导</h4>';
   body += '<div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);padding:14px;font-size:13px;line-height:1.8;">';
   body += '该POI尚未开通高德门店，建议引导商户完成开店。<br>';
@@ -1512,10 +1542,56 @@ function showLeadDetail(poiId) {
 
   $('modalBody').innerHTML = body;
   $('detailModal').classList.add('active');
+  initEmpCombo('leadEmp');
 }
 
 function detailItem(label, value) {
   return '<div class="detail-item"><div class="dl">' + label + '</div><div class="dv">' + (value||'-') + '</div></div>';
+}
+
+function renderEmpCombo(id) {
+  var html = '<div class="emp-combo" id="' + id + 'Wrap">' +
+    '<label>跟进人</label>' +
+    '<input type="text" id="' + id + '" placeholder="搜索或输入跟进人姓名" autocomplete="off" />' +
+    '<div class="emp-dropdown" id="' + id + 'Drop"></div></div>';
+  return html;
+}
+
+function initEmpCombo(id) {
+  var input = $(id);
+  var drop = $(id + 'Drop');
+  if (!input || !drop) return;
+
+  function renderOptions(filter) {
+    var list = STATE.employees.filter(function(n) {
+      return !filter || n.toLowerCase().indexOf(filter.toLowerCase()) >= 0;
+    });
+    if (list.length === 0 && filter) {
+      drop.innerHTML = '<div class="emp-empty">按回车使用自定义: ' + filter + '</div>';
+    } else if (list.length === 0) {
+      drop.innerHTML = '<div class="emp-empty">输入姓名后按回车</div>';
+    } else {
+      drop.innerHTML = list.map(function(n) {
+        return '<div class="emp-option" onclick="selectEmp(\'' + id + '\',\'' + n.replace(/'/g,"\\'") + '\')">' + n + '</div>';
+      }).join('');
+    }
+    drop.classList.add('show');
+  }
+
+  input.addEventListener('focus', function() { renderOptions(input.value); });
+  input.addEventListener('input', function() { renderOptions(input.value); });
+  input.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') { e.preventDefault(); drop.classList.remove('show'); }
+    if (e.key === 'Escape') { drop.classList.remove('show'); }
+  });
+  document.addEventListener('click', function(e) {
+    if (!e.target.closest('#' + id + 'Wrap')) drop.classList.remove('show');
+  });
+}
+
+function selectEmp(inputId, name) {
+  $(inputId).value = name;
+  $(inputId + 'Drop').classList.remove('show');
 }
 
 function switchDetailTab(btn, idx) {
@@ -1567,12 +1643,20 @@ function closeFollowModal() { $('followModal').classList.remove('active'); curre
 
 async function saveFollowUp() {
   if (!currentFollowTarget) return;
+  // Get selected employee from combobox (PID or Lead detail)
+  var empName = '';
+  var pidEmpEl = $('pidEmp');
+  var leadEmpEl = $('leadEmp');
+  if (pidEmpEl && pidEmpEl.value) empName = pidEmpEl.value;
+  else if (leadEmpEl && leadEmpEl.value) empName = leadEmpEl.value;
+  if (!empName) empName = STATE.user.provider_name;
+
   var record = {
     id: 'fu_' + Date.now() + '_' + Math.random().toString(36).substring(2,6),
     target_type: currentFollowTarget.type,
     target_id: currentFollowTarget.id,
     provider_id: STATE.user.provider_id,
-    employee_name: STATE.user.provider_name,
+    employee_name: empName,
     status: $('fuStatus').value,
     product_interest: $('fuProduct').value,
     note: $('fuNote').value,
