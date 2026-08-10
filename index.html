@@ -2120,17 +2120,26 @@ function renderCases(d) {
       }
       html += '</div>';
       html += '</div>';
-      html += '<div style="display:flex;gap:16px;text-align:center;flex-shrink:0;">';
-      var bestDpv = cases.reduce(function(best, c) { return (!best || c.dpvPct > best.dpvPct) ? c : best; }, null);
-      var bestGmv = cases.reduce(function(best, c) { return (!best || c.gmvPct > best.gmvPct) ? c : best; }, null);
-      if (bestDpv) {
-        var dpvStr = bestDpv.dpvPct > 0 ? '↑' + bestDpv.dpvPct + '%' : (bestDpv.dpvPct < 0 ? '↓' + Math.abs(bestDpv.dpvPct) + '%' : '持平');
-        var dpvColor = bestDpv.dpvPct > 0 ? 'var(--green)' : (bestDpv.dpvPct < 0 ? 'var(--red)' : 'var(--text2)');
+      html += '<div style="display:flex;gap:12px;text-align:center;flex-shrink:0;">';
+      // 按该商户自己的类目查REAL_CASES增幅
+      var mCat = p.category_l2 || cat;
+      var mProds = [{k:'xg'},{k:'znt'},{k:'dz'},{k:'zx'},{k:'dj'}];
+      var mBestDpv = null, mBestGmv = null;
+      mProds.forEach(function(mp) {
+        var mcd = findCaseData(region, mCat, mp.k);
+        if (mcd) {
+          if (mcd.dp > 0 && (!mBestDpv || mcd.dp > mBestDpv.dp)) mBestDpv = mcd;
+          if (mcd.gp > 0 && (!mBestGmv || mcd.gp > mBestGmv.gp)) mBestGmv = mcd;
+        }
+      });
+      if (mBestDpv) {
+        var dpvStr = mBestDpv.dp > 0 ? '↑' + mBestDpv.dp + '%' : '持平';
+        var dpvColor = mBestDpv.dp > 0 ? 'var(--green)' : 'var(--text2)';
         html += '<div><div style="font-size:10px;color:var(--text3);">DPV提升</div><div style="font-size:15px;font-weight:700;color:' + dpvColor + ';">' + dpvStr + '</div></div>';
       }
-      if (bestGmv) {
-        var gmvStr = bestGmv.gmvPct > 0 ? '↑' + bestGmv.gmvPct + '%' : (bestGmv.gmvPct < 0 ? '↓' + Math.abs(bestGmv.gmvPct) + '%' : '持平');
-        var gmvColor = bestGmv.gmvPct > 0 ? 'var(--green)' : (bestGmv.gmvPct < 0 ? 'var(--red)' : 'var(--text2)');
+      if (mBestGmv) {
+        var gmvStr = mBestGmv.gp > 0 ? '↑' + mBestGmv.gp + '%' : '持平';
+        var gmvColor = mBestGmv.gp > 0 ? 'var(--green)' : 'var(--text2)';
         html += '<div><div style="font-size:10px;color:var(--text3);">GMV提升</div><div style="font-size:15px;font-weight:700;color:' + gmvColor + ';">' + gmvStr + '</div></div>';
       }
       html += '</div>';
