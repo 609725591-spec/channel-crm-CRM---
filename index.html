@@ -1290,6 +1290,13 @@ function renderCommercialTable() {
       if (d.is_signed_eff) signed.push('效广');
       if (d.is_signed_brand) signed.push('品广');
       var signedStr = signed.length > 0 ? signed.join('+') : '<span style="color:var(--red)">未签约</span>';
+
+      // 检查顶展/钻展机会：未占量 = 有机会
+      var occ = checkOccupancy(d.city, d.category_l2);
+      if (!occ.occupied && !d.is_signed_brand) {
+        signedStr += ' <span class="badge badge-purple" style="font-size:10px;">顶、钻展机会</span>';
+      }
+
       var fuStatus = getFollowUpStatus('pid', d.pid);
 
       html += '<tr>' +
@@ -1487,58 +1494,127 @@ function showPIDDetail(pid, autoFollow) {
 function renderRecommendations(d) {
   var dpv = d.dpv_30d || 0;
   var stores = d.store_count || 1;
-  var products = [];
+  var region = getRegion(d.city);
+  var cat = d.category_l2 || '中餐';
 
-  // Recommendation logic based on DPV tier and store scale
-  if (dpv < 10) {
-    products.push({name:'品牌智能体', desc:'基础线上形象搭建，¥1188/年起。帮门店从0到1建立线上经营能力，AI智能回复评论、优化门店信息。', tag:'基础必备'});
-    products.push({name:'效果广告-CPC', desc:'按点击付费，预算自控。低DPV商户签后DPV上升率98%，适合试投验证效果。', tag:'入门投流'});
-  } else if (dpv < 100) {
-    products.push({name:'品牌智能体', desc:'¥1188/年，AI门店顾问+智能回复+搜索优化，提升自然流量转化。', tag:'基础必备'});
-    products.push({name:'获客宝+OCPC', desc:'智能获客+按效果出价，适合中DPV商户精准获客。系统自动优化投放，省心省力。', tag:'推荐组合'});
-  } else if (dpv < 500) {
-    products.push({name:'品牌智能体', desc:'¥1188/年，持续优化门店线上形象。', tag:'基础'});
-    products.push({name:'获客宝+OCPC-GMV', desc:'按GMV效果出价，旺季冲量利器。' + d.city + '同品类商户户均充值¥' + fmt(Math.round(dpv * 15)) + '。', tag:'推荐'});
-    if (stores >= 3) products.push({name:'品牌智能体品专版', desc:'品牌智能体+mini品专打包，¥1999/年/POI起。品牌搜品专卡片+图面气泡广告。', tag:'品牌升级'});
-  } else {
-    products.push({name:'效果广告-NoBid/OCPC', desc:'高DPV商户推荐NoBid放量投放，户均充值¥13,000+。', tag:'放量'});
-    products.push({name:'顶展', desc:'搜索首屏品牌展示，' + d.category_l2 + '类目词包可抢占。', tag:'品牌曝光'});
-    products.push({name:'品牌智能体品专版', desc:'品牌搜品专+智能体打包，¥' + (stores <= 9 ? '1999' : '1799') + '/年/POI。', tag:'品牌升级'});
-  }
+  // 基于5-7月真实签约数据推荐产品
+  var caseMap = {
+    znt: {name:'品牌智能体', data: findCaseData(region, cat, 'znt')},
+    xg: {name:'效果广告', data: findCaseData(region, cat, 'xg')},
+    dz: {name:'顶展', data: findCaseData(region, cat, 'dz')},
+    zx: {name:'钻展', data: findCaseData(region, cat, 'zx')},
+    dj: {name:'导结', data: findCaseData(region, cat, 'dj')}
+  };
+
+  // Check occupancy for 顶展/钻展
+  var occ = checkOccupancy(d.city, cat);
+  var hasDzOpp = !occ.occupied;
 
   var html = '<div class="rec-cards">';
-  products.forEach(function(p) {
-    html += '<div class="rec-card"><div class="rc-name">' + p.name + '</div><div class="rc-desc">' + p.desc + '</div><span class="rc-tag">' + p.tag + '</span></div>';
-  });
+  var recCount = 0;
+
+  // 智能体 - 几乎适用所有商户
+  if (caseMap.znt.data && caseMap.znt.data.dp > 0) {
+    var c = caseMap.znt.data;
+    html += '<div class="rec-card"><div class="rc-name">品牌智能体</div>' +
+      '<div class="rc-desc">¥1188/年，AI门店顾问+智能回复+搜索优化。' + region + cat + c.n + '户签约后DPV +' + c.dp + '%。</div>' +
+      '<span class="rc-tag">基础必备</span></div>';
+    recCount++;
+  } else {
+    html += '<div class="rec-card"><div class="rc-name">品牌智能体</div>' +
+      '<div class="rc-desc">¥1188/年，AI门店顾问+智能回复+搜索优化，提升自然流量转化。</div>' +
+      '<span class="rc-tag">基础必备</span></div>';
+    recCount++;
+  }
+
+  // 效果广告
+  if (caseMap.xg.data && caseMap.xg.data.dp > 0) {
+    var c = caseMap.xg.data;
+    var effDesc = dpv < 50 ? 'CPC按点击付费，预算自控。' : (dpv < 200 ? '获客宝+OCPC智能出价，精准获客。' : 'NoBid/OCPC放量投放，旺季冲量。');
+    html += '<div class="rec-card"><div class="rc-name">效果广告</div>' +
+      '<div class="rc-desc">' + effDesc + region + cat + c.n + '户签约后DPV +' + c.dp + '%' + (c.gp > 0 ? '、GMV +' + c.gp + '%' : '') + '。</div>' +
+      '<span class="rc-tag">推荐投流</span></div>';
+    recCount++;
+  } else if (dpv >= 10) {
+    html += '<div class="rec-card"><div class="rc-name">效果广告</div>' +
+      '<div class="rc-desc">' + (dpv < 100 ? 'CPC按点击付费，预算自控，不点不花钱。' : '获客宝+OCPC智能出价，精准获客。') + '</div>' +
+      '<span class="rc-tag">推荐投流</span></div>';
+    recCount++;
+  }
+
+  // 顶展
+  if (caseMap.dz.data && caseMap.dz.data.dp > 0) {
+    var c = caseMap.dz.data;
+    if (hasDzOpp) {
+      html += '<div class="rec-card"><div class="rc-name">顶展</div>' +
+        '<div class="rc-desc">搜索首屏品牌展示，' + cat + '类目词包当前可售。' + region + cat + c.n + '户签约后DPV +' + c.dp + '%' + (c.gp > 0 ? '、GMV +' + c.gp + '%' : '') + '。</div>' +
+        '<span class="rc-tag">品牌曝光</span></div>';
+      recCount++;
+    }
+  } else if (hasDzOpp && dpv >= 100) {
+    html += '<div class="rec-card"><div class="rc-name">顶展</div>' +
+      '<div class="rc-desc">搜索首屏品牌展示，' + cat + '类目词包当前可售，抢占搜索流量高地。</div>' +
+      '<span class="rc-tag">品牌曝光</span></div>';
+    recCount++;
+  }
+
+  // 钻展
+  if (caseMap.zx.data && caseMap.zx.data.dp > 0) {
+    var c = caseMap.zx.data;
+    if (hasDzOpp) {
+      html += '<div class="rec-card"><div class="rc-name">钻展</div>' +
+        '<div class="rc-desc">推荐流场景精准曝光。' + region + cat + c.n + '户签约后DPV +' + c.dp + '%' + (c.gp > 0 ? '、GMV +' + c.gp + '%' : '') + '。</div>' +
+        '<span class="rc-tag">品牌曝光</span></div>';
+      recCount++;
+    }
+  } else if (hasDzOpp && dpv >= 200) {
+    html += '<div class="rec-card"><div class="rc-name">钻展</div>' +
+      '<div class="rc-desc">推荐流场景精准曝光，适合高DPV商户扩大品牌影响力。</div>' +
+      '<span class="rc-tag">品牌曝光</span></div>';
+    recCount++;
+  }
+
+  // 导结
+  if (caseMap.dj.data && caseMap.dj.data.dp > 0) {
+    var c = caseMap.dj.data;
+    html += '<div class="rec-card"><div class="rc-name">导结</div>' +
+      '<div class="rc-desc">导航结束页品牌展示。' + region + cat + c.n + '户签约后DPV +' + c.dp + '%' + (c.gp > 0 ? '、GMV +' + c.gp + '%' : '') + '。</div>' +
+      '<span class="rc-tag">场景覆盖</span></div>';
+    recCount++;
+  }
+
+  // 品专版 - 适合少店品牌
+  if (stores >= 1 && stores <= 9 && !d.is_signed_brand) {
+    html += '<div class="rec-card"><div class="rc-name">品牌智能体品专版</div>' +
+      '<div class="rc-desc">品牌智能体+mini品专打包，¥1999/年/POI起。品牌搜品专卡片+图面气泡广告，需商标注册证。</div>' +
+      '<span class="rc-tag">品牌升级</span></div>';
+    recCount++;
+  }
+
   html += '</div>';
 
-  // Script/talking points
-  // 用真实数据生成话术
-  var _region = getRegion(d.city);
-  var _cat = d.category_l2 || '中餐';
-  var _xgCase = findCaseData(_region, _cat, 'xg');
-  var _zntCase = findCaseData(_region, _cat, 'znt');
-  var _dzCase = findCaseData(_region, _cat, 'dz');
-  var _zxCase = findCaseData(_region, _cat, 'zx');
-  var _djCase = findCaseData(_region, _cat, 'dj');
+  // 推荐话术 - 用真实数据
   var _caseLine = '';
-  if (_xgCase && _xgCase.dp > 0) {
-    _caseLine = _region + _cat + '商户签约效果广告后，日均DPV平均提升' + _xgCase.dp + '%，日均GMV提升' + (_xgCase.gp > 0 ? _xgCase.gp + '%' : '明显') + '（' + _xgCase.n + '户真实数据）。';
-  } else if (_zntCase && _zntCase.dp > 0) {
-    _caseLine = _region + _cat + '商户签约智能体后，日均DPV平均提升' + _zntCase.dp + '%（' + _zntCase.n + '户真实数据）。';
-  } else if (_dzCase && _dzCase.dp > 0) {
-    _caseLine = _region + _cat + '商户签约顶展后，日均DPV平均提升' + _dzCase.dp + '%，日均GMV提升' + (_dzCase.gp > 0 ? _dzCase.gp + '%' : '明显') + '（' + _dzCase.n + '户真实数据）。';
-  } else if (_zxCase && _zxCase.dp > 0) {
-    _caseLine = _region + _cat + '商户签约钻展后，日均DPV平均提升' + _zxCase.dp + '%（' + _zxCase.n + '户真实数据）。';
-  } else if (_djCase && _djCase.dp > 0) {
-    _caseLine = _region + _cat + '商户签约导结后，日均DPV平均提升' + _djCase.dp + '%（' + _djCase.n + '户真实数据）。';
+  var allCases = ['xg','znt','dz','zx','dj'].map(function(k){ return {key:k, d:caseMap[k].data, name:caseMap[k].name}; });
+  var bestCase = null;
+  allCases.forEach(function(ac) { if (ac.d && ac.d.dp > 0 && (!bestCase || ac.d.n > bestCase.d.n)) bestCase = ac; });
+  if (bestCase) {
+    _caseLine = region + cat + '商户签约' + bestCase.name + '后，日均DPV平均提升' + bestCase.d.dp + '%' +
+      (bestCase.d.gp > 0 ? '，GMV提升' + bestCase.d.gp + '%' : '') + '（' + bestCase.d.n + '户真实数据）。';
   } else {
     _caseLine = d.city + '同品类商户签约后DPV上升率超80%。';
   }
+
+  // 方案话术 - 根据实际可推产品生成
+  var scriptProducts = [];
+  if (caseMap.znt.data || true) scriptProducts.push('品牌智能体');
+  if (caseMap.xg.data || dpv >= 10) scriptProducts.push(dpv < 100 ? 'CPC小预算试投' : '获客宝按效果出价');
+  if (hasDzOpp && (caseMap.dz.data || dpv >= 100)) scriptProducts.push('顶展');
+
   html += '<div class="detail-section" style="margin-top:20px;"><h4>推荐话术</h4>';
   html += '<div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);padding:14px;font-size:13px;line-height:1.8;">';
   html += '<strong>开场：</strong>"' + (d.store_name||'您门店') + '目前日均DPV有' + d.dpv_30d + '，说明周边用户搜索需求很旺，但还没做商业化投放，相当于有客流没接住。"<br>';
-  html += '<strong>方案：</strong>"建议先用品牌智能体把线上形象搭好，再配' + (dpv >= 100 ? '获客宝按效果出价' : 'CPC小预算试投') + '，预算自控，不点不花钱。"<br>';
+  html += '<strong>方案：</strong>"建议先用' + scriptProducts.join('，再配') + '，预算自控，不点不花钱。"' + (hasDzOpp ? '<br><strong>机会：</strong>"当前' + cat + '类目顶展/钻展词包未占量，可以先抢注。"' : '') + '<br>';
   html += '<strong>案例：</strong>"' + _caseLine + '"';
   html += '</div></div>';
 
@@ -1925,61 +2001,39 @@ function renderCases(d) {
   var city = d.city;
   var cat = d.category_l2 || '中餐';
   var region = getRegion(city);
-
   var cases = [];
-  // 效广案例
-  var xgData = findCaseData(region, cat, 'xg');
-  if (xgData && xgData.dp > 0) {
-    cases.push({
-      name: region + ' · ' + cat + '（' + xgData.n + '户效广新签）',
-      product: '效果广告',
-      dpvBefore: xgData.db, dpvAfter: xgData.da,
-      gmvBefore: xgData.gb, gmvAfter: xgData.ga,
-      dpvPct: xgData.dp, gmvPct: xgData.gp
+
+  // === 优先查同城已签PID（CRM真实数据）===
+  var citySigned = [];
+  if (STATE.commercialData) {
+    STATE.commercialData.forEach(function(p) {
+      if (p.city === city && (p.is_signed_agent || p.is_signed_eff || p.is_signed_brand) && p.pid !== d.pid) {
+        citySigned.push(p);
+      }
     });
   }
-  // 智能体案例
-  var zntData = findCaseData(region, cat, 'znt');
-  if (zntData && zntData.dp > 0) {
-    cases.push({
-      name: region + ' · ' + cat + '（' + zntData.n + '户智能体新签）',
-      product: '品牌智能体',
-      dpvBefore: zntData.db, dpvAfter: zntData.da,
-      gmvBefore: zntData.gb, gmvAfter: zntData.ga,
-      dpvPct: zntData.dp, gmvPct: zntData.gp
-    });
+
+  if (citySigned.length >= 2) {
+    var agentCity = citySigned.filter(function(p){return p.is_signed_agent;});
+    var effCity = citySigned.filter(function(p){return p.is_signed_eff;});
+    var brandCity = citySigned.filter(function(p){return p.is_signed_brand;});
+    if (agentCity.length > 0) {
+      cases.push({name:city+' · '+cat+'（'+agentCity.length+'户智能体已签）',product:'品牌智能体',avgDpv:Math.round(agentCity.reduce(function(s,p){return s+(p.dpv_30d||0);},0)/agentCity.length),avgGmv:Math.round(agentCity.reduce(function(s,p){return s+(p.gmv_90d||0);},0)/agentCity.length),isCity:true});
+    }
+    if (effCity.length > 0) {
+      cases.push({name:city+' · '+cat+'（'+effCity.length+'户效广已签）',product:'效果广告',avgDpv:Math.round(effCity.reduce(function(s,p){return s+(p.dpv_30d||0);},0)/effCity.length),avgGmv:Math.round(effCity.reduce(function(s,p){return s+(p.gmv_90d||0);},0)/effCity.length),isCity:true});
+    }
+    if (brandCity.length > 0) {
+      cases.push({name:city+' · '+cat+'（'+brandCity.length+'户品广已签）',product:'品广',avgDpv:Math.round(brandCity.reduce(function(s,p){return s+(p.dpv_30d||0);},0)/brandCity.length),avgGmv:Math.round(brandCity.reduce(function(s,p){return s+(p.gmv_90d||0);},0)/brandCity.length),isCity:true});
+    }
   }
-  // 顶展案例
-  var dzData = findCaseData(region, cat, 'dz');
-  if (dzData && dzData.dp > 0) {
-    cases.push({
-      name: region + ' · ' + cat + '（' + dzData.n + '户顶展新签）',
-      product: '顶展',
-      dpvBefore: dzData.db, dpvAfter: dzData.da,
-      gmvBefore: dzData.gb, gmvAfter: dzData.ga,
-      dpvPct: dzData.dp, gmvPct: dzData.gp
-    });
-  }
-  // 钻展案例
-  var zxData = findCaseData(region, cat, 'zx');
-  if (zxData && zxData.dp > 0) {
-    cases.push({
-      name: region + ' · ' + cat + '（' + zxData.n + '户钻展新签）',
-      product: '钻展',
-      dpvBefore: zxData.db, dpvAfter: zxData.da,
-      gmvBefore: zxData.gb, gmvAfter: zxData.ga,
-      dpvPct: zxData.dp, gmvPct: zxData.gp
-    });
-  }
-  // 导结案例
-  var djData = findCaseData(region, cat, 'dj');
-  if (djData && djData.dp > 0) {
-    cases.push({
-      name: region + ' · ' + cat + '（' + djData.n + '户导结新签）',
-      product: '导结',
-      dpvBefore: djData.db, dpvAfter: djData.da,
-      gmvBefore: djData.gb, gmvAfter: djData.ga,
-      dpvPct: djData.dp, gmvPct: djData.gp
+
+  // === 同城不足则fallback大区REAL_CASES ===
+  if (cases.length === 0) {
+    var prods = [{k:'xg',n:'效果广告'},{k:'znt',n:'品牌智能体'},{k:'dz',n:'顶展'},{k:'zx',n:'钻展'},{k:'dj',n:'导结'}];
+    prods.forEach(function(p) {
+      var cd = findCaseData(region, cat, p.k);
+      if (cd && cd.dp > 0) cases.push({name:region+' · '+cat+'（'+cd.n+'户'+p.n+'新签）',product:p.n,dpvBefore:cd.db,dpvAfter:cd.da,gmvBefore:cd.gb,gmvAfter:cd.ga,dpvPct:cd.dp,gmvPct:cd.gp});
     });
   }
 
@@ -1987,32 +2041,32 @@ function renderCases(d) {
     return '<p style="font-size:13px;color:var(--text3);text-align:center;padding:20px;">暂无' + cat + '品类签约案例数据</p>';
   }
 
-  var html = '<p style="font-size:13px;color:var(--text2);margin-bottom:16px;">以下为5-7月' + region + cat + '商户签约后的真实数据（来源：直渠电新签广告主分析）</p>';
+  var isCityLevel = cases[0].isCity;
+  var html = '<p style="font-size:13px;color:var(--text2);margin-bottom:16px;">' +
+    (isCityLevel ? '以下为' + city + '同城已签商户的当前经营数据' : '以下为5-7月' + region + cat + '商户签约后的真实数据（来源：直渠电新签广告主分析）') + '</p>';
 
   cases.forEach(function(c) {
-    var dpvGrowth = c.dpvPct > 0 ? '↑' + c.dpvPct + '%' : (c.dpvPct < 0 ? '↓' + Math.abs(c.dpvPct) + '%' : '持平');
-    var gmvGrowth = c.gmvPct > 0 ? '↑' + c.gmvPct + '%' : (c.gmvPct < 0 ? '↓' + Math.abs(c.gmvPct) + '%' : '持平');
-    var dpvColor = c.dpvPct > 0 ? 'var(--green)' : (c.dpvPct < 0 ? 'var(--red)' : 'var(--text2)');
-    var gmvColor = c.gmvPct > 0 ? 'var(--green)' : (c.gmvPct < 0 ? 'var(--red)' : 'var(--text2)');
-
     html += '<div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-bottom:12px;">';
-    html += '<div style="margin-bottom:10px;">';
-    html += '<strong style="font-size:14px;">' + c.name + '</strong>';
+    html += '<div style="margin-bottom:10px;"><strong style="font-size:14px;">' + c.name + '</strong>';
     html += ' <span class="badge badge-blue">' + c.product + '</span>';
+    if (isCityLevel) html += ' <span class="badge badge-green">同城</span>';
     html += '</div>';
 
-    html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:10px;">';
-    html += '<div style="text-align:center;padding:10px;background:var(--bg2);border-radius:6px;">';
-    html += '<div style="font-size:11px;color:var(--text3);margin-bottom:4px;">日均DPV</div>';
-    html += '<div style="font-size:13px;color:var(--text2);">' + c.dpvBefore + ' → ' + c.dpvAfter + '</div>';
-    html += '<div style="font-size:18px;font-weight:700;color:' + dpvColor + ';">' + dpvGrowth + '</div>';
-    html += '</div>';
-    html += '<div style="text-align:center;padding:10px;background:var(--bg2);border-radius:6px;">';
-    html += '<div style="font-size:11px;color:var(--text3);margin-bottom:4px;">日均GMV</div>';
-    html += '<div style="font-size:13px;color:var(--text2);">¥' + c.gmvBefore + ' → ¥' + c.gmvAfter + '</div>';
-    html += '<div style="font-size:18px;font-weight:700;color:' + gmvColor + ';">' + gmvGrowth + '</div>';
-    html += '</div>';
-    html += '</div>';
+    if (isCityLevel) {
+      html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">';
+      html += '<div style="text-align:center;padding:10px;background:var(--bg2);border-radius:6px;"><div style="font-size:11px;color:var(--text3);margin-bottom:4px;">当前均DPV</div><div style="font-size:20px;font-weight:700;color:var(--accent);">' + fmt(c.avgDpv) + '</div></div>';
+      html += '<div style="text-align:center;padding:10px;background:var(--bg2);border-radius:6px;"><div style="font-size:11px;color:var(--text3);margin-bottom:4px;">当前均GMV</div><div style="font-size:20px;font-weight:700;color:var(--green);">¥' + fmt(c.avgGmv) + '</div></div>';
+      html += '</div>';
+    } else {
+      var dpvGrowth = c.dpvPct > 0 ? '↑' + c.dpvPct + '%' : (c.dpvPct < 0 ? '↓' + Math.abs(c.dpvPct) + '%' : '持平');
+      var gmvGrowth = c.gmvPct > 0 ? '↑' + c.gmvPct + '%' : (c.gmvPct < 0 ? '↓' + Math.abs(c.gmvPct) + '%' : '持平');
+      var dpvColor = c.dpvPct > 0 ? 'var(--green)' : (c.dpvPct < 0 ? 'var(--red)' : 'var(--text2)');
+      var gmvColor = c.gmvPct > 0 ? 'var(--green)' : (c.gmvPct < 0 ? 'var(--red)' : 'var(--text2)');
+      html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">';
+      html += '<div style="text-align:center;padding:10px;background:var(--bg2);border-radius:6px;"><div style="font-size:11px;color:var(--text3);margin-bottom:4px;">日均DPV</div><div style="font-size:13px;color:var(--text2);">' + c.dpvBefore + ' → ' + c.dpvAfter + '</div><div style="font-size:18px;font-weight:700;color:' + dpvColor + ';">' + dpvGrowth + '</div></div>';
+      html += '<div style="text-align:center;padding:10px;background:var(--bg2);border-radius:6px;"><div style="font-size:11px;color:var(--text3);margin-bottom:4px;">日均GMV</div><div style="font-size:13px;color:var(--text2);">¥' + c.gmvBefore + ' → ¥' + c.gmvAfter + '</div><div style="font-size:18px;font-weight:700;color:' + gmvColor + ';">' + gmvGrowth + '</div></div>';
+      html += '</div>';
+    }
     html += '</div>';
   });
 
