@@ -2020,38 +2020,32 @@ function renderCases(d) {
   var region = getRegion(city);
   var cases = [];
 
-  // === 优先查同城已签PID（跨服务商全量数据）===
-  var citySigned = [];
+  // === 主数据源：REAL_CASES（直渠电全渠道5-7月真实签约效果）===
+  var prods = [{k:'xg',n:'效果广告'},{k:'znt',n:'品牌智能体'},{k:'dz',n:'顶展'},{k:'zx',n:'钻展'},{k:'dj',n:'导结'}];
+  prods.forEach(function(p) {
+    var cd = findCaseData(region, cat, p.k);
+    if (cd && cd.dp > 0) {
+      cases.push({
+        product: p.n,
+        n: cd.n,
+        dpvBefore: cd.db, dpvAfter: cd.da, dpvPct: cd.dp,
+        gmvBefore: cd.gb, gmvAfter: cd.ga, gmvPct: cd.gp
+      });
+    }
+  });
+
+  // === 补充：查同城已签PID数量（全渠道），作为同城标记 ===
+  var citySignedCount = 0;
+  var cityProducts = {};
   var src = STATE.allSignedPids && STATE.allSignedPids.length > 0 ? STATE.allSignedPids : STATE.commercialData;
   if (src) {
     src.forEach(function(p) {
       if (p.city === city && (p.is_signed_agent || p.is_signed_eff || p.is_signed_brand) && p.pid !== d.pid) {
-        citySigned.push(p);
+        citySignedCount++;
+        if (p.is_signed_agent) cityProducts['品牌智能体'] = (cityProducts['品牌智能体']||0) + 1;
+        if (p.is_signed_eff) cityProducts['效果广告'] = (cityProducts['效果广告']||0) + 1;
+        if (p.is_signed_brand) cityProducts['品广'] = (cityProducts['品广']||0) + 1;
       }
-    });
-  }
-
-  if (citySigned.length >= 1) {
-    var agentCity = citySigned.filter(function(p){return p.is_signed_agent;});
-    var effCity = citySigned.filter(function(p){return p.is_signed_eff;});
-    var brandCity = citySigned.filter(function(p){return p.is_signed_brand;});
-    if (agentCity.length > 0) {
-      cases.push({name:city+' · '+cat+'（'+agentCity.length+'户智能体已签）',product:'品牌智能体',avgDpv:Math.round(agentCity.reduce(function(s,p){return s+(p.dpv_30d||0);},0)/agentCity.length),avgGmv:Math.round(agentCity.reduce(function(s,p){return s+(p.gmv_90d||0);},0)/agentCity.length),isCity:true});
-    }
-    if (effCity.length > 0) {
-      cases.push({name:city+' · '+cat+'（'+effCity.length+'户效广已签）',product:'效果广告',avgDpv:Math.round(effCity.reduce(function(s,p){return s+(p.dpv_30d||0);},0)/effCity.length),avgGmv:Math.round(effCity.reduce(function(s,p){return s+(p.gmv_90d||0);},0)/effCity.length),isCity:true});
-    }
-    if (brandCity.length > 0) {
-      cases.push({name:city+' · '+cat+'（'+brandCity.length+'户品广已签）',product:'品广',avgDpv:Math.round(brandCity.reduce(function(s,p){return s+(p.dpv_30d||0);},0)/brandCity.length),avgGmv:Math.round(brandCity.reduce(function(s,p){return s+(p.gmv_90d||0);},0)/brandCity.length),isCity:true});
-    }
-  }
-
-  // === 同城不足则补充大区REAL_CASES（即使有同城也补上大区增幅参考）===
-  if (cases.length === 0) {
-    var prods = [{k:'xg',n:'效果广告'},{k:'znt',n:'品牌智能体'},{k:'dz',n:'顶展'},{k:'zx',n:'钻展'},{k:'dj',n:'导结'}];
-    prods.forEach(function(p) {
-      var cd = findCaseData(region, cat, p.k);
-      if (cd && cd.dp > 0) cases.push({name:region+' · '+cat+'（'+cd.n+'户'+p.n+'新签）',product:p.n,dpvBefore:cd.db,dpvAfter:cd.da,gmvBefore:cd.gb,gmvAfter:cd.ga,dpvPct:cd.dp,gmvPct:cd.gp});
     });
   }
 
@@ -2059,32 +2053,32 @@ function renderCases(d) {
     return '<p style="font-size:13px;color:var(--text3);text-align:center;padding:20px;">暂无' + cat + '品类签约案例数据</p>';
   }
 
-  var isCityLevel = cases[0].isCity;
-  var html = '<p style="font-size:13px;color:var(--text2);margin-bottom:16px;">' +
-    (isCityLevel ? '以下为' + city + '同城已签商户的当前经营数据（含全渠道）' : '以下为5-7月' + region + cat + '商户签约后的真实数据（来源：直渠电新签广告主分析）') + '</p>';
+  var hasCityData = citySignedCount > 0;
+  var html = '<p style="font-size:13px;color:var(--text2);margin-bottom:16px;">';
+  html += '以下为5-7月' + region + cat + '商户签约后的真实效果数据（含直营、渠道、电销全渠道）';
+  if (hasCityData) {
+    html += '。<span style="color:var(--green);font-weight:600;">本城已有' + citySignedCount + '户签约</span>';
+  }
+  html += '</p>';
 
   cases.forEach(function(c) {
     html += '<div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-bottom:12px;">';
-    html += '<div style="margin-bottom:10px;"><strong style="font-size:14px;">' + c.name + '</strong>';
-    html += ' <span class="badge badge-blue">' + c.product + '</span>';
-    if (isCityLevel) html += ' <span class="badge badge-green">同城</span>';
+    html += '<div style="margin-bottom:10px;"><strong style="font-size:14px;">' + c.product + '</strong>';
+    html += ' <span style="font-size:12px;color:var(--text3);">' + c.n + '户新签</span>';
+    // 同城标记：如果该城市有这个产品的签约
+    if (hasCityData && cityProducts[c.product]) {
+      html += ' <span class="badge badge-green">同城' + cityProducts[c.product] + '户</span>';
+    }
     html += '</div>';
 
-    if (isCityLevel) {
-      html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">';
-      html += '<div style="text-align:center;padding:10px;background:var(--bg2);border-radius:6px;"><div style="font-size:11px;color:var(--text3);margin-bottom:4px;">当前均DPV</div><div style="font-size:20px;font-weight:700;color:var(--accent);">' + fmt(c.avgDpv) + '</div></div>';
-      html += '<div style="text-align:center;padding:10px;background:var(--bg2);border-radius:6px;"><div style="font-size:11px;color:var(--text3);margin-bottom:4px;">当前均GMV</div><div style="font-size:20px;font-weight:700;color:var(--green);">¥' + fmt(c.avgGmv) + '</div></div>';
-      html += '</div>';
-    } else {
-      var dpvGrowth = c.dpvPct > 0 ? '↑' + c.dpvPct + '%' : (c.dpvPct < 0 ? '↓' + Math.abs(c.dpvPct) + '%' : '持平');
-      var gmvGrowth = c.gmvPct > 0 ? '↑' + c.gmvPct + '%' : (c.gmvPct < 0 ? '↓' + Math.abs(c.gmvPct) + '%' : '持平');
-      var dpvColor = c.dpvPct > 0 ? 'var(--green)' : (c.dpvPct < 0 ? 'var(--red)' : 'var(--text2)');
-      var gmvColor = c.gmvPct > 0 ? 'var(--green)' : (c.gmvPct < 0 ? 'var(--red)' : 'var(--text2)');
-      html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">';
-      html += '<div style="text-align:center;padding:10px;background:var(--bg2);border-radius:6px;"><div style="font-size:11px;color:var(--text3);margin-bottom:4px;">日均DPV</div><div style="font-size:13px;color:var(--text2);">' + c.dpvBefore + ' → ' + c.dpvAfter + '</div><div style="font-size:18px;font-weight:700;color:' + dpvColor + ';">' + dpvGrowth + '</div></div>';
-      html += '<div style="text-align:center;padding:10px;background:var(--bg2);border-radius:6px;"><div style="font-size:11px;color:var(--text3);margin-bottom:4px;">日均GMV</div><div style="font-size:13px;color:var(--text2);">¥' + c.gmvBefore + ' → ¥' + c.gmvAfter + '</div><div style="font-size:18px;font-weight:700;color:' + gmvColor + ';">' + gmvGrowth + '</div></div>';
-      html += '</div>';
-    }
+    var dpvGrowth = c.dpvPct > 0 ? '↑' + c.dpvPct + '%' : (c.dpvPct < 0 ? '↓' + Math.abs(c.dpvPct) + '%' : '持平');
+    var gmvGrowth = c.gmvPct > 0 ? '↑' + c.gmvPct + '%' : (c.gmvPct < 0 ? '↓' + Math.abs(c.gmvPct) + '%' : '持平');
+    var dpvColor = c.dpvPct > 0 ? 'var(--green)' : (c.dpvPct < 0 ? 'var(--red)' : 'var(--text2)');
+    var gmvColor = c.gmvPct > 0 ? 'var(--green)' : (c.gmvPct < 0 ? 'var(--red)' : 'var(--text2)');
+    html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">';
+    html += '<div style="text-align:center;padding:10px;background:var(--bg2);border-radius:6px;"><div style="font-size:11px;color:var(--text3);margin-bottom:4px;">日均DPV</div><div style="font-size:13px;color:var(--text2);">' + c.dpvBefore + ' → ' + c.dpvAfter + '</div><div style="font-size:18px;font-weight:700;color:' + dpvColor + ';">' + dpvGrowth + '</div></div>';
+    html += '<div style="text-align:center;padding:10px;background:var(--bg2);border-radius:6px;"><div style="font-size:11px;color:var(--text3);margin-bottom:4px;">日均GMV</div><div style="font-size:13px;color:var(--text2);">¥' + c.gmvBefore + ' → ¥' + c.gmvAfter + '</div><div style="font-size:18px;font-weight:700;color:' + gmvColor + ';">' + gmvGrowth + '</div></div>';
+    html += '</div>';
     html += '</div>';
   });
 
