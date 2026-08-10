@@ -331,10 +331,6 @@ a { color:var(--accent2); text-decoration:none; }
         <p class="page-desc" id="analysisDesc">基于5-7月签约数据 · 当前选中城市加载中...</p>
         <div id="analysisStats" class="stats-row"></div>
         <div id="analysisSigning" style="margin-bottom:24px;"></div>
-        <div id="analysisCategories">
-          <h3 style="font-size:15px;font-weight:600;margin-bottom:12px;">高优作业类目分析</h3>
-          <div id="catTableWrap"></div>
-        </div>
       </div>
 
       <!-- ===== PAGE: 商业化做工 ===== -->
@@ -981,9 +977,6 @@ function renderAnalysis() {
 
   // === Section 2: Historical Signing Analysis (by product × category) ===
   renderSigningAnalysis(data, cities);
-
-  // === Section 3: High-priority categories ===
-  renderCategoryTable(data, cities);
 }
 
 function renderSigningAnalysis(data, cities) {
