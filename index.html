@@ -555,6 +555,7 @@ var STATE = {
   followUps: {},     // {targetType_targetId: [records]}
   employees: [],     // employee names for current provider
   occupancy: [],     // occupancy data for current cities
+  allSignedPids: [], // all signed PIDs across all providers (for same-city cases)
   charts: {}         // chart instances
 };
 
@@ -870,13 +871,27 @@ async function loadData() {
       var occQuery = sb.from('crm_occupancy').select('*');
       if (STATE.cities.length > 0) occQuery = occQuery.in('city_name', STATE.cities);
 
-      var [pidsRes, leadsRes, occRes] = await Promise.all([
-        fetchAll(pidQuery), fetchAll(leadQuery), fetchAll(occQuery)
+      // Query all signed PIDs across all providers (for same-city case display)
+      var signedQuery = sb.from('crm_pids').select('*')
+        .or('is_signed_agent.eq.true,is_signed_eff.eq.true,is_signed_brand.eq.true')
+        .order('dpv_30d', {ascending: false});
+      if (STATE.cities.length > 0) signedQuery = signedQuery.in('city', STATE.cities);
+
+      var [pidsRes, leadsRes, occRes, signedRes] = await Promise.all([
+        fetchAll(pidQuery), fetchAll(leadQuery), fetchAll(occQuery), fetchAll(signedQuery)
       ]);
 
       STATE.commercialData = (pidsRes.data) ? pidsRes.data : [];
       STATE.leadsData = (leadsRes.data) ? leadsRes.data : [];
       STATE.occupancy = (occRes.data) ? occRes.data : [];
+      STATE.allSignedPids = (signedRes.data) ? signedRes.data : [];
+      // Deduplicate signed PIDs
+      var seenSigned = {};
+      STATE.allSignedPids = STATE.allSignedPids.filter(function(d) {
+        if (seenSigned[d.pid]) return false;
+        seenSigned[d.pid] = true;
+        return true;
+      });
 
       // Deduplicate by unique ID (database may have duplicate imports)
       var seenPids = {};
@@ -916,17 +931,19 @@ async function loadData() {
         });
       }
 
-      console.log('Loaded from Supabase:', STATE.commercialData.length, 'PIDs,', STATE.leadsData.length, 'leads,', STATE.occupancy.length, 'occupancy');
+      console.log('Loaded from Supabase:', STATE.commercialData.length, 'PIDs,', STATE.leadsData.length, 'leads,', STATE.occupancy.length, 'occupancy,', STATE.allSignedPids.length, 'signed(all providers)');
     } catch(e) {
       console.warn('Supabase query failed, using demo data:', e);
       STATE.commercialData = genDemoPIDs();
       STATE.leadsData = genDemoLeads();
       STATE.occupancy = [];
+      STATE.allSignedPids = [];
     }
   } else {
     STATE.commercialData = genDemoPIDs();
     STATE.leadsData = genDemoLeads();
     STATE.occupancy = [];
+    STATE.allSignedPids = [];
   }
 
   // Populate category filters
@@ -2003,17 +2020,18 @@ function renderCases(d) {
   var region = getRegion(city);
   var cases = [];
 
-  // === 优先查同城已签PID（CRM真实数据）===
+  // === 优先查同城已签PID（跨服务商全量数据）===
   var citySigned = [];
-  if (STATE.commercialData) {
-    STATE.commercialData.forEach(function(p) {
+  var src = STATE.allSignedPids && STATE.allSignedPids.length > 0 ? STATE.allSignedPids : STATE.commercialData;
+  if (src) {
+    src.forEach(function(p) {
       if (p.city === city && (p.is_signed_agent || p.is_signed_eff || p.is_signed_brand) && p.pid !== d.pid) {
         citySigned.push(p);
       }
     });
   }
 
-  if (citySigned.length >= 2) {
+  if (citySigned.length >= 1) {
     var agentCity = citySigned.filter(function(p){return p.is_signed_agent;});
     var effCity = citySigned.filter(function(p){return p.is_signed_eff;});
     var brandCity = citySigned.filter(function(p){return p.is_signed_brand;});
@@ -2028,7 +2046,7 @@ function renderCases(d) {
     }
   }
 
-  // === 同城不足则fallback大区REAL_CASES ===
+  // === 同城不足则补充大区REAL_CASES（即使有同城也补上大区增幅参考）===
   if (cases.length === 0) {
     var prods = [{k:'xg',n:'效果广告'},{k:'znt',n:'品牌智能体'},{k:'dz',n:'顶展'},{k:'zx',n:'钻展'},{k:'dj',n:'导结'}];
     prods.forEach(function(p) {
@@ -2043,7 +2061,7 @@ function renderCases(d) {
 
   var isCityLevel = cases[0].isCity;
   var html = '<p style="font-size:13px;color:var(--text2);margin-bottom:16px;">' +
-    (isCityLevel ? '以下为' + city + '同城已签商户的当前经营数据' : '以下为5-7月' + region + cat + '商户签约后的真实数据（来源：直渠电新签广告主分析）') + '</p>';
+    (isCityLevel ? '以下为' + city + '同城已签商户的当前经营数据（含全渠道）' : '以下为5-7月' + region + cat + '商户签约后的真实数据（来源：直渠电新签广告主分析）') + '</p>';
 
   cases.forEach(function(c) {
     html += '<div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-bottom:12px;">';
