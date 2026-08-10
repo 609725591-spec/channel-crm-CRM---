@@ -1174,7 +1174,7 @@ function renderCommercialTable() {
         '<td class="num">' + (d.store_count||1) + '</td>' +
         '<td style="font-size:12px;">' + signedStr + '</td>' +
         '<td>' + statusBadge(fuStatus) + '</td>' +
-        '<td><button class="btn btn-sm btn-outline" onclick="openFollowUp(\'pid\',\'' + d.pid + '\')">跟进</button></td>' +
+        '<td><button class="btn btn-sm btn-outline" onclick="showPIDDetail(\'' + d.pid + '\',true)">跟进</button></td>' +
         '</tr>';
     });
   }
@@ -1250,7 +1250,7 @@ function renderLeadsTable() {
         '<td>' + (d.smoke_level||'-') + '</td>' +
         '<td>' + (d.is_high_priority ? '<span class="badge badge-green">高优</span>' : '<span class="badge badge-gray">-</span>') + '</td>' +
         '<td>' + statusBadge(fuStatus) + '</td>' +
-        '<td><button class="btn btn-sm btn-outline" onclick="openFollowUp(\'lead\',\'' + d.poi_id + '\')">跟进</button></td>' +
+        '<td><button class="btn btn-sm btn-outline" onclick="showLeadDetail(\'' + d.poi_id + '\',true)">跟进</button></td>' +
         '</tr>';
     });
   }
@@ -1281,7 +1281,7 @@ function renderPagination(total, current, totalPages, fnName) {
 /* =============================================
    DETAIL MODAL: PID
    ============================================= */
-function showPIDDetail(pid) {
+function showPIDDetail(pid, autoFollow) {
   var d = STATE.commercialData.find(function(x) { return x.pid === pid; });
   if (!d) return;
 
@@ -1346,6 +1346,13 @@ function showPIDDetail(pid) {
   $('modalBody').innerHTML = body;
   $('detailModal').classList.add('active');
   initEmpCombo('pidEmp');
+  if (autoFollow) {
+    setTimeout(function() {
+      var btns = document.querySelectorAll('#detailModal .tab-btn');
+      if (btns[3]) switchDetailTab(btns[3], 3);
+      openFollowUp('pid', pid);
+    }, 50);
+  }
 }
 
 function renderRecommendations(d) {
@@ -1628,7 +1635,7 @@ function renderCases(d) {
 /* =============================================
    DETAIL MODAL: Lead
    ============================================= */
-function showLeadDetail(poiId) {
+function showLeadDetail(poiId, autoFollow) {
   var d = STATE.leadsData.find(function(x) { return x.poi_id === poiId; });
   if (!d) return;
 
@@ -1670,6 +1677,13 @@ function showLeadDetail(poiId) {
   $('modalBody').innerHTML = body;
   $('detailModal').classList.add('active');
   initEmpCombo('leadEmp');
+  if (autoFollow) {
+    setTimeout(function() {
+      var btns = document.querySelectorAll('#detailModal .tab-btn');
+      if (btns[1]) switchDetailTab(btns[1], 1);
+      openFollowUp('lead', poiId);
+    }, 50);
+  }
 }
 
 function detailItem(label, value) {
