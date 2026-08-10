@@ -795,10 +795,10 @@ function confirmCities() {
 /* =============================================
    APP SHELL
    ============================================= */
-function showApp() {
+async function showApp() {
   $('appShell').classList.add('active');
   $('headerCity').textContent = STATE.cities.length <= 3 ? STATE.cities.join('、') + ' ▾' : STATE.cities.slice(0,3).join('、') + '... ▾';
-  loadData();
+  await loadData();
   navigate(STATE.currentPage);
 }
 
