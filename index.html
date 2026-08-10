@@ -825,6 +825,24 @@ function navigate(page) {
 /* =============================================
    DATA LOADING
    ============================================= */
+// Fetch ALL rows from Supabase, paginating past the 1000-row default limit
+async function fetchAll(queryBuilder, batchSize) {
+  batchSize = batchSize || 1000;
+  var allData = [];
+  var from = 0;
+  while (true) {
+    var res = await queryBuilder.range(from, from + batchSize - 1);
+    if (res.data && res.data.length > 0) {
+      allData = allData.concat(res.data);
+      if (res.data.length < batchSize) break;
+      from += batchSize;
+    } else {
+      break;
+    }
+  }
+  return { data: allData, error: null };
+}
+
 async function loadData() {
   var isReal = sb && STATE.user.provider_id !== 'SP_DEMO_001' && STATE.user.provider_id !== 'ADMIN';
 
@@ -844,16 +862,19 @@ async function loadData() {
       var occQuery = sb.from('crm_occupancy').select('*');
       if (STATE.cities.length > 0) occQuery = occQuery.in('city_name', STATE.cities);
 
-      var [pidsRes, leadsRes, occRes] = await Promise.all([pidQuery, leadQuery, occQuery]);
+      var [pidsRes, leadsRes, occRes] = await Promise.all([
+        fetchAll(pidQuery), fetchAll(leadQuery), fetchAll(occQuery)
+      ]);
 
       STATE.commercialData = (pidsRes.data) ? pidsRes.data : [];
       STATE.leadsData = (leadsRes.data) ? leadsRes.data : [];
       STATE.occupancy = (occRes.data) ? occRes.data : [];
 
       // Load follow-ups for this provider
-      var fuRes = await sb.from('crm_follow_ups').select('*')
+      var fuQuery = sb.from('crm_follow_ups').select('*')
         .eq('provider_id', STATE.user.provider_id)
         .order('created_at', {ascending: true});
+      var fuRes = await fetchAll(fuQuery);
       if (fuRes.data) {
         fuRes.data.forEach(function(r) {
           var key = r.target_type + '_' + r.target_id;
