@@ -870,6 +870,20 @@ async function loadData() {
       STATE.leadsData = (leadsRes.data) ? leadsRes.data : [];
       STATE.occupancy = (occRes.data) ? occRes.data : [];
 
+      // Deduplicate by unique ID (database may have duplicate imports)
+      var seenPids = {};
+      STATE.commercialData = STATE.commercialData.filter(function(d) {
+        if (seenPids[d.pid]) return false;
+        seenPids[d.pid] = true;
+        return true;
+      });
+      var seenPois = {};
+      STATE.leadsData = STATE.leadsData.filter(function(d) {
+        if (seenPois[d.poi_id]) return false;
+        seenPois[d.poi_id] = true;
+        return true;
+      });
+
       // Load follow-ups for this provider
       var fuQuery = sb.from('crm_follow_ups').select('*')
         .eq('provider_id', STATE.user.provider_id)
