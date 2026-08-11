@@ -324,6 +324,9 @@ a { color:var(--accent2); text-decoration:none; }
       <div class="nav-item" data-page="jobs" onclick="navigate('jobs')">
         <span class="nav-icon">📝</span>作业分析
       </div>
+      <div class="nav-item" data-page="occupancy" onclick="navigate('occupancy')">
+        <span class="nav-icon">🗺️</span>占量地图
+      </div>
       <div class="nav-divider"></div>
       <div class="nav-item" data-page="admin" onclick="navigate('admin')" id="navAdmin" style="display:none">
         <span class="nav-icon">⚙️</span>管理后台
@@ -428,6 +431,11 @@ a { color:var(--accent2); text-decoration:none; }
         <div id="jobsStats" class="stats-row"></div>
         <div id="jobsCharts" class="chart-grid"></div>
         <div id="jobsTable"></div>
+      </div>
+
+      <!-- ===== PAGE: 占量地图 ===== -->
+      <div id="page-occupancy" class="page" style="padding:0;">
+        <iframe id="occupancyFrame" style="width:100%;height:calc(100vh - 60px);border:none;display:block;" src="about:blank"></iframe>
       </div>
 
       <!-- ===== PAGE: 管理后台 ===== -->
@@ -857,6 +865,7 @@ function navigate(page) {
     case 'commercial': renderCommercial(); break;
     case 'leads': renderLeads(); break;
     case 'jobs': renderJobs(); break;
+    case 'occupancy': renderOccupancy(); break;
     case 'admin': renderAdmin(); break;
   }
 }
@@ -2913,6 +2922,20 @@ function checkOccupancy(city, category) {
   });
   if (match) return { occupied: true, start: match.start_time, end: match.end_time };
   return { occupied: false };
+}
+
+/* =============================================
+   PAGE: 占量地图
+   ============================================= */
+function renderOccupancy() {
+  var frame = $('occupancyFrame');
+  if (frame._loaded) return; // 已加载过，不重复设置
+  var baseUrl = 'https://609725591-spec.github.io/channel-crm-CRM---/brand-ad-map.html';
+  // 传递当前城市筛选
+  var params = [];
+  if (STATE.cities && STATE.cities.length) params.push('city=' + encodeURIComponent(STATE.cities.join(',')));
+  frame.src = baseUrl + (params.length ? '?' + params.join('&') : '');
+  frame._loaded = true;
 }
 
 /* =============================================
