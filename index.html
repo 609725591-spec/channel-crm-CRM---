@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>渠电作业CRM</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
 <style>
 :root {
   --bg: #0f172a; --bg2: #1e293b; --bg3: #334155;
@@ -287,7 +288,16 @@ a { color:var(--accent2); text-decoration:none; }
   <div class="city-box">
     <h2>选择作业城市</h2>
     <p class="sub">选择你要做工的城市（可多选）</p>
-    <div id="cityGrid" class="city-grid"></div>
+    <div style="display:flex;gap:10px;margin-bottom:14px;">
+      <input id="citySearch" placeholder="搜索城市名..." oninput="filterCityGrid()" style="flex:1;padding:8px 12px;border:1px solid var(--border);border-radius:var(--radius);background:var(--bg);color:var(--text1);font-size:14px;">
+      <button id="cityToggleBtn" class="btn btn-outline btn-sm" onclick="toggleCityView()" style="white-space:nowrap;">查看全部城市</button>
+    </div>
+    <div style="margin-bottom:10px;font-size:12px;color:var(--text3);">
+      <span id="citySelectInfo"></span>
+      <a href="javascript:void(0)" onclick="selectAllVisible()" style="color:var(--accent);margin-left:12px;">全选当前</a>
+      <a href="javascript:void(0)" onclick="clearAllCities()" style="color:var(--red);margin-left:12px;">清空</a>
+    </div>
+    <div id="cityGrid" class="city-grid" style="max-height:55vh;overflow-y:auto;"></div>
     <div class="city-confirm">
       <button class="btn btn-primary" onclick="confirmCities()" style="width:100%">确认选择</button>
     </div>
@@ -379,7 +389,8 @@ a { color:var(--accent2); text-decoration:none; }
           <button class="btn btn-outline btn-sm" onclick="exportCommercial()">📥 导出</button>
           <button class="btn btn-primary btn-sm" onclick="openCustomModal('commercial')">+ 添加</button>
           <button class="btn btn-outline btn-sm" onclick="document.getElementById('commercialFileImport').click()">📁 导入</button>
-          <input type="file" id="commercialFileImport" accept=".csv" style="display:none" onchange="importCommercialCSV(this)">
+          <button class="btn btn-outline btn-sm" onclick="downloadTemplate('commercial')">📋 模板</button>
+          <input type="file" id="commercialFileImport" accept=".csv,.xlsx,.xls" style="display:none" onchange="importCommercialCSV(this)">
         </div>
         <div id="commercialTableWrap"></div>
       </div>
@@ -413,7 +424,8 @@ a { color:var(--accent2); text-decoration:none; }
           <button class="btn btn-outline btn-sm" onclick="exportLeads()">📥 导出</button>
           <button class="btn btn-primary btn-sm" onclick="openCustomModal('leads')">+ 添加</button>
           <button class="btn btn-outline btn-sm" onclick="document.getElementById('leadsFileImport').click()">📁 导入</button>
-          <input type="file" id="leadsFileImport" accept=".csv" style="display:none" onchange="importLeadsCSV(this)">
+          <button class="btn btn-outline btn-sm" onclick="downloadTemplate('leads')">📋 模板</button>
+          <input type="file" id="leadsFileImport" accept=".csv,.xlsx,.xls" style="display:none" onchange="importLeadsCSV(this)">
         </div>
         <div id="leadsTableWrap"></div>
       </div>
@@ -567,8 +579,8 @@ a { color:var(--accent2); text-decoration:none; }
     <div class="modal-body">
       <div id="customFormBody"></div>
       <div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border);">
-        <button class="btn btn-outline btn-sm" onclick="triggerCustomFile()" style="width:100%;">📁 从文件批量导入（CSV）</button>
-        <input type="file" id="customFileInput" accept=".csv" style="display:none" onchange="handleCustomFileImport(this.files[0])">
+        <button class="btn btn-outline btn-sm" onclick="triggerCustomFile()" style="width:100%;">📁 从文件批量导入（CSV / Excel）</button>
+        <input type="file" id="customFileInput" accept=".csv,.xlsx,.xls" style="display:none" onchange="handleCustomFileImport(this.files[0])">
       </div>
     </div>
     <div class="modal-footer">
@@ -594,6 +606,44 @@ var CONFIG = {
     leads: ['待联系','跟进中','已开店','无效']
   }
 };
+
+/* =============================================
+   ALL CHINA CITIES (含港澳台)
+   ============================================= */
+var ALL_CHINA_CITIES = [
+  '北京','上海','广州','深圳','天津','重庆','成都','武汉','杭州','南京','西安','苏州','长沙','郑州','东莞','青岛','沈阳','宁波','昆明','合肥','佛山','无锡','福州','厦门','哈尔滨','济南','温州','大连','石家庄','太原','南昌','南宁','贵阳','长春','兰州','呼和浩特','乌鲁木齐','银川','海口','拉萨','西宁',
+  '唐山','秦皇岛','邯郸','邢台','保定','张家口','承德','沧州','廊坊','衡水',
+  '大同','阳泉','长治','晋城','朔州','晋中','运城','忻州','临汾','吕梁',
+  '包头','乌海','赤峰','通辽','鄂尔多斯','呼伦贝尔','巴彦淖尔','乌兰察布','兴安盟','锡林郭勒','阿拉善',
+  '鞍山','抚顺','本溪','丹东','锦州','营口','阜新','辽阳','盘锦','铁岭','朝阳','葫芦岛',
+  '吉林','四平','辽源','通化','白山','松原','白城','延边',
+  '齐齐哈尔','牡丹江','佳木斯','大庆','鸡西','双鸭山','伊春','七台河','鹤岗','黑河','绥化','大兴安岭',
+  '徐州','常州','南通','连云港','淮安','盐城','扬州','镇江','泰州','宿迁',
+  '嘉兴','湖州','绍兴','金华','衢州','舟山','台州','丽水',
+  '芜湖','蚌埠','淮南','马鞍山','淮北','铜陵','安庆','黄山','滁州','阜阳','宿州','六安','亳州','池州','宣城',
+  '莆田','三明','泉州','漳州','南平','龙岩','宁德',
+  '景德镇','萍乡','九江','新余','鹰潭','赣州','吉安','宜春','抚州','上饶',
+  '淄博','枣庄','东营','烟台','潍坊','济宁','泰安','威海','日照','临沂','德州','聊城','滨州','菏泽',
+  '开封','洛阳','平顶山','安阳','鹤壁','新乡','焦作','濮阳','许昌','漯河','三门峡','南阳','商丘','信阳','周口','驻马店','济源',
+  '黄石','十堰','宜昌','襄阳','鄂州','荆门','孝感','荆州','黄冈','咸宁','随州','恩施','仙桃','潜江','天门','神农架',
+  '株洲','湘潭','衡阳','邵阳','岳阳','常德','张家界','益阳','郴州','永州','怀化','娄底','湘西',
+  '韶关','珠海','汕头','江门','湛江','茂名','肇庆','惠州','梅州','汕尾','河源','阳江','清远','中山','潮州','揭阳','云浮',
+  '南宁','柳州','桂林','梧州','北海','防城港','钦州','贵港','玉林','百色','贺州','河池','来宾','崇左',
+  '三亚','三沙','儋州','琼海','文昌','万宁','五指山','东方','定安','屯昌','澄迈','临高','白沙','昌江','乐东','陵水','保亭','琼中',
+  '绵阳','自贡','攀枝花','泸州','德阳','广元','遂宁','内江','乐山','南充','眉山','宜宾','广安','达州','雅安','巴中','资阳','阿坝','甘孜','凉山',
+  '遵义','六盘水','安顺','毕节','铜仁','黔西南','黔东南','黔南',
+  '曲靖','玉溪','保山','昭通','丽江','普洱','临沧','楚雄','红河','文山','西双版纳','大理','德宏','怒江','迪庆',
+  '日喀则','昌都','林芝','山南','那曲','阿里',
+  '铜川','宝鸡','咸阳','渭南','延安','汉中','榆林','安康','商洛',
+  '嘉峪关','金昌','白银','天水','武威','张掖','平凉','酒泉','庆阳','定西','陇南','临夏','甘南',
+  '格尔木','德令哈','玉树','海东','海北','黄南','海南','果洛','海西',
+  '石嘴山','吴忠','固原','中卫',
+  '克拉玛依','吐鲁番','哈密','昌吉','博尔塔拉','巴音郭楞','阿克苏','克孜勒苏','喀什','和田','伊犁','塔城','阿勒泰','石河子','阿拉尔','图木舒克','五家渠',
+  '拉萨','日喀则','昌都','林芝','山南','那曲','阿里',
+  '香港','澳门','台北','高雄','台中','台南','新竹','基隆'
+];
+// Deduplicate
+ALL_CHINA_CITIES = ALL_CHINA_CITIES.filter(function(c,i,a){return a.indexOf(c)===i;});
 
 /* =============================================
    STATE
@@ -828,27 +878,112 @@ function doLogout() {
 /* =============================================
    CITY SELECT
    ============================================= */
+var _cityViewAll = false;
+
 function showCitySelect() {
   $('cityPage').style.display = 'flex';
+  _cityViewAll = false;
+  $('cityToggleBtn').textContent = '查看全部城市';
+  $('citySearch').value = '';
+  renderCityGrid();
+}
+
+function renderCityGrid() {
   var grid = $('cityGrid');
   grid.innerHTML = '';
-  var cities = STATE.user.cities || [];
-  cities.forEach(function(city) {
-    var chip = document.createElement('div');
-    chip.className = 'city-chip' + (STATE.cities.indexOf(city) >= 0 ? ' selected' : '');
-    chip.textContent = city;
-    chip.onclick = function() {
-      chip.classList.toggle('selected');
-    };
-    grid.appendChild(chip);
-  });
+  var myCities = STATE.user.cities || [];
+  var q = ($('citySearch').value || '').trim();
+  var selectedSet = {};
+  document.querySelectorAll('#cityGrid .city-chip.selected').forEach(function(c){ selectedSet[c.textContent] = true; });
+  // Also include STATE.cities for first render
+  STATE.cities.forEach(function(c){ selectedSet[c] = true; });
+
+  if (!_cityViewAll) {
+    // Show only assigned cities
+    var cities = myCities.filter(function(c){ return !q || c.indexOf(q) >= 0; });
+    if (cities.length === 0 && !q) {
+      grid.innerHTML = '<div style="color:var(--text3);font-size:14px;padding:20px;">暂无分配城市，点击"查看全部城市"选择</div>';
+    } else {
+      cities.forEach(function(city){
+        var chip = document.createElement('div');
+        chip.className = 'city-chip' + (selectedSet[city] ? ' selected' : '');
+        chip.textContent = city;
+        chip.onclick = function(){ chip.classList.toggle('selected'); updateCityInfo(); };
+        grid.appendChild(chip);
+      });
+    }
+  } else {
+    // Show all cities with "my city" markers
+    var allFiltered = ALL_CHINA_CITIES.filter(function(c){ return !q || c.indexOf(q) >= 0; });
+    var mySet = {};
+    myCities.forEach(function(c){ mySet[c] = true; });
+
+    // My cities first
+    var myFiltered = allFiltered.filter(function(c){ return mySet[c]; });
+    if (myFiltered.length > 0) {
+      var label = document.createElement('div');
+      label.style.cssText = 'grid-column:1/-1;font-size:12px;color:var(--text3);margin-top:4px;';
+      label.textContent = '★ 我的城市（' + myFiltered.length + '）';
+      grid.appendChild(label);
+      myFiltered.forEach(function(city){
+        var chip = document.createElement('div');
+        chip.className = 'city-chip' + (selectedSet[city] ? ' selected' : '');
+        chip.style.cssText = selectedSet[city] ? '' : 'border-color:var(--accent);';
+        chip.textContent = city;
+        chip.onclick = function(){ chip.classList.toggle('selected'); updateCityInfo(); };
+        grid.appendChild(chip);
+      });
+    }
+
+    // Other cities
+    var others = allFiltered.filter(function(c){ return !mySet[c]; });
+    if (others.length > 0) {
+      var label2 = document.createElement('div');
+      label2.style.cssText = 'grid-column:1/-1;font-size:12px;color:var(--text3);margin-top:12px;border-top:1px solid var(--border);padding-top:12px;';
+      label2.textContent = '全部城市（' + others.length + '）';
+      grid.appendChild(label2);
+      others.forEach(function(city){
+        var chip = document.createElement('div');
+        chip.className = 'city-chip' + (selectedSet[city] ? ' selected' : '');
+        chip.textContent = city;
+        chip.onclick = function(){ chip.classList.toggle('selected'); updateCityInfo(); };
+        grid.appendChild(chip);
+      });
+    }
+  }
+  updateCityInfo();
+}
+
+function updateCityInfo() {
+  var count = document.querySelectorAll('#cityGrid .city-chip.selected').length;
+  $('citySelectInfo').textContent = '已选择 ' + count + ' 个城市';
+}
+
+function filterCityGrid() {
+  // Preserve current selections before re-rendering
+  renderCityGrid();
+}
+
+function toggleCityView() {
+  _cityViewAll = !_cityViewAll;
+  $('cityToggleBtn').textContent = _cityViewAll ? '只看我的城市' : '查看全部城市';
+  renderCityGrid();
+}
+
+function selectAllVisible() {
+  document.querySelectorAll('#cityGrid .city-chip:not(.selected)').forEach(function(c){ c.classList.add('selected'); });
+  updateCityInfo();
+}
+
+function clearAllCities() {
+  document.querySelectorAll('#cityGrid .city-chip.selected').forEach(function(c){ c.classList.remove('selected'); });
+  updateCityInfo();
 }
 
 function confirmCities() {
   var chips = document.querySelectorAll('#cityGrid .city-chip.selected');
   STATE.cities = Array.from(chips).map(function(c) { return c.textContent; });
   if (STATE.cities.length === 0) {
-    // Default to all cities
     STATE.cities = STATE.user.cities || [];
   }
   localStorage.setItem('crm_cities_' + STATE.user.provider_id, JSON.stringify(STATE.cities));
@@ -3284,6 +3419,63 @@ function triggerCustomFile() {
   $('customFileInput').click();
 }
 
+function readFileData(file) {
+  return new Promise(function(resolve, reject) {
+    if (file.name.match(/\.xlsx?$/i)) {
+      var reader = new FileReader();
+      reader.onload = function(e) {
+        try {
+          var wb = XLSX.read(e.target.result, {type: 'array'});
+          var ws = wb.sheets[wb.sheetNames[0]];
+          var rows = XLSX.utils.sheet_to_json(ws, {header: 1, defval: ''});
+          if (rows.length < 2) { resolve({headers:[], rows:[]}); return; }
+          resolve({
+            headers: rows[0].map(function(h){return String(h).trim();}),
+            rows: rows.slice(1).filter(function(r){return r.some(function(c){return c!=='';});})
+          });
+        } catch(err) { reject(err); }
+      };
+      reader.onerror = function(){ reject(new Error('文件读取失败')); };
+      reader.readAsArrayBuffer(file);
+    } else {
+      var reader = new FileReader();
+      reader.onload = function(e) {
+        try { resolve(parseCSV(e.target.result)); }
+        catch(err) { reject(err); }
+      };
+      reader.onerror = function(){ reject(new Error('文件读取失败')); };
+      reader.readAsText(file, 'utf-8');
+    }
+  });
+}
+
+function downloadTemplate(type) {
+  if (typeof XLSX === 'undefined') { alert('Excel库加载中，请稍后重试或使用CSV格式'); return; }
+  var headers, examples, filename;
+  if (type === 'commercial') {
+    headers = ['门店名称*', 'PID*', '城市*', '类目*', '门店数', '联系人', '联系电话'];
+    examples = [
+      ['张亮麻辣烫（朝阳路店）', '12345678', '南宁', '快餐', 3, '张老板', '13800138000'],
+      ['海底捞火锅', '87654321', '厦门', '火锅', 5, '李总', '13900139000']
+    ];
+    filename = '商业化做工导入模板';
+  } else {
+    headers = ['POI名称*', '城市*', '类目*', '联系人', '联系电话', '备注'];
+    examples = [
+      ['老王烧烤（人民路店）', '南宁', '烧烤', '王老板', '13800138000', '新装修开业'],
+      ['鲜茶道奶茶', '厦门', '茶饮', '陈总', '13900139000', '连锁品牌3家店']
+    ];
+    filename = '开店做工导入模板';
+  }
+  var wsData = [headers].concat(examples);
+  var ws = XLSX.utils.aoa_to_sheet(wsData);
+  // Set column widths
+  ws['!cols'] = headers.map(function(h){ return {wch: Math.max(h.length * 2 + 4, 14)}; });
+  var wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, '导入模板');
+  XLSX.writeFile(wb, filename + '.xlsx');
+}
+
 function parseCSV(text) {
   text = text.replace(/^\uFEFF/, '');
   var lines = text.split('\n').filter(function(l){return l.trim();});
@@ -3306,7 +3498,7 @@ function parseCSV(text) {
 
 function mapCSVRow(headers, cells, type) {
   var obj = {};
-  var h = headers.map(function(x){return (x||'').trim().toLowerCase();});
+  var h = headers.map(function(x){return (x||'').trim().toLowerCase().replace(/\*$/g,'').trim();});
   function get() {
     var names = Array.prototype.slice.call(arguments);
     for (var i = 0; i < names.length; i++) {
@@ -3337,14 +3529,13 @@ function mapCSVRow(headers, cells, type) {
 async function importCommercialCSV(input) {
   if (!input || !input.files[0]) return;
   var file = input.files[0];
-  var text = await file.text();
-  var parsed = parseCSV(text);
-  if (parsed.rows.length === 0) { alert('CSV文件为空或格式不正确'); input.value = ''; return; }
-  var records = parsed.rows.map(function(cells){
-    return mapCSVRow(parsed.headers, cells, 'commercial');
-  }).filter(function(r){ return r.store_name && r.city; });
-  if (records.length === 0) { alert('没有有效数据行（需包含门店名称和城市）'); input.value = ''; return; }
   try {
+    var parsed = await readFileData(file);
+    if (parsed.rows.length === 0) { alert('文件为空或格式不正确'); input.value = ''; return; }
+    var records = parsed.rows.map(function(cells){
+      return mapCSVRow(parsed.headers, cells, 'commercial');
+    }).filter(function(r){ return r.store_name && r.city; });
+    if (records.length === 0) { alert('没有有效数据行（需包含门店名称和城市）'); input.value = ''; return; }
     if (sb) {
       var toInsert = records.map(function(r){ return Object.assign({provider_id: STATE.user.provider_id}, r); });
       var res = await sb.from('crm_custom_pids').insert(toInsert).select();
@@ -3364,14 +3555,13 @@ async function importCommercialCSV(input) {
 async function importLeadsCSV(input) {
   if (!input || !input.files[0]) return;
   var file = input.files[0];
-  var text = await file.text();
-  var parsed = parseCSV(text);
-  if (parsed.rows.length === 0) { alert('CSV文件为空或格式不正确'); input.value = ''; return; }
-  var records = parsed.rows.map(function(cells){
-    return mapCSVRow(parsed.headers, cells, 'leads');
-  }).filter(function(r){ return r.poi_name && r.city; });
-  if (records.length === 0) { alert('没有有效数据行（需包含POI名称和城市）'); input.value = ''; return; }
   try {
+    var parsed = await readFileData(file);
+    if (parsed.rows.length === 0) { alert('文件为空或格式不正确'); input.value = ''; return; }
+    var records = parsed.rows.map(function(cells){
+      return mapCSVRow(parsed.headers, cells, 'leads');
+    }).filter(function(r){ return r.poi_name && r.city; });
+    if (records.length === 0) { alert('没有有效数据行（需包含POI名称和城市）'); input.value = ''; return; }
     if (sb) {
       var toInsert = records.map(function(r){ return Object.assign({provider_id: STATE.user.provider_id}, r); });
       var res = await sb.from('crm_custom_leads').insert(toInsert).select();
@@ -3390,16 +3580,15 @@ async function importLeadsCSV(input) {
 
 async function handleCustomFileImport(file) {
   if (!file) return;
-  var text = await file.text();
-  var parsed = parseCSV(text);
-  if (parsed.rows.length === 0) { alert('CSV文件为空或格式不正确'); return; }
-  var records = parsed.rows.map(function(cells){
-    return mapCSVRow(parsed.headers, cells, _customType);
-  }).filter(function(r){
-    return _customType === 'commercial' ? (r.store_name && r.city) : (r.poi_name && r.city);
-  });
-  if (records.length === 0) { alert('没有有效数据行'); return; }
   try {
+    var parsed = await readFileData(file);
+    if (parsed.rows.length === 0) { alert('文件为空或格式不正确'); return; }
+    var records = parsed.rows.map(function(cells){
+      return mapCSVRow(parsed.headers, cells, _customType);
+    }).filter(function(r){
+      return _customType === 'commercial' ? (r.store_name && r.city) : (r.poi_name && r.city);
+    });
+    if (records.length === 0) { alert('没有有效数据行'); return; }
     var table = _customType === 'commercial' ? 'crm_custom_pids' : 'crm_custom_leads';
     if (sb) {
       var toInsert = records.map(function(r){ return Object.assign({provider_id: STATE.user.provider_id}, r); });
