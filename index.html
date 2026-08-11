@@ -1098,6 +1098,35 @@ function renderSigningAnalysis(data, cities) {
   }).sort(function(a,b){return b.n - a.n;});
   var top8 = catList.slice(0, 8);
 
+  // 补齐：城市类目不足8个时，从大区REAL_CASES补充
+  if (top8.length < 8 && useCity) {
+    var existCats = {};
+    top8.forEach(function(c) { existCats[c.cat] = true; });
+    var regionCatAgg = {};
+    ['xg','znt','dz','zx','dj','pg'].forEach(function(pt) {
+      var pool = REAL_CASES[pt];
+      if (!pool || !pool[region]) return;
+      Object.keys(pool[region]).forEach(function(cat) {
+        if (existCats[cat]) return;
+        var d = pool[region][cat];
+        if (!regionCatAgg[cat]) regionCatAgg[cat] = {n:0, db:0, da:0, gb:0, ga:0};
+        regionCatAgg[cat].n += d.n;
+        regionCatAgg[cat].db += d.db*d.n; regionCatAgg[cat].da += d.da*d.n;
+        regionCatAgg[cat].gb += d.gb*d.n; regionCatAgg[cat].ga += d.ga*d.n;
+      });
+    });
+    var regionExtras = Object.entries(regionCatAgg).map(function(e) {
+      var a = e[1];
+      return {cat:e[0], n:a.n, dp: a.db>0 ? Math.round((a.da-a.db)/a.db*100) : 0, gp: a.gb>0 ? Math.round((a.ga-a.gb)/a.gb*100) : 0};
+    }).filter(function(c) {
+      return c.dp > 0 && c.gp > 0 && c.dp <= 500 && c.gp <= 500;
+    }).sort(function(a,b){return b.n - a.n;});
+    var need = 8 - top8.length;
+    for (var i = 0; i < Math.min(need, regionExtras.length); i++) {
+      top8.push(regionExtras[i]);
+    }
+  }
+
   var prodList = Object.entries(prodAgg).map(function(e) {
     return {key:e[0], name:e[1].name || prodNames[e[0]] || e[0], n:e[1].n, dp:e[1].dp, gp:e[1].gp};
   }).filter(function(p) {
@@ -1167,7 +1196,7 @@ function renderSigningAnalysis(data, cities) {
 
   // === Module 1: Top 8 categories (no signing count column) ===
   html += '<div style="margin-bottom:28px;">';
-  html += '<h4 style="font-size:14px;font-weight:600;margin-bottom:12px;color:var(--accent);">签约Top 8类目（跨产品汇总）</h4>';
+  html += '<h4 style="font-size:14px;font-weight:600;margin-bottom:12px;color:var(--accent);">签约Top ' + top8.length + '类目（跨产品汇总）</h4>';
 
   if (top8.length > 0) {
     html += '<div class="data-table-wrap"><table class="data-table"><thead><tr>';
