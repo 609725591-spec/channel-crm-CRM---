@@ -879,7 +879,7 @@ async function doLogin() {
     $('headerUser').textContent = '管理驾驶舱';
     $('headerCity').textContent = '全国 ▾';
     STATE.currentPage = 'mgmt';
-    generateMgmtDemoData();
+    await loadMgmtData();
     navigate('mgmt');
     return;
   }
@@ -3402,6 +3402,115 @@ function mgmtPickCat() {
   return MGMT_CATS[0];
 }
 
+async function loadMgmtData() {
+  if (sb) {
+    try {
+      // Load org structure from crm_providers
+      var provRes = await fetchAll(sb.from('crm_providers').select('provider_id,provider_name,region,channel_manager,cities'));
+      var providers = (provRes.data || []).map(function(p) {
+        return {
+          provider_id: p.provider_id,
+          provider_name: p.provider_name,
+          region: p.region || '未分配',
+          channel_manager: p.channel_manager || '未分配',
+          cities: p.cities || [],
+          employees: []
+        };
+      });
+
+      // Load all commercial PIDs across providers
+      var pidRes = await fetchAll(sb.from('crm_pids').select('pid,provider_id,store_name,city,category_l2,tier,dpv_30d,is_signed_agent,is_signed_eff,is_signed_brand'));
+
+      // Load all leads
+      var leadRes = await fetchAll(sb.from('crm_leads').select('poi_id,provider_id,poi_name,city,category_l2,dpv_30d,is_high_priority,brand_type,smoke_level'));
+
+      // Load custom entries too
+      var customPidRes = await fetchAll(sb.from('crm_custom_pids').select('pid,provider_id,store_name,city,category_l2'));
+      var customLeadRes = await fetchAll(sb.from('crm_custom_leads').select('poi_id,provider_id,poi_name,city,category_l2'));
+
+      // Load all follow-ups
+      var fuRes = await fetchAll(sb.from('crm_follow_ups').select('target_type,target_id,provider_id,employee_name,status,created_at'));
+
+      // Build provider lookup for region/channel_manager
+      var provMap = {};
+      providers.forEach(function(p) { provMap[p.provider_id] = p; });
+
+      // Merge and enrich PIDs with org info
+      var allCommercial = (pidRes.data || []).map(function(d) {
+        var sp = provMap[d.provider_id] || {};
+        return {
+          pid: d.pid, provider_id: d.provider_id,
+          store_name: d.store_name, city: d.city,
+          category_l2: d.category_l2, tier: d.tier,
+          dpv_30d: d.dpv_30d,
+          is_signed_agent: d.is_signed_agent,
+          is_signed_eff: d.is_signed_eff,
+          is_signed_brand: d.is_signed_brand,
+          region: sp.region || '未分配',
+          channel_manager: sp.channel_manager || '未分配'
+        };
+      });
+      // Add custom PIDs
+      (customPidRes.data || []).forEach(function(d) {
+        var sp = provMap[d.provider_id] || {};
+        allCommercial.push({
+          pid: d.pid || ('CUS_' + d.id), provider_id: d.provider_id,
+          store_name: d.store_name, city: d.city,
+          category_l2: d.category_l2, tier: null,
+          dpv_30d: 0,
+          is_signed_agent: false, is_signed_eff: false, is_signed_brand: false,
+          region: sp.region || '未分配',
+          channel_manager: sp.channel_manager || '未分配'
+        });
+      });
+
+      // Merge and enrich leads
+      var allLeads = (leadRes.data || []).map(function(d) {
+        var sp = provMap[d.provider_id] || {};
+        return {
+          poi_id: d.poi_id, provider_id: d.provider_id,
+          poi_name: d.poi_name, city: d.city,
+          category_l2: d.category_l2, dpv_30d: d.dpv_30d,
+          is_high_priority: d.is_high_priority,
+          brand_type: d.brand_type, smoke_level: d.smoke_level,
+          region: sp.region || '未分配',
+          channel_manager: sp.channel_manager || '未分配'
+        };
+      });
+      (customLeadRes.data || []).forEach(function(d) {
+        var sp = provMap[d.provider_id] || {};
+        allLeads.push({
+          poi_id: d.poi_id || ('CUS_L_' + d.id), provider_id: d.provider_id,
+          poi_name: d.poi_name, city: d.city,
+          category_l2: d.category_l2, dpv_30d: 0,
+          is_high_priority: false, brand_type: '-', smoke_level: '-',
+          region: sp.region || '未分配',
+          channel_manager: sp.channel_manager || '未分配'
+        });
+      });
+
+      // Follow-ups
+      var allFollowUps = fuRes.data || [];
+
+      if (providers.length > 0 && (allCommercial.length > 0 || allLeads.length > 0)) {
+        STATE.mgmtData = {
+          providers: providers,
+          commercial: allCommercial,
+          leads: allLeads,
+          followUps: allFollowUps
+        };
+        console.log('Mgmt real data loaded:', providers.length, 'providers,', allCommercial.length, 'PIDs,', allLeads.length, 'leads,', allFollowUps.length, 'follow-ups');
+        return;
+      }
+      console.warn('Mgmt: Supabase returned empty data, falling back to demo');
+    } catch(e) {
+      console.warn('Mgmt: Supabase query failed, falling back to demo:', e);
+    }
+  }
+  // Fallback to demo data
+  generateMgmtDemoData();
+}
+
 function generateMgmtDemoData() {
   var allCommercial = [], allLeads = [], allFollowUps = [], allProviders = [];
   var today = new Date();
@@ -4477,8 +4586,7 @@ document.addEventListener('keydown', function(e) {
         $('headerUser').textContent = '管理驾驶舱';
         $('headerCity').textContent = '全国 ▾';
         STATE.currentPage = 'mgmt';
-        generateMgmtDemoData();
-        navigate('mgmt');
+        loadMgmtData().then(function(){ navigate('mgmt'); });
         return;
       }
       onLoginSuccess();
