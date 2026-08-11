@@ -228,6 +228,9 @@ CREATE POLICY crm_followups_isolation ON crm_follow_ups
 DROP POLICY IF EXISTS crm_usage_isolation ON crm_usage_logs;
 CREATE POLICY crm_usage_isolation ON crm_usage_logs
   FOR ALL USING (provider_id = current_setting('app.current_provider_id', true));
+DROP POLICY IF EXISTS crm_usage_insert ON crm_usage_logs;
+CREATE POLICY crm_usage_insert ON crm_usage_logs
+  FOR INSERT WITH CHECK (true);
 
 -- ============================================
 -- 管理员函数：批量导入数据
