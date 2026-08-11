@@ -737,6 +737,13 @@ function onLoginSuccess() {
   $('headerUser').textContent = STATE.user.provider_name + ' · ' + (STATE.user.role || '操盘手');
   if (STATE.user.is_admin) { $('navAdmin').style.display = 'flex'; }
 
+  // Save session to localStorage for auto-login on refresh
+  localStorage.setItem('crm_session', JSON.stringify({
+    user: STATE.user,
+    code: $('loginCode').value.trim(),
+    ts: Date.now()
+  }));
+
   // Log usage
   logUsage('login');
 
@@ -753,6 +760,7 @@ function onLoginSuccess() {
 function doLogout() {
   STATE.user = null;
   STATE.cities = [];
+  localStorage.removeItem('crm_session');
   $('appShell').classList.remove('active');
   $('cityPage').style.display = 'none';
   $('loginPage').style.display = 'flex';
@@ -2636,6 +2644,27 @@ document.addEventListener('keydown', function(e) {
   if (e.key === 'Enter' && $('loginPage').style.display !== 'none') doLogin();
   if (e.key === 'Escape') { closeModal(); closeFollowModal(); }
 });
+
+// Auto-login from saved session (persists across refresh, 7-day expiry)
+(function autoLogin() {
+  try {
+    var saved = localStorage.getItem('crm_session');
+    if (!saved) return;
+    var session = JSON.parse(saved);
+    // 7-day expiry
+    if (!session.ts || Date.now() - session.ts > 7 * 24 * 60 * 60 * 1000) {
+      localStorage.removeItem('crm_session');
+      return;
+    }
+    if (session.user && session.user.provider_id) {
+      STATE.user = session.user;
+      $('loginCode').value = session.code || '';
+      onLoginSuccess();
+    }
+  } catch(e) {
+    localStorage.removeItem('crm_session');
+  }
+})();
 </script>
 </body>
 </html>
