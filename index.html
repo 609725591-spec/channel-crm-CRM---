@@ -131,6 +131,7 @@ a { color:var(--accent2); text-decoration:none; }
 .badge-red { background:rgba(239,68,68,.15); color:var(--red); }
 .badge-gray { background:rgba(100,116,139,.15); color:var(--text3); }
 .badge-purple { background:rgba(139,92,246,.15); color:var(--purple); }
+.badge-custom { background:rgba(245,158,11,.15); color:#f59e0b; font-size:10px; }
 
 /* Buttons */
 .btn { padding:7px 16px; border:none; border-radius:var(--radius); cursor:pointer; font-size:13px; font-weight:500; transition:all var(--transition); display:inline-flex; align-items:center; gap:6px; }
@@ -376,6 +377,9 @@ a { color:var(--accent2); text-decoration:none; }
             <option value="暂不跟进">暂不跟进</option>
           </select>
           <button class="btn btn-outline btn-sm" onclick="exportCommercial()">📥 导出</button>
+          <button class="btn btn-primary btn-sm" onclick="openCustomModal('commercial')">+ 添加</button>
+          <button class="btn btn-outline btn-sm" onclick="document.getElementById('commercialFileImport').click()">📁 导入</button>
+          <input type="file" id="commercialFileImport" accept=".csv" style="display:none" onchange="importCommercialCSV(this)">
         </div>
         <div id="commercialTableWrap"></div>
       </div>
@@ -407,6 +411,9 @@ a { color:var(--accent2); text-decoration:none; }
             <option value="无效">无效</option>
           </select>
           <button class="btn btn-outline btn-sm" onclick="exportLeads()">📥 导出</button>
+          <button class="btn btn-primary btn-sm" onclick="openCustomModal('leads')">+ 添加</button>
+          <button class="btn btn-outline btn-sm" onclick="document.getElementById('leadsFileImport').click()">📁 导入</button>
+          <input type="file" id="leadsFileImport" accept=".csv" style="display:none" onchange="importLeadsCSV(this)">
         </div>
         <div id="leadsTableWrap"></div>
       </div>
@@ -546,6 +553,27 @@ a { color:var(--accent2); text-decoration:none; }
     <div class="modal-footer">
       <button class="btn btn-outline" onclick="closeFollowModal()">取消</button>
       <button class="btn btn-primary" onclick="saveFollowUp()">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== MODAL: Custom Entry ===== -->
+<div id="customModal" class="modal-overlay" onclick="if(event.target===this)closeCustomModal()">
+  <div class="modal" style="max-width:520px">
+    <div class="modal-header">
+      <h3 id="customModalTitle">添加商户</h3>
+      <button class="modal-close" onclick="closeCustomModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div id="customFormBody"></div>
+      <div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border);">
+        <button class="btn btn-outline btn-sm" onclick="triggerCustomFile()" style="width:100%;">📁 从文件批量导入（CSV）</button>
+        <input type="file" id="customFileInput" accept=".csv" style="display:none" onchange="handleCustomFileImport(this.files[0])">
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeCustomModal()">取消</button>
+      <button class="btn btn-primary" id="customSaveBtn" onclick="saveCustomEntry()">保存</button>
     </div>
   </div>
 </div>
@@ -959,6 +987,21 @@ async function loadData() {
           if (!STATE.followUps[key]) STATE.followUps[key] = [];
           STATE.followUps[key].push(r);
         });
+      }
+
+      // Load custom entries (服务商自录入)
+      var customPidRes = await fetchAll(sb.from('crm_custom_pids').select('*').eq('provider_id', STATE.user.provider_id));
+      var customLeadRes = await fetchAll(sb.from('crm_custom_leads').select('*').eq('provider_id', STATE.user.provider_id));
+      if (customPidRes.data) {
+        customPidRes.data.forEach(function(d) { d._custom = true; });
+        STATE.commercialData = STATE.commercialData.concat(customPidRes.data);
+      }
+      if (customLeadRes.data) {
+        customLeadRes.data.forEach(function(d) {
+          d._custom = true;
+          if (!d.poi_id) d.poi_id = 'CUS_L_' + d.id;
+        });
+        STATE.leadsData = STATE.leadsData.concat(customLeadRes.data);
       }
 
       console.log('Loaded from Supabase:', STATE.commercialData.length, 'PIDs,', STATE.leadsData.length, 'leads,', STATE.occupancy.length, 'occupancy,', STATE.signedCases.length, 'signed cases');
@@ -1527,6 +1570,7 @@ function renderCommercialTable() {
       if (d.is_signed_eff) signed.push('效广');
       if (d.is_signed_brand) signed.push('品广');
       var signedStr = signed.length > 0 ? signed.join('+') : '<span style="color:var(--red)">未签约</span>';
+      if (d._custom) signedStr += ' <span class="badge badge-custom">自录入</span>';
 
       // 检查顶展/钻展机会：未占量 = 有机会
       var occ = checkOccupancy(d.city, d.category_l2);
@@ -1541,12 +1585,14 @@ function renderCommercialTable() {
         '<td style="font-size:12px;color:var(--text3);">' + d.pid + '</td>' +
         '<td>' + d.city + '</td>' +
         '<td>' + (d.category_l2||'-') + '</td>' +
-        '<td>' + tierBadge(d.tier) + '</td>' +
+        '<td>' + (d._custom ? '<span class="badge badge-gray">-</span>' : tierBadge(d.tier)) + '</td>' +
         '<td class="num">' + fmtDpv(d.dpv_30d) + '</td>' +
         '<td class="num">' + (d.store_count||1) + '</td>' +
         '<td style="font-size:12px;">' + signedStr + '</td>' +
         '<td>' + statusBadge(fuStatus) + '</td>' +
-        '<td><button class="btn btn-sm btn-outline" onclick="showPIDDetail(\'' + d.pid + '\',true)">跟进</button></td>' +
+        '<td>' + (d._custom
+          ? '<button class="btn btn-sm btn-outline" style="color:var(--red);border-color:var(--red);" onclick="deleteCustomPID(' + d.id + ')">删除</button>'
+          : '<button class="btn btn-sm btn-outline" onclick="showPIDDetail(\'' + d.pid + '\',true)">跟进</button>') + '</td>' +
         '</tr>';
     });
   }
@@ -1630,16 +1676,19 @@ function renderLeadsTable() {
   } else {
     pageData.forEach(function(d) {
       var fuStatus = getFollowUpStatus('lead', d.poi_id);
+      var customBadge = d._custom ? ' <span class="badge badge-custom">自录入</span>' : '';
       html += '<tr>' +
-        '<td class="clickable" onclick="showLeadDetail(\'' + d.poi_id + '\')"><strong>' + (d.poi_name||'-') + '</strong></td>' +
+        '<td class="clickable" onclick="showLeadDetail(\'' + d.poi_id + '\')"><strong>' + (d.poi_name||'-') + '</strong>' + customBadge + '</td>' +
         '<td>' + d.city + '</td>' +
         '<td>' + (d.category_l2||'-') + '</td>' +
         '<td class="num">' + fmtDpv(d.dpv_30d) + '</td>' +
         '<td>' + (d.brand_type||'-') + '</td>' +
         '<td>' + (d.smoke_level||'-') + '</td>' +
-        '<td>' + (d.is_high_priority ? '<span class="badge badge-green">高优</span>' : '<span class="badge badge-gray">-</span>') + '</td>' +
+        '<td>' + (d._custom ? '<span class="badge badge-gray">-</span>' : (d.is_high_priority ? '<span class="badge badge-green">高优</span>' : '<span class="badge badge-gray">-</span>')) + '</td>' +
         '<td>' + statusBadge(fuStatus) + '</td>' +
-        '<td><button class="btn btn-sm btn-outline" onclick="showLeadDetail(\'' + d.poi_id + '\',true)">跟进</button></td>' +
+        '<td>' + (d._custom
+          ? '<button class="btn btn-sm btn-outline" style="color:var(--red);border-color:var(--red);" onclick="deleteCustomLead(' + d.id + ')">删除</button>'
+          : '<button class="btn btn-sm btn-outline" onclick="showLeadDetail(\'' + d.poi_id + '\',true)">跟进</button>') + '</td>' +
         '</tr>';
     });
   }
@@ -3123,6 +3172,253 @@ function downloadCSV(content, filename) {
   a.download = filename;
   a.click();
   URL.revokeObjectURL(a.href);
+}
+
+/* =============================================
+   CUSTOM ENTRY (服务商自录入)
+   ============================================= */
+var _customType = '';
+
+function openCustomModal(type) {
+  _customType = type;
+  var cities = STATE.cities || [];
+  var cityOpts = '<option value="">选择城市</option>' + cities.map(function(c){return '<option>'+c+'</option>';}).join('');
+  var html = '';
+  if (type === 'commercial') {
+    $('customModalTitle').textContent = '添加商业化商户';
+    html = '<div class="follow-form">' +
+      '<div class="form-row"><div style="flex:1"><label>门店名称 *</label><input id="ce_storeName" placeholder="如：张亮麻辣烫"></div>' +
+      '<div style="flex:1"><label>PID *</label><input id="ce_pid" placeholder="商户PID"></div></div>' +
+      '<div class="form-row"><div style="flex:1"><label>城市 *</label><select id="ce_city">' + cityOpts + '</select></div>' +
+      '<div style="flex:1"><label>类目 *</label><input id="ce_cat" placeholder="如：快餐、火锅、茶饮"></div></div>' +
+      '<div class="form-row"><div style="flex:1"><label>门店数</label><input id="ce_storeCount" type="number" value="1" min="1"></div>' +
+      '<div style="flex:1"><label>联系人</label><input id="ce_contact" placeholder="老板姓名"></div></div>' +
+      '<div><label>联系电话</label><input id="ce_phone" placeholder="手机号"></div>' +
+      '</div>';
+  } else {
+    $('customModalTitle').textContent = '添加开店Leads';
+    html = '<div class="follow-form">' +
+      '<div class="form-row"><div style="flex:1"><label>POI名称 *</label><input id="ce_poiName" placeholder="门店名称"></div>' +
+      '<div style="flex:1"><label>城市 *</label><select id="ce_city">' + cityOpts + '</select></div></div>' +
+      '<div class="form-row"><div style="flex:1"><label>类目 *</label><input id="ce_cat" placeholder="如：快餐、火锅、茶饮"></div>' +
+      '<div style="flex:1"><label>联系人</label><input id="ce_contact" placeholder="老板姓名"></div></div>' +
+      '<div class="form-row"><div style="flex:1"><label>联系电话</label><input id="ce_phone" placeholder="手机号"></div>' +
+      '<div style="flex:1"></div></div>' +
+      '<div><label>备注</label><textarea id="ce_notes" placeholder="补充信息..."></textarea></div>' +
+      '</div>';
+  }
+  $('customFormBody').innerHTML = html;
+  $('customModal').classList.add('active');
+}
+
+function closeCustomModal() {
+  $('customModal').classList.remove('active');
+  $('customFileInput').value = '';
+}
+
+async function saveCustomEntry() {
+  var btn = $('customSaveBtn');
+  btn.disabled = true; btn.textContent = '保存中...';
+  try {
+    if (_customType === 'commercial') {
+      var storeName = $('ce_storeName').value.trim();
+      var pid = $('ce_pid').value.trim();
+      var city = $('ce_city').value;
+      var cat = $('ce_cat').value.trim();
+      if (!storeName || !pid || !city || !cat) { alert('请填写必填项（门店名称、PID、城市、类目）'); btn.disabled = false; btn.textContent = '保存'; return; }
+      var record = {
+        provider_id: STATE.user.provider_id,
+        store_name: storeName, pid: pid, city: city, category_l2: cat,
+        store_count: parseInt($('ce_storeCount').value) || 1,
+        contact_name: $('ce_contact').value.trim(),
+        contact_phone: $('ce_phone').value.trim()
+      };
+      if (sb) { var res = await sb.from('crm_custom_pids').insert(record).select().single(); if (res.data) record = res.data; }
+      record._custom = true;
+      STATE.commercialData.push(record);
+    } else {
+      var poiName = $('ce_poiName').value.trim();
+      var city = $('ce_city').value;
+      var cat = $('ce_cat').value.trim();
+      if (!poiName || !city || !cat) { alert('请填写必填项（POI名称、城市、类目）'); btn.disabled = false; btn.textContent = '保存'; return; }
+      var record = {
+        provider_id: STATE.user.provider_id,
+        poi_name: poiName, city: city, category_l2: cat,
+        contact_name: $('ce_contact').value.trim(),
+        contact_phone: $('ce_phone').value.trim(),
+        notes: $('ce_notes').value.trim()
+      };
+      if (sb) { var res = await sb.from('crm_custom_leads').insert(record).select().single(); if (res.data) record = res.data; }
+      record._custom = true;
+      if (!record.poi_id) record.poi_id = 'CUS_L_' + record.id;
+      STATE.leadsData.push(record);
+    }
+    closeCustomModal();
+    if (_customType === 'commercial') { filterCommercial(); renderCommercial(); }
+    else { filterLeads(); renderLeads(); }
+    logUsage('custom_add_' + _customType);
+    alert('添加成功！');
+  } catch(e) { alert('保存失败：' + e.message); }
+  btn.disabled = false; btn.textContent = '保存';
+}
+
+async function deleteCustomPID(id) {
+  if (!confirm('确定删除该自录入条目？')) return;
+  try {
+    if (sb) await sb.from('crm_custom_pids').delete().eq('id', id);
+    STATE.commercialData = STATE.commercialData.filter(function(d){ return !(d._custom && d.id === id); });
+    filterCommercial(); renderCommercial();
+  } catch(e) { alert('删除失败：' + e.message); }
+}
+
+async function deleteCustomLead(id) {
+  if (!confirm('确定删除该自录入条目？')) return;
+  try {
+    if (sb) await sb.from('crm_custom_leads').delete().eq('id', id);
+    STATE.leadsData = STATE.leadsData.filter(function(d){ return !(d._custom && d.id === id); });
+    filterLeads(); renderLeads();
+  } catch(e) { alert('删除失败：' + e.message); }
+}
+
+function triggerCustomFile() {
+  $('customFileInput').click();
+}
+
+function parseCSV(text) {
+  text = text.replace(/^\uFEFF/, '');
+  var lines = text.split('\n').filter(function(l){return l.trim();});
+  if (lines.length < 2) return {headers: [], rows: []};
+  function splitLine(line) {
+    var cells = [], cur = '', inQ = false;
+    for (var i = 0; i < line.length; i++) {
+      var ch = line[i];
+      if (ch === '"') { if (inQ && line[i+1] === '"') { cur += '"'; i++; } else { inQ = !inQ; } }
+      else if (ch === ',' && !inQ) { cells.push(cur.trim()); cur = ''; }
+      else { cur += ch; }
+    }
+    cells.push(cur.trim());
+    return cells;
+  }
+  var headers = splitLine(lines[0]);
+  var rows = lines.slice(1).map(function(l){ return splitLine(l); });
+  return {headers: headers, rows: rows};
+}
+
+function mapCSVRow(headers, cells, type) {
+  var obj = {};
+  var h = headers.map(function(x){return (x||'').trim().toLowerCase();});
+  function get() {
+    var names = Array.prototype.slice.call(arguments);
+    for (var i = 0; i < names.length; i++) {
+      var idx = h.indexOf(names[i]);
+      if (idx >= 0 && cells[idx] !== undefined && cells[idx] !== '') return cells[idx];
+    }
+    return '';
+  }
+  if (type === 'commercial') {
+    obj.store_name = get('门店名称','门店名','store_name','名称');
+    obj.pid = get('pid','商户pid','PID');
+    obj.city = get('城市','city','所在城市');
+    obj.category_l2 = get('类目','category_l2','品类','二级类目');
+    obj.store_count = parseInt(get('门店数','store_count','门店数量')) || 1;
+    obj.contact_name = get('联系人','contact_name','老板','姓名');
+    obj.contact_phone = get('联系电话','contact_phone','电话','手机号','手机');
+  } else {
+    obj.poi_name = get('poi名称','poiid','poi_name','门店名称','门店名','名称');
+    obj.city = get('城市','city','所在城市');
+    obj.category_l2 = get('类目','category_l2','品类','二级类目');
+    obj.contact_name = get('联系人','contact_name','老板','姓名');
+    obj.contact_phone = get('联系电话','contact_phone','电话','手机号','手机');
+    obj.notes = get('备注','notes','说明');
+  }
+  return obj;
+}
+
+async function importCommercialCSV(input) {
+  if (!input || !input.files[0]) return;
+  var file = input.files[0];
+  var text = await file.text();
+  var parsed = parseCSV(text);
+  if (parsed.rows.length === 0) { alert('CSV文件为空或格式不正确'); input.value = ''; return; }
+  var records = parsed.rows.map(function(cells){
+    return mapCSVRow(parsed.headers, cells, 'commercial');
+  }).filter(function(r){ return r.store_name && r.city; });
+  if (records.length === 0) { alert('没有有效数据行（需包含门店名称和城市）'); input.value = ''; return; }
+  try {
+    if (sb) {
+      var toInsert = records.map(function(r){ return Object.assign({provider_id: STATE.user.provider_id}, r); });
+      var res = await sb.from('crm_custom_pids').insert(toInsert).select();
+      if (res.data) {
+        res.data.forEach(function(d){ d._custom = true; STATE.commercialData.push(d); });
+      }
+    } else {
+      records.forEach(function(r){ r._custom = true; r.id = Date.now() + Math.random(); STATE.commercialData.push(r); });
+    }
+    filterCommercial(); renderCommercial();
+    logUsage('custom_import_commercial');
+    alert('成功导入 ' + records.length + ' 条商业化商户数据');
+  } catch(e) { alert('导入失败：' + e.message); }
+  input.value = '';
+}
+
+async function importLeadsCSV(input) {
+  if (!input || !input.files[0]) return;
+  var file = input.files[0];
+  var text = await file.text();
+  var parsed = parseCSV(text);
+  if (parsed.rows.length === 0) { alert('CSV文件为空或格式不正确'); input.value = ''; return; }
+  var records = parsed.rows.map(function(cells){
+    return mapCSVRow(parsed.headers, cells, 'leads');
+  }).filter(function(r){ return r.poi_name && r.city; });
+  if (records.length === 0) { alert('没有有效数据行（需包含POI名称和城市）'); input.value = ''; return; }
+  try {
+    if (sb) {
+      var toInsert = records.map(function(r){ return Object.assign({provider_id: STATE.user.provider_id}, r); });
+      var res = await sb.from('crm_custom_leads').insert(toInsert).select();
+      if (res.data) {
+        res.data.forEach(function(d){ d._custom = true; if (!d.poi_id) d.poi_id = 'CUS_L_' + d.id; STATE.leadsData.push(d); });
+      }
+    } else {
+      records.forEach(function(r){ r._custom = true; r.id = Date.now() + Math.random(); r.poi_id = 'CUS_L_' + r.id; STATE.leadsData.push(r); });
+    }
+    filterLeads(); renderLeads();
+    logUsage('custom_import_leads');
+    alert('成功导入 ' + records.length + ' 条开店leads数据');
+  } catch(e) { alert('导入失败：' + e.message); }
+  input.value = '';
+}
+
+async function handleCustomFileImport(file) {
+  if (!file) return;
+  var text = await file.text();
+  var parsed = parseCSV(text);
+  if (parsed.rows.length === 0) { alert('CSV文件为空或格式不正确'); return; }
+  var records = parsed.rows.map(function(cells){
+    return mapCSVRow(parsed.headers, cells, _customType);
+  }).filter(function(r){
+    return _customType === 'commercial' ? (r.store_name && r.city) : (r.poi_name && r.city);
+  });
+  if (records.length === 0) { alert('没有有效数据行'); return; }
+  try {
+    var table = _customType === 'commercial' ? 'crm_custom_pids' : 'crm_custom_leads';
+    if (sb) {
+      var toInsert = records.map(function(r){ return Object.assign({provider_id: STATE.user.provider_id}, r); });
+      var res = await sb.from(table).insert(toInsert).select();
+      if (res.data) {
+        res.data.forEach(function(d){ d._custom = true; if (d.poi_name && !d.poi_id) d.poi_id = 'CUS_L_' + d.id; });
+        if (_customType === 'commercial') { res.data.forEach(function(d){ STATE.commercialData.push(d); }); }
+        else { res.data.forEach(function(d){ STATE.leadsData.push(d); }); }
+      }
+    } else {
+      records.forEach(function(r){ r._custom = true; r.id = Date.now() + Math.random(); if (r.poi_name && !r.poi_id) r.poi_id = 'CUS_L_' + r.id; });
+      if (_customType === 'commercial') { records.forEach(function(d){ STATE.commercialData.push(d); }); }
+      else { records.forEach(function(d){ STATE.leadsData.push(d); }); }
+    }
+    closeCustomModal();
+    if (_customType === 'commercial') { filterCommercial(); renderCommercial(); }
+    else { filterLeads(); renderLeads(); }
+    alert('成功导入 ' + records.length + ' 条数据');
+  } catch(e) { alert('导入失败：' + e.message); }
 }
 
 /* =============================================
