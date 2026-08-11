@@ -2930,10 +2930,7 @@ function checkOccupancy(city, category) {
 function renderOccupancy() {
   var frame = $('occupancyFrame');
   if (frame._loaded) return;
-  var baseUrl = 'brand-ad-map.html';
-  var params = [];
-  if (STATE.cities && STATE.cities.length) params.push('city=' + encodeURIComponent(STATE.cities.join(',')));
-  frame.src = baseUrl + (params.length ? '?' + params.join('&') : '');
+  frame.src = 'brand-ad-map.html';
   frame._loaded = true;
 }
 
