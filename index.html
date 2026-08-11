@@ -2030,6 +2030,8 @@ function renderCases(d) {
       // 过滤基数过小
       if ((m.dpv_before || 0) < 5 && (m.gmv_before || 0) < 5) return;
       if ((m.dpv_pct || 0) <= 0 && (m.gmv_pct || 0) <= 0) return;
+      // 排除DPV或GMV任一指标下降的商户，避免服务商看了没信心
+      if ((m.dpv_pct || 0) < 0 || (m.gmv_pct || 0) < 0) return;
       // 过滤极端异常值：DPV和GMV同时暴涨超300%的显得不真实
       if ((m.dpv_pct || 0) > 300 && (m.gmv_pct || 0) > 300) return;
       cityCases.push(c);
