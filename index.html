@@ -3687,15 +3687,16 @@ async function loadUsageData() {
     map[key][cat]++;
     if (ts) { map[key].activeDays[ts.substring(0,10)] = true; if (!map[key].lastActive || ts > map[key].lastActive) map[key].lastActive = ts; }
   }
+  function newStats() { return {logins:0,navs:0,exports:0,imports:0,followUps:0,poolOps:0,other:0,lastActive:null,activeDays:{}}; }
   usageLogs.forEach(function(log) {
     var pid = log.provider_id;
     var prov = provMap[pid] || {};
     var ts = log.created_at || log.login_time || null;
-    if (!byProvider[pid]) byProvider[pid] = { provider_name: log.provider_name || prov.provider_name || pid, region: prov.region || '未分配', channel_manager: prov.channel_manager || '未分配' };
+    if (!byProvider[pid]) byProvider[pid] = Object.assign({provider_name: log.provider_name || prov.provider_name || pid, region: prov.region || '未分配', channel_manager: prov.channel_manager || '未分配'}, newStats());
     bumpLog(byProvider[pid], pid, log.action, ts);
     var emp = log.employee_name || log.provider_name || '未知';
     var empKey = pid + '|' + emp;
-    if (!byEmployee[empKey]) byEmployee[empKey] = { provider_id: pid, provider_name: byProvider[pid].provider_name, employee_name: emp, region: byProvider[pid].region };
+    if (!byEmployee[empKey]) byEmployee[empKey] = Object.assign({provider_id: pid, provider_name: byProvider[pid].provider_name, employee_name: emp, region: byProvider[pid].region}, newStats());
     bumpLog(byEmployee[empKey], empKey, log.action, ts);
     var cat = classifyAction(log.action);
     if (cat === 'logins') totalLogins++;
@@ -3706,11 +3707,11 @@ async function loadUsageData() {
   actionLogs.forEach(function(log) {
     var pid = log.provider_id;
     var prov = provMap[pid] || {};
-    if (!byProvider[pid]) byProvider[pid] = { provider_name: prov.provider_name || pid, region: prov.region || '未分配', channel_manager: prov.channel_manager || '未分配' };
+    if (!byProvider[pid]) byProvider[pid] = Object.assign({provider_name: prov.provider_name || pid, region: prov.region || '未分配', channel_manager: prov.channel_manager || '未分配'}, newStats());
     bumpLog(byProvider[pid], pid, log.action, log.created_at);
     var emp = log.employee_name || '未知';
     var empKey = pid + '|' + emp;
-    if (!byEmployee[empKey]) byEmployee[empKey] = { provider_id: pid, provider_name: byProvider[pid].provider_name, employee_name: emp, region: byProvider[pid].region };
+    if (!byEmployee[empKey]) byEmployee[empKey] = Object.assign({provider_id: pid, provider_name: byProvider[pid].provider_name, employee_name: emp, region: byProvider[pid].region}, newStats());
     bumpLog(byEmployee[empKey], empKey, log.action, log.created_at);
     var cat = classifyAction(log.action);
     if (cat === 'exports') totalExports++;
