@@ -347,6 +347,7 @@ a { color:var(--accent2); text-decoration:none; }
             <option value="B1">B1-高DPV非TOP10</option>
             <option value="B2">B2-中DPV+高GMV</option>
           </select>
+          <input id="cfCatSearch" placeholder="搜索类目" oninput="filterCatOptions('cfCatSearch','cfCategory')" style="width:90px;">
           <select id="cfCategory" onchange="filterCommercial()">
             <option value="">全部类目</option>
           </select>
@@ -667,6 +668,7 @@ function genDemoLeads() {
    ============================================= */
 function $(id) { return document.getElementById(id); }
 function fmt(n) { return n != null ? Number(n).toLocaleString() : '-'; }
+function fmtDpv(n) { return n != null ? Number(n).toFixed(2) : '-'; }
 function fmtMoney(n) { return n != null ? '¥' + Number(n).toLocaleString() : '-'; }
 function fmtDate(d) { if (!d) return '-'; return new Date(d).toLocaleDateString('zh-CN'); }
 function fmtTime(d) { if (!d) return '-'; var dt = new Date(d); return dt.toLocaleDateString('zh-CN') + ' ' + dt.toLocaleTimeString('zh-CN', {hour:'2-digit',minute:'2-digit'}); }
@@ -956,14 +958,32 @@ function populateCategoryFilter(selectId, data, field) {
   var cats = {};
   data.forEach(function(d) { if (d[field]) cats[d[field]] = true; });
   var sel = $(selectId);
+  sel._allCats = Object.keys(cats).sort();
   // Keep first option
   while (sel.options.length > 1) sel.remove(1);
-  Object.keys(cats).sort().forEach(function(cat) {
+  sel._allCats.forEach(function(cat) {
     var opt = document.createElement('option');
     opt.value = cat;
     opt.textContent = cat;
     sel.appendChild(opt);
   });
+}
+
+function filterCatOptions(inputId, selectId) {
+  var q = ($(inputId).value || '').toLowerCase();
+  var sel = $(selectId);
+  var prev = sel.value;
+  while (sel.options.length > 1) sel.remove(1);
+  var cats = sel._allCats || [];
+  cats.forEach(function(cat) {
+    if (q && cat.toLowerCase().indexOf(q) < 0) return;
+    var opt = document.createElement('option');
+    opt.value = cat;
+    opt.textContent = cat;
+    sel.appendChild(opt);
+  });
+  // Restore selection if still in list
+  sel.value = prev;
 }
 
 /* =============================================
@@ -1460,7 +1480,7 @@ function renderCommercialTable() {
         '<td>' + d.city + '</td>' +
         '<td>' + (d.category_l2||'-') + '</td>' +
         '<td>' + tierBadge(d.tier) + '</td>' +
-        '<td class="num">' + fmt(d.dpv_30d) + '</td>' +
+        '<td class="num">' + fmtDpv(d.dpv_30d) + '</td>' +
         '<td class="num">' + (d.store_count||1) + '</td>' +
         '<td style="font-size:12px;">' + signedStr + '</td>' +
         '<td>' + statusBadge(fuStatus) + '</td>' +
@@ -1544,7 +1564,7 @@ function renderLeadsTable() {
         '<td class="clickable" onclick="showLeadDetail(\'' + d.poi_id + '\')"><strong>' + (d.poi_name||'-') + '</strong></td>' +
         '<td>' + d.city + '</td>' +
         '<td>' + (d.category_l2||'-') + '</td>' +
-        '<td class="num">' + fmt(d.dpv_30d) + '</td>' +
+        '<td class="num">' + fmtDpv(d.dpv_30d) + '</td>' +
         '<td>' + (d.brand_type||'-') + '</td>' +
         '<td>' + (d.smoke_level||'-') + '</td>' +
         '<td>' + (d.is_high_priority ? '<span class="badge badge-green">高优</span>' : '<span class="badge badge-gray">-</span>') + '</td>' +
@@ -1601,7 +1621,7 @@ function showPIDDetail(pid, autoFollow) {
     detailItem('PID', d.pid) + detailItem('城市', d.city) + detailItem('区县', d.district) +
     detailItem('类目', d.category_l2 + (d.category_l3 ? ' > ' + d.category_l3 : '')) +
     detailItem('分层', d.tier + ' - ' + (d.segment||'')) + detailItem('门店数', d.store_count) +
-    detailItem('日均DPV', fmt(d.dpv_30d)) +
+    detailItem('日均DPV', fmtDpv(d.dpv_30d)) +
     '</div></div>';
 
   // 跟进人 selector
@@ -2602,7 +2622,7 @@ function showLeadDetail(poiId, autoFollow) {
     detailItem('城市', d.city) + detailItem('区县', d.district) +
     detailItem('类目', d.category_l2 + (d.category_l3 ? ' > ' + d.category_l3 : '')) +
     detailItem('品牌类型', d.brand_type) + detailItem('地址', d.address) +
-    detailItem('烟火档位', d.smoke_level) + detailItem('30天DPV', fmt(d.dpv_30d)) +
+    detailItem('烟火档位', d.smoke_level) + detailItem('30天DPV', fmtDpv(d.dpv_30d)) +
     detailItem('城市高优', d.is_high_priority ? '✅ 是' : '否') +
     '</div></div>';
 
