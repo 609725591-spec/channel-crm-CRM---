@@ -334,10 +334,10 @@ a { color:var(--accent2); text-decoration:none; }
         <span class="nav-icon">📊</span>城市分析
       </div>
       <div class="nav-item" data-page="commercial" onclick="navigate('commercial')">
-        <span class="nav-icon">🏪</span>商业化做工
+        <span class="nav-icon">🏪</span>名下-高优商业化
       </div>
       <div class="nav-item" data-page="leads" onclick="navigate('leads')">
-        <span class="nav-icon">📋</span>开店做工
+        <span class="nav-icon">📋</span>公海-高优开店
       </div>
       <div class="nav-item" data-page="mypool" onclick="navigate('mypool')">
         <span class="nav-icon">🎯</span>我的做工
@@ -370,9 +370,9 @@ a { color:var(--accent2); text-decoration:none; }
         <div id="analysisSigning" style="margin-bottom:24px;"></div>
       </div>
 
-      <!-- ===== PAGE: 商业化做工 ===== -->
+      <!-- ===== PAGE: 名下-高优商业化 ===== -->
       <div id="page-commercial" class="page">
-        <h2 class="page-title">商业化做工</h2>
+        <h2 class="page-title">名下-高优商业化</h2>
         <p class="page-desc">在约门店中尚未签约商业化的PID，按优先级排序</p>
         <div id="commercialStats" class="stats-row"></div>
         <div class="filter-bar" id="commercialFilters">
@@ -406,9 +406,9 @@ a { color:var(--accent2); text-decoration:none; }
         <div id="commercialTableWrap"></div>
       </div>
 
-      <!-- ===== PAGE: 开店做工 ===== -->
+      <!-- ===== PAGE: 公海-高优开店 ===== -->
       <div id="page-leads" class="page">
-        <h2 class="page-title">开店做工</h2>
+        <h2 class="page-title">公海-高优开店</h2>
         <p class="page-desc">未签约高优POI，核心做工点是开店</p>
         <div id="leadsStats" class="stats-row"></div>
         <div class="filter-bar" id="leadsFilters">
@@ -535,8 +535,8 @@ a { color:var(--accent2); text-decoration:none; }
           <button class="tab-btn" onclick="switchMgmtDim(this,'provider')">服务商</button>
         </div>
         <div class="tab-bar" id="mgmtTypeTabs" style="margin-bottom:16px;border-top:1px solid var(--border);padding-top:10px;">
-          <button class="tab-btn active" onclick="switchMgmtTab(this,'commercial')" style="font-size:12px;">🏪 商业化做工</button>
-          <button class="tab-btn" onclick="switchMgmtTab(this,'leads')" style="font-size:12px;">📋 开店做工</button>
+          <button class="tab-btn active" onclick="switchMgmtTab(this,'commercial')" style="font-size:12px;">🏪 名下-高优商业化</button>
+          <button class="tab-btn" onclick="switchMgmtTab(this,'leads')" style="font-size:12px;">📋 公海-高优开店</button>
         </div>
         <div id="mgmtStats" class="stats-row" style="margin-bottom:16px;"></div>
         <div id="mgmtSummary" style="margin-bottom:20px;"></div>
@@ -1655,7 +1655,7 @@ function renderCategoryTable(data, cities) {
 }
 
 /* =============================================
-   PAGE: 商业化做工
+   PAGE: 名下-高优商业化
    ============================================= */
 function renderCommercial() {
   filterCommercial();
@@ -1667,7 +1667,7 @@ function renderCommercial() {
   var a2 = data.filter(function(d){return d.tier==='A2';}).length;
 
   $('commercialStats').innerHTML =
-    '<div class="stat-card"><div class="label">未签约PID</div><div class="value blue">' + fmt(total) + '</div><div class="sub">待商业化做工</div></div>' +
+    '<div class="stat-card"><div class="label">未签约PID</div><div class="value blue">' + fmt(total) + '</div><div class="sub">待名下-高优商业化</div></div>' +
     '<div class="stat-card"><div class="label">A1头部</div><div class="value">' + fmt(a1) + '</div><div class="sub">占比' + (total?(a1/total*100).toFixed(1):0) + '%</div></div>' +
     '<div class="stat-card"><div class="label">A2头部</div><div class="value">' + fmt(a2) + '</div><div class="sub">占比' + (total?(a2/total*100).toFixed(1):0) + '%</div></div>';
 }
@@ -1794,7 +1794,7 @@ function sortCommercial(field) {
 }
 
 /* =============================================
-   PAGE: 开店做工 (Leads)
+   PAGE: 公海-高优开店 (Leads)
    ============================================= */
 function renderLeads() {
   filterLeads();
@@ -3442,9 +3442,9 @@ async function loadMgmtData() {
       var batch = providers.slice(i, i + BATCH);
       var promises = [];
       batch.forEach(function(p) {
-        // Q0: 商业化做工底池 = 全量分层PID (A1+A2+B1+B2)
+        // Q0: 名下-高优商业化底池 = 全量分层PID (A1+A2+B1+B2)
         promises.push(sb.from('crm_pids').select('pid',{count:'exact',head:true}).eq('provider_id',p.provider_id));
-        // Q1: 开店做工底池 = 城市高优POI
+        // Q1: 公海-高优开店底池 = 城市高优POI
         promises.push(sb.from('crm_leads').select('poi_id',{count:'exact',head:true}).eq('provider_id',p.provider_id).eq('is_high_priority',true));
       });
       var results = await Promise.all(promises);
@@ -3566,8 +3566,8 @@ function renderMgmtDashboard() {
   });
   var natSigned = tab === 'commercial' ? (data.nationalPidSigned||0) : 0;
 
-  var typeLabel = tab === 'commercial' ? '商业化做工' : '开店做工';
-  var poolLabel = tab === 'commercial' ? '商业化做工池' : '高优做工池';
+  var typeLabel = tab === 'commercial' ? '名下-高优商业化' : '公海-高优开店';
+  var poolLabel = tab === 'commercial' ? '名下-高优商业化池' : '高优做工池';
   var signLabel = tab === 'commercial' ? '签约转化率' : '开店转化率';
   $('mgmtDesc').textContent = '全渠道' + typeLabel + '作业进度 · ' + (dim === 'region' ? '按大区' : (dim === 'channel' ? '按渠道经理' : '按服务商'));
 
@@ -3892,7 +3892,7 @@ function exportCommercial() {
     if (d.is_signed_brand) signed.push('品广');
     lines.push([d.pid, csvEscape(d.store_name), d.city, d.district, d.category_l2, d.tier, d.dpv_30d, d.gmv_90d, d.store_count, signed.join('+')||'未签约'].join(','));
   });
-  downloadCSV(lines.join('\n'), '商业化做工_' + STATE.cities.join('-') + '.csv');
+  downloadCSV(lines.join('\n'), '名下-高优商业化_' + STATE.cities.join('-') + '.csv');
 }
 
 function exportLeads() {
@@ -3903,7 +3903,7 @@ function exportLeads() {
   data.forEach(function(d) {
     lines.push([d.poi_id, csvEscape(d.poi_name), d.city, d.district, d.category_l2, d.dpv_30d, d.brand_type, d.smoke_level, d.is_high_priority?'是':'否'].join(','));
   });
-  downloadCSV(lines.join('\n'), '开店做工_' + STATE.cities.join('-') + '.csv');
+  downloadCSV(lines.join('\n'), '公海-高优开店_' + STATE.cities.join('-') + '.csv');
 }
 
 function csvEscape(s) {
@@ -4073,14 +4073,14 @@ function downloadTemplate(type) {
       ['张亮麻辣烫（朝阳路店）', '12345678', '南宁', '快餐', 3, '张老板', '13800138000'],
       ['海底捞火锅', '87654321', '厦门', '火锅', 5, '李总', '13900139000']
     ];
-    filename = '商业化做工导入模板';
+    filename = '名下-高优商业化导入模板';
   } else {
     headers = ['POI名称*', '城市*', '类目*', '联系人', '联系电话', '备注'];
     examples = [
       ['老王烧烤（人民路店）', '南宁', '烧烤', '王老板', '13800138000', '新装修开业'],
       ['鲜茶道奶茶', '厦门', '茶饮', '陈总', '13900139000', '连锁品牌3家店']
     ];
-    filename = '开店做工导入模板';
+    filename = '公海-高优开店导入模板';
   }
   var wsData = [headers].concat(examples);
   var ws = XLSX.utils.aoa_to_sheet(wsData);
@@ -4436,7 +4436,7 @@ function renderMyPool() {
   if (items.length === 0) {
     html += '<tr><td colspan="8" style="text-align:center;padding:40px;color:var(--text3);">' +
       '<div style="font-size:15px;margin-bottom:8px;">🎯</div>' +
-      '<div>做工池为空，去「' + (tab==='commercial'?'商业化做工':'开店做工') + '」页面添加商户到你的做工池</div></td></tr>';
+      '<div>做工池为空，去「' + (tab==='commercial'?'名下-高优商业化':'公海-高优开店') + '」页面添加商户到你的做工池</div></td></tr>';
   } else {
     items.forEach(function(p) {
       var d = dataMap[p.target_id] || {};
