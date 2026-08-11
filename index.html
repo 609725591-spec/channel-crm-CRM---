@@ -3719,8 +3719,6 @@ async function loadUsageData() {
   });
   Object.keys(byProvider).forEach(function(k) { byProvider[k].activeDayCount = Object.keys(byProvider[k].activeDays).length; });
   Object.keys(byEmployee).forEach(function(k) { byEmployee[k].activeDayCount = Object.keys(byEmployee[k].activeDays).length; });
-  var sampleKey = Object.keys(byProvider)[0];
-  console.log('Usage debug:', 'providers=' + Object.keys(byProvider).length, 'usageLogs=' + usageLogs.length, 'actionLogs=' + actionLogs.length, 'sample:', sampleKey, JSON.stringify(byProvider[sampleKey]).substring(0, 200));
   STATE.mgmtUsageCache = { byProvider: byProvider, byEmployee: byEmployee, totalLogins: totalLogins, totalOps: totalOps, totalExports: totalExports, activeProviders: activeProviders, totalProviders: (provRes.data||[]).length };
   return STATE.mgmtUsageCache;
 }
