@@ -1,0 +1,1724 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>品广占量地图看板</title>
+<script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: "PingFang SC","Microsoft YaHei",sans-serif; background: #0f1923; color: #e2e8f0; min-height: 100vh; }
+
+.header { background: #1a2634; padding: 14px 24px; border-bottom: 1px solid #2d3e50; display: flex; align-items: center; gap: 16px; }
+.header h1 { font-size: 18px; color: #fff; font-weight: 500; }
+.header .subtitle { font-size: 11px; color: #64748b; margin-top: 2px; }
+.header-right { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+.data-time { font-size: 10px; color: #64748b; }
+
+/* Filters */
+.filter-bar { background: #1a2634; padding: 10px 24px; border-bottom: 1px solid #2d3e50; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.filter-group { display: flex; align-items: center; gap: 6px; position: relative; }
+.filter-label { font-size: 11px; color: #94a3b8; }
+.legend { display: flex; align-items: center; gap: 14px; margin-left: auto; }
+.legend-item { display: flex; align-items: center; gap: 4px; font-size: 11px; color: #94a3b8; }
+.legend-dot { width: 10px; height: 10px; border-radius: 50%; }
+.dot-green { background: #22c55e; }
+.dot-orange { background: #f97316; }
+.dot-red { background: #dc2626; }
+.dot-pink { background: #db2777; }
+
+/* Searchable Select */
+.search-select { position: relative; width: 130px; }
+.search-select.wide { width: 180px; }
+.search-select input { width: 100%; padding: 6px 24px 6px 10px; border-radius: 6px; border: 1px solid #334155; background: #0f1923; color: #e2e8f0; font-size: 12px; outline: none; }
+.search-select input:focus { border-color: #3b82f6; }
+.search-select input::placeholder { color: #64748b; }
+.search-select .ss-clear { position: absolute; right: 6px; top: 50%; transform: translateY(-50%); color: #64748b; cursor: pointer; font-size: 14px; line-height: 1; display: none; }
+.search-select input:not(:placeholder-shown) ~ .ss-clear { display: block; }
+.search-select .ss-dropdown { display: none; position: absolute; top: 100%; left: 0; right: 0; max-height: 200px; overflow-y: auto; background: #1a2634; border: 1px solid #334155; border-radius: 6px; margin-top: 4px; z-index: 100; box-shadow: 0 4px 12px rgba(0,0,0,0.3); }
+.search-select .ss-dropdown.open { display: block; }
+.search-select .ss-option { padding: 6px 10px; font-size: 12px; color: #cbd5e1; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.search-select .ss-option:hover { background: #334155; }
+.search-select .ss-option.active { background: #1e40af; color: #fff; }
+
+/* Main Layout */
+.main { display: flex; height: calc(100vh - 110px); }
+.map-panel { flex: 1; position: relative; }
+.side-panel { width: 380px; background: #1a2634; border-left: 1px solid #2d3e50; overflow-y: auto; display: flex; flex-direction: column; }
+
+/* Stats Cards */
+.stats-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; padding: 14px; }
+.stat-card { background: #0f1923; border: 1px solid #2d3e50; border-radius: 8px; padding: 12px; text-align: center; }
+.stat-val { font-size: 22px; font-weight: 600; color: #fff; }
+.stat-label { font-size: 10px; color: #64748b; margin-top: 4px; }
+.stat-val.blue { color: #3b82f6; }
+.stat-val.green { color: #10b981; }
+.stat-val.red { color: #ef4444; }
+.stat-val.orange { color: #f59e0b; }
+.stat-val.purple { color: #a855f7; }
+
+/* Detail Panel */
+.detail-header { padding: 12px 14px; border-bottom: 1px solid #2d3e50; }
+.detail-header h3 { font-size: 14px; color: #fff; }
+.detail-header .city-info { font-size: 11px; color: #64748b; margin-top: 4px; }
+.detail-tabs { display: flex; border-bottom: 1px solid #2d3e50; }
+.detail-tab { flex: 1; padding: 10px 8px; text-align: center; font-size: 11px; color: #64748b; cursor: pointer; border-bottom: 2px solid transparent; transition: all 0.15s; }
+.detail-tab:hover { color: #94a3b8; }
+.detail-tab.active { color: #3b82f6; border-bottom-color: #3b82f6; }
+.detail-content { flex: 1; overflow-y: auto; padding: 10px 14px; }
+.detail-placeholder { text-align: center; padding: 60px 20px; color: #475569; font-size: 13px; }
+
+.data-table { width: 100%; border-collapse: collapse; font-size: 11px; }
+.data-table th { padding: 8px 6px; text-align: left; color: #64748b; font-weight: 500; border-bottom: 1px solid #2d3e50; white-space: nowrap; }
+.data-table td { padding: 7px 6px; border-bottom: 1px solid #1e293b; color: #cbd5e1; }
+.data-table tr:hover td { background: #1e293b; }
+.status-badge { display: inline-block; padding: 2px 6px; border-radius: 3px; font-size: 10px; font-weight: 500; }
+.badge-occupied { background: #fee2e2; color: #dc2626; }
+.badge-available { background: #dcfce7; color: #16a34a; }
+.badge-date { background: #dbeafe; color: #2563eb; }
+.badge-citywide { background: #f3e8ff; color: #9333ea; }
+.badge-specialty { background: #fef3c7; color: #d97706; }
+.badge-key { background: #fee2e2; color: #dc2626; font-weight: 600; }
+.stats-dim-btn { padding: 2px 8px; border-radius: 3px; cursor: pointer; background: #334155; color: #94a3b8; transition: all .2s; }
+.stats-dim-btn.active { background: #3b82f6; color: #fff; }
+.badge-tourism { background: #fce7f3; color: #db2777; }
+.tourism-btn { padding:4px 10px;border-radius:4px;border:1px solid #334155;background:#0f1923;color:#94a3b8;font-size:10px;cursor:pointer;transition:all 0.2s; }
+.tourism-btn.active { background:#db2777;color:#fff;border-color:#db2777; }
+.occ-btn { padding:4px 10px;border-radius:4px;border:1px solid #334155;background:#0f1923;color:#94a3b8;font-size:10px;cursor:pointer;transition:all 0.2s; }
+.occ-btn.active-green { background:#22c55e;color:#fff;border-color:#22c55e; }
+.occ-btn.active-red { background:#dc2626;color:#fff;border-color:#dc2626; }
+.reset-btn { padding:4px 10px;border-radius:4px;border:1px solid #475569;background:#1e293b;color:#cbd5e1;font-size:10px;cursor:pointer;transition:all 0.2s; }
+.reset-btn:hover { background:#475569;color:#fff;border-color:#64748b; }
+.specialty-hint { padding:6px 10px;background:#1e293b;border:1px solid #334155;border-radius:6px;margin-bottom:8px;font-size:11px;color:#e2e8f0;display:flex;align-items:center;gap:6px;flex-wrap:wrap; }
+.specialty-hint .tag { padding:1px 6px;border-radius:3px;font-size:10px; }
+.specialty-hint .tag-tourism { background:#fce7f3;color:#db2777; }
+.specialty-hint .tag-specialty { background:#fef3c7;color:#d97706; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div>
+    <h1>品广占量地图看板</h1>
+    <div class="subtitle">品牌广告顶展占量可视化 · 基于可售库存计算占量率</div>
+  </div>
+  <div class="header-right">
+    <button id="btnKeywordSearch" style="padding:6px 14px;border-radius:6px;border:1px solid #334155;background:#065f46;color:#fff;font-size:11px;cursor:pointer;">关键词查询</button>
+    <a href="https://fbi.alibaba-inc.com/fbi/chatbi/show_visualization.htm?uid=26bb11b85e234a17ab314de691c727bb" target="_blank" style="padding:6px 14px;border-radius:6px;border:1px solid #334155;background:#7c3aed;color:#fff;font-size:11px;cursor:pointer;text-decoration:none;display:inline-block;">高频顶展2.0价格查询工具AI版</a>
+    <a href="https://alidocs.dingtalk.com/i/nodes/R1zknDm0WR3Q1AoXtxzvy2qoVBQEx5rG" target="_blank" style="padding:6px 14px;border-radius:6px;border:1px solid #334155;background:#b45309;color:#fff;font-size:11px;cursor:pointer;text-decoration:none;display:inline-block;">顶展产品文档</a>
+    <button id="btnDateCalc" style="padding:6px 14px;border-radius:6px;border:1px solid #334155;background:#0369a1;color:#fff;font-size:11px;cursor:pointer;">日期计算</button>
+    <button id="btnGhConfig" title="发布设置" style="padding:6px 14px;border-radius:6px;border:1px solid #334155;background:#1e40af;color:#fff;font-size:11px;cursor:pointer;">发布设置</button>
+    <a href="https://liuyang0028.github.io/food-sales-proposal/" target="_blank" style="padding:6px 14px;border-radius:6px;border:1px solid #334155;background:#dc2626;color:#fff;font-size:11px;cursor:pointer;text-decoration:none;display:inline-block;">美食智能提案工具</a>
+    <button id="btnUpdateData" title="更新数据" style="padding:4px 8px;border-radius:6px;border:1px solid #334155;background:transparent;color:#64748b;font-size:14px;cursor:pointer;line-height:1;">&#9881;</button>
+    <span class="data-time" id="dataTime">数据更新: --</span>
+    <span style="font-size:10px;color:#64748b;margin-left:6px;">👥 <span id="busuanzi_value_site_uv">--</span> 人用过</span>
+  </div>
+</div>
+
+<!-- 数据上传弹窗 -->
+<div id="pasteModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:9999;align-items:center;justify-content:center;">
+  <div style="background:#1a2634;border:1px solid #2d3e50;border-radius:12px;width:600px;max-width:90vw;max-height:80vh;display:flex;flex-direction:column;padding:20px;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+      <h3 style="color:#fff;font-size:15px;">上传数据更新</h3>
+      <button id="btnCloseModal" style="background:none;border:none;color:#64748b;font-size:20px;cursor:pointer;">&times;</button>
+    </div>
+    <p style="font-size:11px;color:#94a3b8;margin-bottom:10px;">上传 FBI 导出的 Excel 文件，系统自动解析并更新看板数据</p>
+    <p style="font-size:10px;color:#64748b;margin-bottom:12px;">预期列：date, city, district, industry_level1, industry, product</p>
+    <div id="dropZone" style="border:2px dashed #334155;border-radius:8px;padding:40px 20px;text-align:center;cursor:pointer;transition:border-color 0.2s,background 0.2s;">
+      <div style="font-size:28px;color:#475569;margin-bottom:8px;">&#128196;</div>
+      <div style="font-size:13px;color:#94a3b8;margin-bottom:4px;">拖拽文件到此处，或 <span style="color:#3b82f6;text-decoration:underline;">点击选择文件</span></div>
+      <div style="font-size:10px;color:#475569;">支持 .xlsx / .xls / .csv</div>
+      <input type="file" id="fileInput" accept=".xlsx,.xls,.csv" style="display:none;">
+    </div>
+    <div id="fileInfo" style="display:none;margin-top:10px;padding:10px 12px;background:#0f1923;border:1px solid #334155;border-radius:6px;">
+      <span style="font-size:11px;color:#10b981;">&#10003;</span>
+      <span id="fileName" style="font-size:12px;color:#e2e8f0;margin:0 8px;"></span>
+      <button id="btnRemoveFile" style="background:none;border:none;color:#64748b;font-size:14px;cursor:pointer;float:right;">&times;</button>
+    </div>
+    <div style="margin-top:14px;">
+      <label style="font-size:11px;color:#94a3b8;display:block;margin-bottom:4px;">操作密码</label>
+      <input type="password" id="uploadPassword" placeholder="请输入密码以授权更新" style="width:100%;padding:8px 10px;border:1px solid #334155;border-radius:6px;background:#0f1923;color:#e2e8f0;font-size:12px;box-sizing:border-box;margin-bottom:10px;">
+    </div>
+    <div style="display:flex;gap:10px;">
+      <button id="btnParsePaste" style="flex:1;padding:10px;border-radius:6px;border:none;background:#1e40af;color:#fff;font-size:13px;cursor:pointer;font-weight:500;">解析并更新看板</button>
+    </div>
+    <p id="parseStatus" style="font-size:11px;color:#64748b;margin-top:8px;"></p>
+  </div>
+</div>
+
+<!-- 关键词查询弹窗 -->
+<div id="keywordModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:9999;align-items:center;justify-content:center;">
+  <div style="background:#1a2634;border:1px solid #2d3e50;border-radius:12px;width:600px;max-width:90vw;max-height:80vh;display:flex;flex-direction:column;padding:20px;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+      <h3 style="color:#fff;font-size:15px;">售卖类目关键词查询</h3>
+      <button id="btnCloseKeyword" style="background:none;border:none;color:#64748b;font-size:20px;cursor:pointer;">&times;</button>
+    </div>
+    <p style="font-size:11px;color:#94a3b8;margin-bottom:10px;">输入类目名称（支持模糊搜索），查看该类目下的所有售卖关键词</p>
+    <input type="text" id="keywordSearchInput" placeholder="输入类目名称，如：火锅、小吃、烧烤..." style="width:100%;padding:10px 12px;border:1px solid #334155;border-radius:6px;background:#0f1923;color:#e2e8f0;font-size:13px;box-sizing:border-box;margin-bottom:12px;">
+    <div id="keywordResults" style="flex:1;overflow-y:auto;max-height:50vh;"></div>
+  </div>
+</div>
+
+<div class="filter-bar">
+  <div class="filter-group">
+    <span class="filter-label">省份:</span>
+    <div class="search-select" id="ssProvince">
+      <input type="text" placeholder="全部省份" data-value="">
+      <span class="ss-clear">&times;</span>
+      <div class="ss-dropdown"></div>
+    </div>
+  </div>
+  <div class="filter-group">
+    <span class="filter-label">城市:</span>
+    <div class="search-select" id="ssCity">
+      <input type="text" placeholder="全部城市" data-value="">
+      <span class="ss-clear">&times;</span>
+      <div class="ss-dropdown"></div>
+    </div>
+  </div>
+  <div class="filter-group">
+    <span class="filter-label">类目:</span>
+    <div class="search-select wide" id="ssCategory">
+      <input type="text" placeholder="全部类目" data-value="">
+      <span class="ss-clear">&times;</span>
+      <div class="ss-dropdown"></div>
+    </div>
+  </div>
+  <button id="btnTourism" class="tourism-btn" title="点击只看旅游热门城市">✨ 旅游热门</button>
+  <button id="btnOccUnoccupied" class="occ-btn" title="点击只看未占量城市">🟢 未占量</button>
+  <button id="btnOccOccupied" class="occ-btn" title="点击只看已有占量城市">🔴 已有占量</button>
+  <button id="btnResetFilters" class="reset-btn" title="清空所有筛选条件">↺ 取消筛选</button>
+  <div class="legend">
+    <div class="legend-item"><span class="legend-dot dot-green"></span>未占量</div>
+    <div class="legend-item"><span class="legend-dot dot-red"></span>已有占量</div>
+    <div class="legend-item"><span class="legend-dot dot-pink"></span>旅游热门</div>
+  </div>
+</div>
+
+<div class="main">
+  <div class="map-panel">
+    <div id="mapChart" style="width:100%;height:100%;"></div>
+  </div>
+  <div class="side-panel">
+    <div class="stats-dim" id="statsDim" style="display:flex;gap:4px;margin-bottom:6px;font-size:10px;">
+      <span class="stats-dim-btn active" data-dim="all">全量</span>
+      <span class="stats-dim-btn" data-dim="tourism">旅游城市</span>
+      <span class="stats-dim-btn" data-dim="key">重点类目</span>
+    </div>
+    <div class="stats-row">
+      <div class="stat-card"><div class="stat-val blue" id="statTotal">--</div><div class="stat-label">总可售坑位</div></div>
+      <div class="stat-card"><div class="stat-val red" id="statOccupied">--</div><div class="stat-label">D+30已占</div></div>
+      <div class="stat-card"><div class="stat-val green" id="statAvail">--</div><div class="stat-label">剩余可售</div></div>
+      <div class="stat-card"><div class="stat-val orange" id="statRate">--</div><div class="stat-label">整体占量率</div></div>
+      <div class="stat-card"><div class="stat-val purple" id="statCities">--</div><div class="stat-label">有占量城市</div></div>
+      <div class="stat-card"><div class="stat-val" id="statCats">--</div><div class="stat-label">有占量类目</div></div>
+    </div>
+    <div class="detail-header">
+      <h3 id="detailTitle">点击地图城市查看详情</h3>
+      <div class="city-info" id="detailSubtitle">选择城市后展示占量明细与可售空位</div>
+    </div>
+    <div class="detail-tabs" id="detailTabs" style="display:none;">
+      <div class="detail-tab active" data-tab="all">全部明细</div>
+      <div class="detail-tab" data-tab="unoccupied">未占类目</div>
+      <div class="detail-tab" data-tab="avail30">D+30可售</div>
+      <div class="detail-tab" id="btnKeyOnly" style="margin-left:auto;background:#fee2e2;color:#dc2626;font-size:10px;padding:2px 8px;cursor:pointer;border-radius:3px;">重点</div>
+    </div>
+    <div class="detail-content" id="detailContent">
+      <div class="detail-placeholder">点击左侧地图城市气泡<br>查看该城市占量明细与空余坑位</div>
+    </div>
+  </div>
+</div>
+
+<!-- GitHub 配置弹窗 -->
+<div id="ghConfigModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:9999;align-items:center;justify-content:center;">
+  <div style="background:#1e293b;border-radius:12px;padding:24px;width:420px;max-width:90%;color:#e2e8f0;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+      <h3 style="margin:0;font-size:15px;">GitHub 发布配置</h3>
+      <span id="ghConfigClose" style="cursor:pointer;font-size:20px;color:#94a3b8;">&times;</span>
+    </div>
+    <p style="font-size:11px;color:#94a3b8;margin-bottom:14px;">配置一次后，每次上传数据可一键发布到线上，无需手动上传文件到 GitHub。</p>
+    <div style="margin-bottom:12px;">
+      <label style="font-size:11px;color:#94a3b8;display:block;margin-bottom:4px;">GitHub 用户名</label>
+      <input type="text" id="ghOwner" placeholder="如: your-username" style="width:100%;padding:8px 10px;border:1px solid #334155;border-radius:6px;background:#0f172a;color:#fff;font-size:13px;box-sizing:border-box;">
+    </div>
+    <div style="margin-bottom:12px;">
+      <label style="font-size:11px;color:#94a3b8;display:block;margin-bottom:4px;">仓库名称</label>
+      <input type="text" id="ghRepo" value="food-sales-proposal" placeholder="如: food-sales-proposal" style="width:100%;padding:8px 10px;border:1px solid #334155;border-radius:6px;background:#0f172a;color:#fff;font-size:13px;box-sizing:border-box;">
+    </div>
+    <div style="margin-bottom:12px;">
+      <label style="font-size:11px;color:#94a3b8;display:block;margin-bottom:4px;">Personal Access Token <a href="https://github.com/settings/tokens/new?scopes=repo&description=brand-ad-map" target="_blank" style="color:#3b82f6;font-size:10px;">(点击创建)</a></label>
+      <input type="password" id="ghToken" placeholder="ghp_xxxxxxxxxxxx" style="width:100%;padding:8px 10px;border:1px solid #334155;border-radius:6px;background:#0f172a;color:#fff;font-size:13px;box-sizing:border-box;">
+      <div style="font-size:10px;color:#64748b;margin-top:4px;">需要 repo 权限，Token 仅存在你的浏览器中</div>
+    </div>
+    <div style="margin-bottom:12px;">
+      <label style="font-size:11px;color:#94a3b8;display:block;margin-bottom:4px;">数据文件路径</label>
+      <input type="text" id="ghPath" value="brand-ad-map-data.json" placeholder="brand-ad-map-data.json" style="width:100%;padding:8px 10px;border:1px solid #334155;border-radius:6px;background:#0f172a;color:#fff;font-size:13px;box-sizing:border-box;">
+    </div>
+    <button id="ghConfigSave" style="width:100%;padding:10px;border-radius:6px;border:none;background:#1e40af;color:#fff;font-size:13px;cursor:pointer;font-weight:500;">保存配置</button>
+    <p id="ghConfigStatus" style="font-size:11px;color:#64748b;margin-top:8px;"></p>
+  </div>
+</div>
+
+<!-- Date Calculator Modal -->
+<div id="dateCalcModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9999;align-items:center;justify-content:center;">
+  <div style="background:#1e293b;border-radius:12px;padding:24px;width:380px;max-width:90%;color:#e2e8f0;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+      <h3 style="margin:0;font-size:15px;">日期推算器</h3>
+      <span id="dateCalcClose" style="cursor:pointer;font-size:20px;color:#94a3b8;">&times;</span>
+    </div>
+    <div style="margin-bottom:12px;">
+      <label style="font-size:11px;color:#94a3b8;display:block;margin-bottom:4px;">起始日期（默认今天）</label>
+      <div style="display:flex;gap:6px;align-items:center;">
+        <input type="number" id="dcYear" style="width:70px;padding:6px;border-radius:4px;border:1px solid #334155;background:#0f172a;color:#fff;font-size:13px;">
+        <span>年</span>
+        <input type="number" id="dcMonth" min="1" max="12" style="width:50px;padding:6px;border-radius:4px;border:1px solid #334155;background:#0f172a;color:#fff;font-size:13px;">
+        <span>月</span>
+        <input type="number" id="dcDay" min="1" max="31" style="width:50px;padding:6px;border-radius:4px;border:1px solid #334155;background:#0f172a;color:#fff;font-size:13px;">
+        <span>日</span>
+      </div>
+    </div>
+    <div style="margin-bottom:12px;">
+      <label style="font-size:11px;color:#94a3b8;display:block;margin-bottom:4px;">推算</label>
+      <div style="display:flex;gap:6px;align-items:center;">
+        <select id="dcDir" style="padding:6px;border-radius:4px;border:1px solid #334155;background:#0f172a;color:#fff;font-size:13px;">
+          <option value="1">往后</option>
+          <option value="-1">往前</option>
+        </select>
+        <input type="number" id="dcDays" value="30" min="1" style="width:70px;padding:6px;border-radius:4px;border:1px solid #334155;background:#0f172a;color:#fff;font-size:13px;">
+        <span>天</span>
+        <button id="dcCalcBtn" style="padding:6px 14px;border-radius:4px;border:none;background:#3b82f6;color:#fff;font-size:12px;cursor:pointer;">计算</button>
+      </div>
+    </div>
+    <div id="dcResult" style="padding:12px;background:#0f172a;border-radius:6px;font-size:14px;text-align:center;color:#fbbf24;min-height:20px;"></div>
+    <div style="margin-top:12px;padding:10px;background:#0f172a;border-radius:6px;font-size:11px;color:#94a3b8;">
+      <div style="margin-bottom:4px;font-weight:600;color:#e2e8f0;">快捷计算</div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;">
+        <span class="dc-quick" data-days="7" style="padding:3px 8px;background:#334155;border-radius:3px;cursor:pointer;">+7天</span>
+        <span class="dc-quick" data-days="14" style="padding:3px 8px;background:#334155;border-radius:3px;cursor:pointer;">+14天</span>
+        <span class="dc-quick" data-days="30" style="padding:3px 8px;background:#334155;border-radius:3px;cursor:pointer;">+30天</span>
+        <span class="dc-quick" data-days="60" style="padding:3px 8px;background:#334155;border-radius:3px;cursor:pointer;">+60天</span>
+        <span class="dc-quick" data-days="90" style="padding:3px 8px;background:#334155;border-radius:3px;cursor:pointer;">+90天</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ==================== 城市→省份映射 ====================
+var CITY_PROVINCE = {"澳门":"澳门","保定":"河北","北海":"广西","北京":"北京","常州":"江苏","潮州":"广东","成都":"四川","崇左":"广西","大理":"云南","大连":"辽宁","德宏":"云南","东莞":"广东","防城港":"广西","佛山":"广东","福州":"福建","赣州":"江西","广州":"广东","贵阳":"贵州","桂林":"广西","哈尔滨":"黑龙江","海口":"海南","杭州":"浙江","合肥":"安徽","河源":"广东","湖州":"浙江","惠州":"广东","济南":"山东","嘉兴":"浙江","江门":"广东","揭阳":"广东","金华":"浙江","昆明":"云南","柳州":"广西","梅州":"广东","绵阳":"四川","南昌":"江西","南京":"江苏","南宁":"广西","南通":"江苏","宁波":"浙江","青岛":"山东","清远":"广东","泉州":"福建","三亚":"海南","厦门":"福建","汕头":"广东","汕尾":"广东","上海":"上海","绍兴":"浙江","深圳":"广东","沈阳":"辽宁","石家庄":"河北","苏州":"江苏","台州":"浙江","太原":"山西","天津":"天津","温州":"浙江","无锡":"江苏","武汉":"湖北","西安":"陕西","西双版纳":"云南","香港":"香港","徐州":"江苏","银川":"宁夏","湛江":"广东","漳州":"福建","长春":"吉林","长沙":"湖南","肇庆":"广东","郑州":"河南","中山":"广东","重庆":"重庆","珠海":"广东","安顺":"贵州","巴中":"四川","白银":"甘肃","宝鸡":"陕西","毕节":"贵州","沧州":"河北","楚雄":"云南","达州":"四川","德阳":"四川","定西":"甘肃","广安":"四川","广元":"四川","邯郸":"河北","汉中":"陕西","衡水":"河北","红河":"云南","呼和浩特":"内蒙古","喀什":"新疆","开封":"河南","拉萨":"西藏","兰州":"甘肃","乐山":"四川","凉山":"四川","聊城":"山东","六盘水":"贵州","陇南":"甘肃","泸州":"四川","眉山":"四川","南充":"四川","南阳":"河南","内江":"四川","攀枝花":"四川","平顶山":"河南","黔东南":"贵州","黔南":"贵州","黔西南":"贵州","曲靖":"云南","商丘":"河南","遂宁":"四川","天水":"甘肃","通辽":"内蒙古","铜仁":"贵州","文山":"云南","乌鲁木齐":"新疆","西宁":"青海","咸阳":"陕西","邢台":"河北","雅安":"四川","宜宾":"四川","玉溪":"云南","张掖":"甘肃","昭通":"云南","周口":"河南","资阳":"四川","自贡":"四川","遵义":"贵州","阿坝":"四川","阿克苏":"新疆","阿拉尔":"新疆","阿拉善":"内蒙古","阿勒泰":"新疆","阿里":"西藏","安康":"陕西","安庆":"安徽","安阳":"河南","鞍山":"辽宁","巴彦淖尔":"内蒙古","巴音郭楞":"新疆","白城":"吉林","白山":"吉林","百色":"广西","蚌埠":"安徽","包头":"内蒙古","保山":"云南","本溪":"辽宁","滨州":"山东","亳州":"安徽","博尔塔拉":"新疆","昌都":"西藏","昌吉":"新疆","常德":"湖南","朝阳":"辽宁","郴州":"湖南","承德":"河北","澄迈":"海南","池州":"安徽","赤峰":"内蒙古","滁州":"安徽","大庆":"黑龙江","大同":"山西","大兴安岭":"黑龙江","丹东":"辽宁","儋州":"海南","德州":"山东","迪庆":"云南","东方":"海南","东营":"山东","鄂尔多斯":"内蒙古","鄂州":"湖北","恩施":"湖北","抚顺":"辽宁","抚州":"江西","阜新":"辽宁","阜阳":"安徽","甘南":"甘肃","甘孜":"四川","固原":"宁夏","贵港":"广西","哈密":"新疆","海北":"青海","海东":"青海","海南藏族":"青海","海西":"青海","和田":"新疆","河池":"广西","菏泽":"山东","贺州":"广西","鹤壁":"河南","鹤岗":"黑龙江","黑河":"黑龙江","呼伦贝尔":"内蒙古","葫芦岛":"辽宁","怀化":"湖南","淮安":"江苏","淮北":"安徽","淮南":"安徽","黄冈":"湖北","黄南":"青海","黄山":"安徽","黄石":"湖北","鸡西":"黑龙江","吉安":"江西","吉林":"吉林","济宁":"山东","济源":"河南","佳木斯":"黑龙江","嘉峪关":"甘肃","焦作":"河南","金昌":"甘肃","锦州":"辽宁","晋城":"山西","晋中":"山西","荆门":"湖北","荆州":"湖北","景德镇":"江西","九江":"江西","酒泉":"甘肃","克拉玛依":"新疆","克孜勒苏":"新疆","来宾":"广西","廊坊":"河北","乐东":"海南","丽江":"云南","丽水":"浙江","连云港":"江苏","辽阳":"辽宁","辽源":"吉林","林芝":"西藏","临沧":"云南","临汾":"山西","临高":"海南","临夏":"甘肃","临沂":"山东","陵水":"海南","六安":"安徽","龙岩":"福建","娄底":"湖南","洛阳":"河南","漯河":"河南","吕梁":"山西","马鞍山":"安徽","茂名":"广东","牡丹江":"黑龙江","那曲":"西藏","南平":"福建","宁德":"福建","怒江":"云南","盘锦":"辽宁","平凉":"甘肃","萍乡":"江西","莆田":"福建","濮阳":"河南","普洱":"云南","七台河":"黑龙江","齐齐哈尔":"黑龙江","潜江":"湖北","钦州":"广西","秦皇岛":"河北","庆阳":"甘肃","琼海":"海南","衢州":"浙江","日喀则":"西藏","日照":"山东","三门峡":"河南","三明":"福建","山南":"西藏","商洛":"陕西","上饶":"江西","韶关":"广东","邵阳":"湖南","十堰":"湖北","石河子":"新疆","石嘴山":"宁夏","双鸭山":"黑龙江","朔州":"山西","四平":"吉林","松原":"吉林","绥化":"黑龙江","随州":"湖北","塔城":"新疆","台湾":"台湾","泰安":"山东","泰州":"江苏","唐山":"河北","天门":"湖北","铁岭":"辽宁","铁门关":"新疆","通化":"吉林","铜川":"陕西","铜陵":"安徽","图木舒克":"新疆","吐鲁番":"新疆","万宁":"海南","威海":"山东","潍坊":"山东","渭南":"陕西","文昌":"海南","乌海":"内蒙古","乌兰察布":"内蒙古","芜湖":"安徽","吴忠":"宁夏","梧州":"广西","五家渠":"新疆","武威":"甘肃","锡林郭勒":"内蒙古","仙桃":"湖北","咸宁":"湖北","湘潭":"湖南","湘西":"湖南","襄阳":"湖北","孝感":"湖北","忻州":"山西","新乡":"河南","新余":"江西","信阳":"河南","兴安盟":"内蒙古","宿迁":"江苏","宿州":"安徽","许昌":"河南","宣城":"安徽","烟台":"山东","延安":"陕西","延边":"吉林","盐城":"江苏","扬州":"江苏","阳江":"广东","阳泉":"山西","伊春":"黑龙江","伊犁":"新疆","宜昌":"湖北","宜春":"江西","益阳":"湖南","鹰潭":"江西","营口":"辽宁","永州":"湖南","榆林":"陕西","玉林":"广西","岳阳":"湖南","云浮":"广东","运城":"山西","枣庄":"山东","张家界":"湖南","张家口":"河北","长治":"山西","镇江":"江苏","中卫":"宁夏","舟山":"浙江","株洲":"湖南","驻马店":"河南","淄博":"山东","衡阳":"湖南","北屯":"新疆","昌江":"海南","果洛":"青海","可克达拉":"新疆","玉树":"青海","保亭":"海南","定安":"海南","屯昌":"海南","五指山":"海南","神农架":"湖北","新星":"新疆","白沙":"海南","胡杨河":"新疆","琼中":"海南","三沙":"海南","双河":"新疆"};
+
+// ==================== 品广可售库存配置数据 ====================
+var INV_CATS = ["美食;东南亚菜","美食;中餐","美食;中餐;上海菜","美食;中餐;东北菜","美食;中餐;云南菜","美食;中餐;内蒙菜","美食;中餐;北京菜","美食;中餐;台湾菜","美食;中餐;天津菜","美食;中餐;山西菜","美食;中餐;川菜","美食;中餐;广西菜","美食;中餐;徽菜","美食;中餐;江浙菜","美食;中餐;江西菜","美食;中餐;河北菜","美食;中餐;河南菜","美食;中餐;海南菜","美食;中餐;湖北菜","美食;中餐;湘菜","美食;中餐;粤菜","美食;中餐;茶餐厅","美食;中餐;西北菜","美食;中餐;西藏菜","美食;中餐;贵州菜","美食;中餐;闽菜","美食;中餐;香港菜","美食;中餐;鲁菜","美食;小吃快餐","美食;小吃快餐;三鲜豆皮","美食;小吃快餐;元宵","美食;小吃快餐;凉皮","美食;小吃快餐;包子","美食;小吃快餐;北京小吃","美食;小吃快餐;川味小吃","美食;小吃快餐;广式点心","美食;小吃快餐;抄手","美食;小吃快餐;汤","美食;小吃快餐;汤圆","美食;小吃快餐;烧麦","美食;小吃快餐;特色小吃","美食;小吃快餐;米粉","美食;小吃快餐;米线","美食;小吃快餐;粥","美食;小吃快餐;羊肉泡馍","美食;小吃快餐;肉夹馍","美食;小吃快餐;肠粉","美食;小吃快餐;臭豆腐","美食;小吃快餐;西式快餐","美食;小吃快餐;锅贴","美食;小吃快餐;面馆","美食;小吃快餐;饭","美食;小吃快餐;饺子","美食;小吃快餐;饼","美食;小吃快餐;馄饨","美食;小吃快餐;馒头","美食;小吃快餐;驴肉火烧","美食;小吃快餐;麻辣拌","美食;干锅","美食;日本料理","美食;水产海鲜","美食;火锅","美食;火锅;串串香","美食;火锅;其他","美食;火锅;打边炉","美食;火锅;海鲜火锅","美食;火锅;涮羊肉","美食;火锅;潮汕火锅","美食;火锅;火锅鸡","美食;火锅;牛肉火锅","美食;火锅;重庆火锅","美食;烧烤","美食;熟食","美食;甜品店","美食;糕点/烘焙","美食;自助餐","美食;自助餐;日式自助","美食;自助餐;自助快餐","美食;自助餐;自助海鲜","美食;自助餐;自助火锅","美食;自助餐;自助烤肉","美食;西餐","美食;西餐;俄国菜","美食;西餐;意大利菜","美食;西餐;牛排","美食;韩国料理","美食;饮品","美食;饮品;咖啡","美食;饮品;奶茶/茶饮"];
+
+// 类目→售卖关键词映射
+var CAT_KEYWORDS = {"美食;东南亚菜":["泰国菜","印度风味","泰餐","南洋","冬阴功","泰式热","泰式热炒","越南菜","东南亚菜"],"美食;干锅":["干锅"],"美食;糕点/烘焙":["糕饼","烘焙","生日蛋糕","蛋糕烘焙","蛋糕店","蛋糕","糕点","鲜花饼","曲奇","面包","面包店","点心","蛋挞","糕点店","蝴蝶酥","糕点/烘焙","西式糕点","凤梨酥","点心店","巧克力","菠萝包","烘干","糕饼店","焙子","糕","桂花糕","中式糕点","绿豆饼"],"美食;韩国料理":["韩国菜","韩式烤肉","紫菜包饭","韩国烤肉","延吉冷面","部队火锅","韩国炸酱面","石锅饭","韩国料理","韩餐","参鸡汤"],"美食;日本料理":["日式料理","寿司","鱼生","烧鸟","寿喜烧","居酒屋","回转寿司","日式拉面","寿司店","料理","刺身","寿喜锅","日式烤肉","三文鱼","omakase","生鱼片","鱼生店","日料","日本料理","日式","美食日料","日料店"],"美食;烧烤":["烧烤","烤肉店","炙子烤肉","烤串","烤肉","新疆烧烤","东北烧烤","羊肉串","齐齐哈尔烤肉","锦州烧烤","淄博烧烤","烤全羊","烤羊腿","美食烤肉","燒烤","海鲜烧烤","夜市烧烤","现烤牛肉干","炭火烤肉","新疆羊肉串","烤","火盆烧烤","泥炉烤肉"],"美食;熟食":["熟食店","熟食","卤菜","凉菜","卤味","鸭脖","卤肉","凉拌菜","卤肉店","酱板鸭","卤鹅","卤菜店","熏酱","熏肉","熟肉","鸭货","热卤","鸭","衢州鸭头","鸭头","卤煮"],"美食;水产海鲜":["大闸蟹","美蛙鱼头","鱼头","石锅鱼","剁椒鱼头","纸包鱼","啤酒鱼","水煮鱼","肉蟹煲","烤鱼","海鲜","小龙虾","鱼","龙虾","虾","牛蛙","开海","蛙","生蚝","蟹","蚝","海鲜市场","水产海鲜","水产海鲜店","海鲜批发市场","水产","水产海鲜市场","冻品","海鲜批发","淡水鱼"],"美食;甜品店":["甜品","清补凉","冰粉","冰激凌","烧仙草","刨冰","冰糕","雪糕","冰棍","雪糕店","早茶","甜品店","茶点","甜点","冰淇淋","广式茶点"],"美食;西餐":["西餐","西餐厅","葡国菜"],"美食;西餐;俄国菜":["俄国餐馆","俄餐","俄罗斯餐厅","俄式餐厅"],"美食;西餐;法国菜":["法式餐馆"],"美食;西餐;牛排":["牛排","牛扒店","西餐牛排","美食西餐"],"美食;西餐;意大利菜":["意式菜","意大利面","意面"],"美食;小吃快餐":["快餐厅","小吃","小吃快餐","中式快餐","夜市小吃","饭","快餐","螺蛳粉"],"美食;小吃快餐;包子":["包子","小笼包","包子店","包子铺","灌汤包","汤包","水煎包","生煎包","煎包","蟹黄汤包"],"美食;小吃快餐;北京小吃":["老北京炸酱面","老北京卤煮","北京炸酱面","北京卤煮","老北京爆肚","北京小吃","炒肝","爆肚"],"美食;小吃快餐;饼":["烧饼","煎饼","煎饼果子","饼","酱香饼","鸡蛋灌饼","香河肉饼","菜煎饼","矮子馅饼","杂粮煎饼","馅饼","肉饼","大饼","火烧"],"美食;小吃快餐;肠粉":["肠粉","石磨肠粉","广东肠粉"],"美食;小吃快餐;抄手":["抄手","龙抄手"],"美食;小吃快餐;臭豆腐":["臭豆腐","长沙臭豆腐"],"美食;小吃快餐;川味小吃":["老妈兔头","川味小吃","钵钵鸡","兔头","蹄花","冒菜"],"美食;小吃快餐;饭":["猪脚饭","木桶饭","煲仔饭","黄焖鸡米饭","盖饭","炒饭","拌饭","盖浇饭","手抓饭","排骨米饭","甏肉干饭","竹筒饭","豆花饭","饭团","卤肉饭"],"美食;小吃快餐;广式点心":["广式早茶","美食早茶","广式点心"],"美食;小吃快餐;锅贴":["锅贴"],"美食;小吃快餐;馄饨":["馄饨"],"美食;小吃快餐;饺子":["饺子","水饺","饺子馆","手工水饺","蒸饺","钟水饺","煎饺","饺","鲅鱼饺子"],"美食;小吃快餐;凉皮":["凉皮","陕西凉皮","凉皮店"],"美食;小吃快餐;驴肉火烧":["驴肉火烧","驴肉","河间驴肉火烧","驴肉汤","保定驴肉火烧"],"美食;小吃快餐;麻辣拌":["麻辣烫","麻辣拌","东北麻辣烫","重庆麻辣烫","砂锅麻辣烫","老式麻辣烫","天水麻辣烫"],"美食;小吃快餐;馒头":["馒头","馒头店"],"美食;小吃快餐;米粉":["米粉","炒米粉","米粉店","粉店","牛肉粉","桂林米粉","粉","螺丝粉","螺蛳粉店","炒螺蛳粉","拌粉","炒粉","汤粉"],"美食;小吃快餐;米线":["米线","过桥米线","小锅米线","米线店"],"美食;小吃快餐;面馆":["面馆","面","牛肉面","面条","手擀面","拌面","热干面","蟹黄面","沙茶面","刀削面","烩面","拉面","炸酱面","海鲜面","削面","兰州拉面","焖面","粉面","莜面","兰州牛肉面"],"美食;小吃快餐;肉夹馍":["肉夹馍"],"美食;小吃快餐;三鲜豆皮":["豆皮","三鲜豆皮"],"美食;小吃快餐;烧麦":["烧卖","烧麦","稍麦"],"美食;小吃快餐;汤":["胡辣汤","牛肉汤","羊汤","羊肉汤","鸭血粉丝汤","瓦罐汤","鸭血粉丝","汤","藕汤","羊汤馆","汤饭","炖汤","鸡汤","羊杂汤"],"美食;小吃快餐;汤圆":["汤圆"],"美食;小吃快餐;特色小吃":["特色小吃"],"美食;小吃快餐;西式快餐":["汉堡","披萨","炸鸡","炸串","汉堡包","汉堡店","pizza","披萨店","三明治","薯条","Pizza","披萨自助"],"美食;小吃快餐;羊肉泡馍":["羊肉泡馍","泡馍"],"美食;小吃快餐;元宵":["元宵"],"美食;小吃快餐;粥":["粥","粥店","粥铺","砂锅粥","美食粥","海鲜粥","潮汕粥"],"美食;饮品":["冷饮店","饮品","饮料","茉莉花茶","煮茶"],"美食;饮品;咖啡":["咖啡","咖啡奶茶","咖啡厅","Coffee","咖啡廳","狗咖","咖啡店","咖啡馆","coffee","cafe","Cafe","cat cafe","Cat cafe"],"美食;饮品;奶茶/茶饮":["奶茶","柠檬茶","奶茶/茶饮","凉茶店","茶饮","珍珠奶茶","奶茶店","凉茶"],"美食;中餐":["美食","饭店","Food","中餐","餐厅","吃饭","餐饮","餐馆","中餐厅","饭馆","午餐","酒楼","吃饭的地方","餐饮店","菜馆","中餐馆","餐廳","맛있는 음식","小饭店","酒家","晚餐","炒菜馆","кулинарн","Restaurant","restaurant","美食餐厅","商务宴请","聚餐","宴请","大饭店","食府","家常菜馆","饮食"],"美食;中餐;澳门菜":["澳门菜"],"美食;中餐;北京菜":["北京菜","烤鸭","北京烤鸭","烤鸭店","片皮烤鸭","老北京烤鸭","北京烤鸭店","北京片皮烤鸭","烤鴨","南京烤鸭"],"美食;中餐;茶餐厅":["茶餐厅","广式茶餐厅","港式茶餐厅"],"美食;中餐;川菜":["四川菜","川渝","重庆菜","川味","川香","重庆川菜馆","重庆菜馆","川菜","川菜馆","江湖菜","美食川菜","盐帮菜"],"美食;中餐;东北菜":["东北菜馆","东北饭店","铁锅炖","铁锅炖大鹅","锅包肉","杀猪菜","东北菜","地锅"],"美食;中餐;广西菜":["广西菜"],"美食;中餐;贵州菜":["贵州酸汤火锅","贵州菜","贵州酸汤","贵州餐厅"],"美食;中餐;海南菜":["海南鸡饭","海南菜","海南椰子鸡"],"美食;中餐;河北菜":["河北菜"],"美食;中餐;河南菜":["河南菜","河南烩面","豫菜"],"美食;中餐;湖北菜":["鄂菜","湖北菜"],"美食;中餐;徽菜":["徽菜馆","徽菜","臭鳜鱼","安徽菜"],"美食;中餐;江西菜":["江西小炒","赣菜","江西菜","江西饭店","江西菜馆"],"美食;中餐;江浙菜":["淮扬菜","江浙菜","浙菜","杭帮菜","西湖醋鱼"],"美食;中餐;鲁菜":["鲁菜","山东菜","博山菜","鲁菜馆"],"美食;中餐;闽菜":["闽南菜","闽菜馆","闽菜"],"美食;中餐;内蒙菜":["内蒙菜","蒙菜","蒙古菜"],"美食;中餐;山西菜":["山西菜","晋味"],"美食;中餐;上海菜":["上海菜","本帮菜"],"美食;中餐;台湾菜":["台湾菜"],"美食;中餐;天津菜":["天津菜","天津卫","津沽","津菜"],"美食;中餐;西北菜":["西北菜","陕西菜","陕菜"],"美食;中餐;西藏菜":["藏餐","新疆菜","西藏菜"],"美食;中餐;香港菜":["港式","香港菜"],"美食;中餐;湘菜":["湖南菜","湖南土菜馆","湖南小碗菜","川湘菜馆","美食湘菜","湘菜","湘菜馆","美食湘菜馆","川湘菜","湘","湖南菜馆","湘味","香菜馆"],"美食;中餐;粤菜":["广东菜","广式","广味","粤菜餐厅","粤菜","潮州菜","顺德菜","烧腊","潮汕菜","客家菜","美食粤菜","粤式茶点","乳鸽","粤菜馆","潮汕美食","湛江菜"],"美食;中餐;云南菜":["云南菜"],"美食;自助餐":["自助餐","自助","素食自助","美食自助","美食自助餐","牛排自助","海鲜烤肉自助","自助餐厅","日式自助","烤涮一体自助","生蚝自助","铁板烧自助","自助西餐"],"美食;自助餐;日式自助":["日料自助","自助日料"],"美食;自助餐;自助海鲜":["海鲜自助","自助海鲜","海鲜自助餐"],"美食;自助餐;自助火锅":["自助火锅","自助小火锅","火锅自助"],"美食;自助餐;自助烤肉":["自助烤肉","烤肉自助","自助烧烤","烧烤自助"],"美食;自助餐;自助快餐":["自助快餐","自选快餐","快餐自助"],"美食;火锅;潮汕火锅":["潮汕牛肉火锅","潮汕牛肉","潮汕火锅"],"美食;火锅;重庆火锅":["重庆火锅","老火锅","重庆老火锅"],"美食;火锅;串串香":["串串","串串香","串串火锅","火锅串串"],"美食;火锅;打边炉":["打边炉"],"美食;火锅;海鲜火锅":["粥底火锅","海鲜火锅"],"美食;火锅;火锅鸡":["火锅鸡"],"美食;火锅;牛肉火锅":["牛肉火锅"],"美食;火锅;其他":["火锅店","火锅","美食火锅","火鍋","野生菌火锅","菌子火锅","朝天锅","芋儿鸡","火锅食材","糟粕醋火锅","卤水火锅","菌菇火锅","牛蛙火锅","螺蛳粉火锅","兔火锅","菌火锅"],"美食;火锅;涮羊肉":["涮肉","铜锅涮肉","涮羊肉","老北京涮肉","老北京铜锅涮肉","老北京火锅","铜锅涮","涮锅","羊肉火锅","美食涮肉","刷羊肉","北京涮羊肉","北京涮肉","刷肉","老北京涮羊肉","铜火锅","老北京铜火锅","清真涮肉","铜锅涮羊肉"],"美食;火锅;四川火锅":["四川火锅","成都火锅"],"美食;火锅;小火锅":["旋转小火锅","24小时火锅","小火锅"],"美食;火锅;羊蝎子火锅":["羊蝎子"],"美食;火锅;椰子鸡":["椰子鸡"],"美食;火锅;鱼火锅":["鱼火锅"],"美食;火锅;猪肚鸡":["猪肚鸡"]};
+
+// ==================== 暑期旅游热门城市 ====================
+var TOURISM_CITIES = ["北京","上海","成都","广州","重庆","杭州","西安","深圳","长沙","青岛","南京","武汉","苏州","天津","郑州","三亚","大连","烟台","威海","秦皇岛","日照","北海","厦门","泉州","舟山","防城港","海口","万宁","陵水","珠海","湛江","连云港","温州","阳江","昆明","贵阳","大理","丽江","西宁","承德","张家口","呼伦贝尔","哈尔滨","长春","九江","黄山","恩施","安顺","西双版纳","迪庆","赤峰","阿坝","甘孜","张家界","桂林","清远","洛阳","开封","淄博","景德镇","大同","太原","福州","南昌","徐州","芜湖","乌鲁木齐","拉萨","兰州","银川","沈阳","丹东"];
+
+// ==================== 地域特色美食映射 ====================
+var PROVINCE_SPECIALTY = {"山东":{cats:["美食;中餐;鲁菜"],keywords:["鲁菜","山东菜","博山菜"]},"四川":{cats:["美食;中餐;川菜","美食;火锅;串串香"],keywords:["川菜","川渝","串串香"]},"湖南":{cats:["美食;中餐;湘菜","美食;小吃快餐;臭豆腐"],keywords:["湖南菜","长沙臭豆腐"]},"广东":{cats:["美食;中餐;粤菜","美食;小吃快餐;广式点心","美食;小吃快餐;肠粉","美食;火锅;潮汕火锅"],keywords:["粤菜","广式早茶","肠粉","潮汕牛肉"]},"福建":{cats:["美食;中餐;闽菜"],keywords:["闽菜"]},"安徽":{cats:["美食;中餐;徽菜"],keywords:["徽菜"]},"浙江":{cats:["美食;中餐;江浙菜"],keywords:["江浙菜"]},"江苏":{cats:["美食;中餐;江浙菜"],keywords:["江浙菜"]},"辽宁":{cats:["美食;中餐;东北菜","美食;烧烤"],keywords:["东北菜馆","铁锅炖","烧烤"]},"吉林":{cats:["美食;中餐;东北菜","美食;韩国料理"],keywords:["东北菜馆","铁锅炖","延吉冷面"]},"黑龙江":{cats:["美食;中餐;东北菜"],keywords:["东北菜馆","铁锅炖","锅包肉"]},"云南":{cats:["美食;中餐;云南菜","美食;小吃快餐;米线"],keywords:["过桥米线","云南菜"]},"贵州":{cats:["美食;中餐;贵州菜"],keywords:["贵州菜","酸汤鱼"]},"甘肃":{cats:["美食;中餐;西北菜","美食;小吃快餐;面馆"],keywords:["牛肉面","西北菜"]},"陕西":{cats:["美食;中餐;西北菜","美食;小吃快餐;肉夹馍","美食;小吃快餐;羊肉泡馍"],keywords:["肉夹馍","羊肉泡馍"]},"宁夏":{cats:["美食;中餐;西北菜"],keywords:["西北菜"]},"新疆":{cats:["美食;中餐;西北菜","美食;烧烤"],keywords:["西北菜","烤串"]},"北京":{cats:["美食;中餐;北京菜","美食;小吃快餐;北京小吃","美食;火锅;涮羊肉"],keywords:["老北京炸酱面","老北京卤煮","涮羊肉"]},"上海":{cats:["美食;中餐;上海菜"],keywords:["上海菜","本帮菜"]},"天津":{cats:["美食;中餐;天津菜"],keywords:["天津菜"]},"山西":{cats:["美食;中餐;山西菜"],keywords:["山西菜"]},"河北":{cats:["美食;中餐;河北菜","美食;小吃快餐;驴肉火烧"],keywords:["驴肉火烧","河北菜"]},"河南":{cats:["美食;中餐;河南菜"],keywords:["河南菜"]},"湖北":{cats:["美食;中餐;湖北菜","美食;小吃快餐;三鲜豆皮"],keywords:["湖北菜","豆皮","三鲜豆皮"]},"海南":{cats:["美食;中餐;海南菜","美食;水产海鲜"],keywords:["海南菜","海鲜"]},"西藏":{cats:["美食;中餐;西藏菜"],keywords:["西藏菜"]},"广西":{cats:["美食;中餐;广西菜","美食;小吃快餐;米粉"],keywords:["广西菜","米粉","螺蛳粉"]},"江西":{cats:["美食;中餐;江西菜"],keywords:["江西菜"]},"内蒙古":{cats:["美食;中餐;内蒙菜","美食;火锅;涮羊肉"],keywords:["内蒙菜","涮羊肉"]},"重庆":{cats:["美食;火锅;重庆火锅","美食;火锅;串串香"],keywords:["重庆火锅","老火锅","串串香"]},"青海":{cats:["美食;中餐;西北菜"],keywords:["西北菜"]}};
+
+var CITY_SPECIALTY = {"重庆":{cats:["美食;火锅;重庆火锅","美食;火锅;串串香"],keywords:["重庆火锅","老火锅","串串"]},"延边":{cats:["美食;韩国料理"],keywords:["延吉冷面","韩式烤肉","紫菜包饭"]},"潮州":{cats:["美食;火锅;潮汕火锅"],keywords:["潮汕牛肉火锅","潮汕牛肉"]},"汕头":{cats:["美食;火锅;潮汕火锅"],keywords:["潮汕牛肉火锅","潮汕牛肉"]},"西安":{cats:["美食;小吃快餐;肉夹馍","美食;小吃快餐;羊肉泡馍","美食;中餐;西北菜"],keywords:["肉夹馍","羊肉泡馍","西北菜"]},"兰州":{cats:["美食;小吃快餐;面馆","美食;中餐;西北菜"],keywords:["牛肉面","兰州拉面"]},"长沙":{cats:["美食;中餐;湘菜","美食;小吃快餐;臭豆腐"],keywords:["湖南菜","长沙臭豆腐"]},"青岛":{cats:["美食;中餐;鲁菜","美食;水产海鲜"],keywords:["鲁菜","海鲜"]},"大连":{cats:["美食;中餐;东北菜","美食;水产海鲜"],keywords:["东北菜","海鲜"]},"烟台":{cats:["美食;中餐;鲁菜","美食;水产海鲜"],keywords:["鲁菜","海鲜"]},"威海":{cats:["美食;中餐;鲁菜","美食;水产海鲜"],keywords:["鲁菜","海鲜"]},"三亚":{cats:["美食;水产海鲜","美食;中餐;海南菜"],keywords:["海鲜","海南菜"]},"厦门":{cats:["美食;中餐;闽菜","美食;水产海鲜"],keywords:["闽菜","海鲜"]},"舟山":{cats:["美食;水产海鲜"],keywords:["海鲜"]},"日照":{cats:["美食;中餐;鲁菜","美食;水产海鲜"],keywords:["鲁菜","海鲜"]},"秦皇岛":{cats:["美食;水产海鲜"],keywords:["海鲜"]},"北海":{cats:["美食;水产海鲜","美食;中餐;广西菜"],keywords:["海鲜","广西菜"]}};
+
+function getSpecialty(city){
+  if(CITY_SPECIALTY[city]) return CITY_SPECIALTY[city];
+  var province = CITY_PROVINCE[city];
+  if(province && PROVINCE_SPECIALTY[province]) return PROVINCE_SPECIALTY[province];
+  return null;
+}
+function isTourismCity(city){ return TOURISM_CITIES.indexOf(city) >= 0; }
+
+var KEY_CAT_KEYWORDS = ["水产海鲜","烧烤","中餐","火锅","西餐","自助餐","小吃快餐"];
+function isKeyCategory(cat){ return KEY_CAT_KEYWORDS.some(function(k){ return cat.indexOf(k) >= 0; }); }
+
+var INV_MAP = {"七台河":"1818d809a95042110000008","万宁":"1804f80920d0a01100a040a","三亚":"1f3efeedbfdee2d90bb444b","三明":"1d3efacdabd4ea11238444a","三沙":"2","三门峡":"181cfecdbfd7e259009044a","上海":"7df37f47fbffff9fe77bd1","上饶":"1d3efeccafd4e259038244a","东方":"1800e80900c000010000002","东莞":"1fbffffdffdff7f9dff74db","东营":"1d3effddbfd3e259838244a","中卫":"1818f8492bd0c219008044a","中山":"1f3efedcbfdee2d91ef445b","临夏":"180cd84d23d0e211028044a","临汾":"1c3effddbfd3e259018044a","临沂":"1f3effedbffff2691b9644a","临沧":"1c1afa0921d042510000442","临高":"18006809004000010000002","丹东":"1e3efdcdafd0e211008044a","丽水":"1d3efecdafd4e259139644a","丽江":"1c3cfe4dbbd0e251038044a","乌兰察布":"1c3cfd4dbfd2ea11008044a","乌海":"181cf94d3bd2ca11048044a","乌鲁木齐":"f3effedfff7ea59979744a","乐东":"1000e80900c000010000002","乐山":"1d3ef6cdcbd4ef11138004a","九江":"1d3effedaff6e251038644a","云浮":"1d3cfec9b3d4a211028040a","五家渠":"c809004000010000002","五指山":"800000000010000002","亳州":"1d3effcdbfd6e251039544a","仙桃":"1800d80921d002110000042","伊春":"1800f84dabd0c211000044a","伊犁":"1c3cffcdbfd2e2590b9044a","佛山":"7be37f4ff9fe7f9def7459","佳木斯":"1e3efdcdbfd0e611008044a","保亭":"801004000010000002","保定":"1f3efffdfffffa799f9f45b","保山":"1c1afe49b3d0e251018045a","信阳":"1d3efecdbfd6e251039444a","儋州":"180cf849a1d4e251038040a","克孜勒苏":"18085809214022010800402","克拉玛依":"1808f80d33d0e259088044a","六安":"1d3efecdaff0e259038544a","六盘水":"181cfe4de7d4e251108044a","兰州":"f3efffdffffe2591f9644a","兴安盟":"183ef84dbbd0ea11008044a","内江":"193efcedebd4e351000044a","凉山":"1d3efecdebd0e351028044a","包头":"1f3efdcdbfd3ea71078246a","北京":"7ff37b47fbffff9fff57f5","北屯":"809004000000000002","北海":"1d3efefcafd6e2590b8044b","十堰":"1c3cfccdafd4e25301d044a","南京":"7bf37f5ffbffefd9fd74d9","南充":"1d3efecdefd6e351138004a","南宁":"1fbefffdffdee6d99ff6c5b","南平":"1d1efecdabd4e251238444a","南昌":"f3ea7f4ffbff2d99f93459","南通":"1f3eeffdffffe6d99b9744b","南阳":"1f3effddffffea790bd644a","博尔塔拉":"1808d80921d02259088040a","厦门":"7bf36e4ff9ff6f9ffb74d9","双河":"2","双鸭山":"181af84dafd0c211000044a","可克达拉":"8004000000000002","台州":"1f3effedbfdff2791b9744b","台湾":"1800c80980c000110000402","合肥":"1fbfb7f5ffbff6f99f96459","吉安":"1d3efacdafd4e251038044a","吉林":"1f3efdcdbfd0ea59038044a","吐鲁番":"1808f80921d02219088040a","吕梁":"1c3cfccdbbdae251008044a","吴忠":"181cf84d2bd1e299028044a","周口":"1d3effcdffdfe2790b9444a","呼伦贝尔":"1f6ef98dbfd0ea51008044a","呼和浩特":"1f7eff9dffd3ea590f8746a","和田":"1818f84d31d0e259088044a","咸宁":"1d3ef8cdafd4e213038444a","咸阳":"1f3effcdffd7f2590f9745a","哈密":"181cf84d2bd0e259089044a","哈尔滨":"1fdffffdfffffe799bb7441","唐山":"1f3effecbffffa798b9644a","商丘":"1d3effcdffffe279039644a","商洛":"1818fe4d2bd3c259048044a","喀什":"1d3cfecdffd3e2590f9044a","嘉兴":"1f3effedfffffa799f9545b","嘉峪关":"1818d84d29d0c211008040a","四平":"1c3efd4dbfd0e211008044a","固原":"180cd04929d162190200402","图木舒克":"5809014002010000402","塔城":"1808f80d23d06259088044a","大兴安岭":"1800d80d23504211000000a","大同":"1d3ef7ddbfdaea51038044a","大庆":"1f3efdddbfd2e259038044a","大理":"1d3efecdffd4e2510b8044b","大连":"1f7fffedbfffea791b9645b","天水":"1c3cfd4defd3e2190a8044a","天津":"1fff17f4ffbffefdbff77d9","天门":"1800d80920d002110000002","太原":"1fbefffdbfdffa7d9e9775b","威海":"1f3effedbff7e2598b9044a","娄底":"193efec9a7d4e251038044a","孝感":"1d3effcdafd4e25303d044a","宁德":"1d3efeedabd4e251039444a","宁波":"1fbffffdfffffff99ff745b","安庆":"1d3efccdaff4e271038544a","安康":"1818fccdabd3e259048044a","安阳":"1d3effcdbfd7e279039444a","安顺":"1c1cfe4de7d4e251108044a","定安":"18002800004000010000002","定西":"181cfc4d6bd1e219008044a","宜宾":"1d3effedefd4e351138044a","宜昌":"1d3effcdafd4e253038044a","宜春":"1d3efecdafd4e251038444a","宝鸡":"1d3cffcdffd3e2590f8044a","宣城":"1d3effcdaff4e251029544a","宿州":"1d3effcdbff0e251039144a","宿迁":"1d3effedbff0e259038644a","屯昌":"800004000010000002","山南":"1808d809084200510000402","岳阳":"1d3efecdafdce253038044a","崇左":"1c18f809a1d4a211038040b","巴中":"181cfc4de9d0e251000044a","巴彦淖尔":"1818fc4d3bdaca11048044a","巴音郭楞":"1c3cfccdbfd3e259099044a","常州":"1f3ff7fdffffe2591f9745b","常德":"1d3efccdafdce251038044a","平凉":"181cf84d2bd34219008044a","平顶山":"1d3cffddffdfe279039444a","广元":"1d1cfecdefd5e351008044a","广安":"191cfecdefd4e351010044a","广州":"7ff37f4ffbffff9fef7ed9","庆阳":"181cfc4d3bd3e259008044a","廊坊":"1f3efffdbffffa799f9755a","延安":"1c1cfdcdb3d3e259048044a","延边":"1e3efd5cafd0e251008044a","开封":"1f3effcdfffffa49039644a","张家口":"1f3efdcdbfd3ea79038044a","张家界":"1e38fc0da3dca211030044a","张掖":"181cf84d6bd2e219028044a","徐州":"1f3effddfffff2599b9744b","德宏":"1c18fe49a3f0e251038045b","德州":"1f3eefccbfd7e258838044a","德阳":"1d3efecdefd4e3511b8044a","忻州":"1c1cfdcdbbd3ea51008064a","怀化":"1d3efecda7d4e251038044a","怒江":"18004809004040010000002","恩施":"1d3efc4dabd4e25301c044a","惠州":"1fbefffdffdfe6f99ef745b","成都":"5ffb7f4ffbffff9fff74d9","扬州":"1f3efffdbfffe2d9139644a","承德":"1d3efdcdbff2ea51008044a","抚州":"1d3efecdafd4e251038444a","抚顺":"1e3efdcdbfd0e251000044a","拉萨":"1d3cfe4dfbd0e2510b9044a","揭阳":"1f3efeedbfd4e25103b444b","攀枝花":"181cfc4d41d0e251000044a","文山":"1c1afe49f1d0e251008044a","文昌":"1800e80920c02001028040a","新乡":"1f3effddbfdfe2790b9644a","新余":"1c1af849a7d4e211008444a","新星":"4000000000002","无锡":"1f3ffffdffffeed99f9745f","日喀则":"1808d80d09d00251000044a","日照":"1f3af7ccbff2e2510b8044a","昆明":"1f3efffcffdff759979604b","昌吉":"1c3cfdcdbfd0e259089044a","昌江":"10000809004000010000002","昌都":"1808d809004000510000402","昭通":"1d1cfe4de3d0e251000044a","晋中":"1f3effcdbfd3ea510b9664a","晋城":"1d3cfecdbfd1e211008064a","普洱":"1c1afe4d21d0c251008045a","景德镇":"1d3efacdafd4e251038444a","曲靖":"1d3efe4dffd0e251038045a","朔州":"1c1cfdcdbbd2ea51008044a","朝阳":"1c3efdcdbfd0ea51008044a","本溪":"181ef84dafd0c213000040a","来宾":"1818f809a1d4a211018040a","杭州":"7ff35f4ffbffff9fff74d9","松原":"1c3efd4dbfd0e211008044a","林芝":"1808d84d29d042510080442","果洛":"80008004000000000402","枣庄":"1d3effcdbfd2e259838444a","柳州":"1d3efeedafdec2511390c4b","株洲":"1d3efecdbfdce251038044a","桂林":"1f3effecffdee259139044b","梅州":"1d3efeeda3d4ea51038444b","梧州":"1d3efee9a3d4e211038044a","楚雄":"1c1efe4df3d0c251008045a","榆林":"1f3effcdbfd3ea590f8044a","武威":"181cf84d2bd2e219068044a","武汉":"17bfb7f4ffbffffbfff7459","毕节":"1d1cfe4de7d4e251108044a","永州":"1d3afec9b7d4e251038044a","汉中":"1d3cfdcdeff7e259068444a","汕头":"1f3efffdffdee2f112b444b","汕尾":"1d3efeeda3dce25103b044b","江门":"1f3efefdbfdee6d91bb444b","池州":"181ef849aff0e211008544a","沈阳":"1ffff7f4bfbffaf99f97459","沧州":"1f3effcdfffffa798b9654a","河池":"1918fe09a1d4a211038044a","河源":"1d3efecdb3d4e251039444b","泉州":"1f3efeedffdef6593b9645b","泰安":"1f3effcdbfd7e259838244a","泰州":"1f3effcdbfd4e2d90b9644a","泸州":"1d3efeedebd4e351130044a","洛阳":"1f3effedbffff2790f8644a","济南":"1fbff7f5ffbffaf91f97559","济宁":"1f3effcdbfffe2798b9744a","济源":"1800d84923d2c211008044a","海东":"180cd84d21d042110280442","海北":"85808004000110000402","海南藏族":"8d809204000110000402","海口":"1f3effecbfd6e2d91fb444b","海西":"1808d84d21d1c211008040a","淄博":"1f3ef7dcbfd7ea798b9644a","淮北":"181cf8cdbfd0c211028144a","淮南":"1d1cffcdafd0e251038144a","淮安":"1f3effccbff2e258039444a","深圳":"7ff37f47fbffffbfe77edd","清远":"1d3eff6dbfdce2d1139444b","温州":"1fbfffedffffe6791f9745b","渭南":"1d3effcdbfd7e259068044a","湖州":"1f3efeccbfbfee591b9544b","湘潭":"1d3effcdafdce251038044a","湘西":"1818fc09a3d4a211008044a","湛江":"1f3effedafdce251039444b","滁州":"1d3efecdbff4e251039744a","滨州":"1f3effddbfd7e2598b8044a","漯河":"1d3cfe5dbfd7e251039044a","漳州":"1f3efeecafdee659029405b","潍坊":"1f3efffdbffff2790b9444a","潜江":"1800d809215000110000002","潮州":"1d3efeedebd4e2d103b444b","澄迈":"1800e80920c022010080002","澳门":"1c2cfaa9a3d4e29103a040b","濮阳":"1d3effcdbfd7e279019044a","烟台":"1f3fffedbfffe2798b9444a","焦作":"1d3effddbfd7e279039044a","牡丹江":"1e7ef9cdbfd0e251008044a","玉林":"1d3efeedabd4e2510390c4a","玉树":"80808004000010000402","玉溪":"1c1efe49e3d0e251008045a","珠海":"1f3ef67cbfdfe2d91cf445b","琼中":"2","琼海":"1800e80920c0a001028040a","甘南":"1808d809215002110200402","甘孜":"1808f80d01d0e2510000402","白城":"181efd4dbfd0c211000044a","白山":"1a18f84da3d0c211000004a","白沙":"2","白银":"181cf84d7bd1c219008044a","百色":"1d1efec9a3d4e211038044a","益阳":"1d1afcc9a7d4e211038044a","盐城":"1f3effcdbff6e259039644a","盘锦":"1e3efdcdbfd0ea59008044a","眉山":"1d3efecdefd4e351138044a","石嘴山":"181cf86d2bd2e219000044a","石家庄":"1fbffffdfffffa799fdf559","石河子":"1808d80d21d0e219088044a","神农架":"4000000000002","福州":"1fbff7ecbfdff6fd7fd745b","秦皇岛":"1f3efddcbfd6ea590b8044a","红河":"1d3efe49efd0e251038045a","绍兴":"1f3effedbfdfe2591b9745b","绥化":"1c3efd4dbfd0e251008044a","绵阳":"1f3efeedefd6e3511b8005b","聊城":"1f3effcdffffea79839044a","肇庆":"1d3efeedbfdce251039444b","胡杨河":"2","自贡":"1d1cfc8ce3d0e351100044a","舟山":"1d3cfec8afd4e251039644a","芜湖":"1d3effcdbff7e259039644a","苏州":"7bf37f4ffbffff9bfd44d9","茂名":"1d3efeedafdce251039044a","荆州":"1d3efecdafd4f25303d044a","荆门":"183efccdabd4e21101c044a","莆田":"1d3efecdabd4e251339444a","菏泽":"1f3effcdbfdfe2590b9644a","萍乡":"1d3af8c9a7d4e251038444a","营口":"1e3ef9cdbfd0ea59018044a","葫芦岛":"1c3efdedbfd0e259008044a","蚌埠":"1d3effccbff4e251038544a","衡水":"1d3effcdffd7e279019244a","衡阳":"1d3ebfcdbfdce251138044a","衢州":"1d3efecdafd4e251039644a","襄阳":"1d3effccbf97e25303d444a","西双版纳":"1c1efe4dafd0e251038044b","西宁":"d3cffcdffd3e2590f9244a","西安":"7ff37f4ffbffff5ff5777d","许昌":"1d3effddbfd7ea590b9444a","贵港":"1d3efec9a3d4e211038044a","贵阳":"1f3efffdffdfe7511b9445b","贺州":"1d2afa89a1d4a211038040a","资阳":"181cfccde3d4e351000044a","赣州":"1f3efeedbfdee251139044b","赤峰":"1f3efdcdbff2ea59038046a","辽源":"181cf84da3d0c211000004a","辽阳":"1c3efdcdb7d0e259028044a","达州":"1d3efecdefd4e751018044a","运城":"1d3effcdbfd7e259098464a","连云港":"1f3efffdbff6e259039644a","迪庆":"1808f20921d0c0110080002","通化":"1e1ef8cdafd0e211008044a","通辽":"1e3efdcdffd2ea59008044a","遂宁":"1d3efecdefd4e351010044a","遵义":"1d3efecdeff4e751138044a","邢台":"1f3effddffffea7903d604a","那曲":"8004808004000000000402","邯郸":"1f3ef7fdffdfea798b9e44a","邵阳":"1d3efecda7d4e251038044a","郑州":"1fbf37f4ffbffefdbfd7559","郴州":"1d3efecdafdce251030044a","鄂尔多斯":"1f3efdcdbfd3ea590f9046a","鄂州":"181cf84dabd0e21301c044a","酒泉":"181cf84d3bd3e2190a8044a","重庆":"1fbffffcffffff79dff7459","金华":"1fbeffedfffff6791f9745b","金昌":"1818d80d29d0c219008040a","钦州":"1d1efec9a3d4e251039044a","铁岭":"1a3efd4dbfd0ea51000044a","铁门关":"4808014000010000002","铜仁":"1c1efe4de1d4e2511080442","铜川":"1808d84d23d34251008044a","铜陵":"181af8c9aff0c211020144a","银川":"f3effedffd7ea591f9244b","锡林郭勒":"1c3cf84dbbd2ca11008046a","锦州":"1f3ef5edbfd0ea59038044a","镇江":"1f3effcdbff4e259039644a","长春":"1ffff7fdfffffa799b9745b","长沙":"7bf37f4ffbfffdbdfb7459","长治":"1c3cfccdbfd3e259039044a","阜新":"1c3efd4dbfd0ea51008044a","阜阳":"1f3effcdbff7e251039744a","防城港":"1d1efec8a9d4e211038044b","阳江":"1d3edee9a3d4e211039040a","阳泉":"1818f84dbbd0c211008044a","阿克苏":"1c3cfccdbfd3e259099044a","阿勒泰":"1808f80d21d02259088040a","阿坝":"1c08fe4d01d0e2510800442","阿拉善":"1808d84d23504a11000040a","阿拉尔":"1800d80921d02211008040a","阿里":"8005808004000010000402","陇南":"181cfc4d6fd1e251008044a","陵水":"1800f80921d0a011008040a","随州":"1818f84dabd0e21100c044a","雅安":"1c1cfe8de9d0e351000044a","青岛":"17ff37f4bfbffaf99fd745d","鞍山":"1f3ef5ddbfd0ea59038044a","韶关":"1d3efeeda3d4e251039044a","香港":"1f3efefdbfd4e2d15bb645b","马鞍山":"1d3effcdaff0e251039544a","驻马店":"1d3effcdbfd7e259039444a","鸡西":"1c1ef8cdafd0e211000044a","鹤壁":"1c1cf94dbfd6e219009044a","鹤岗":"1800f84d2bd0c211000040a","鹰潭":"191af8c9a7d4a211000044a","黄冈":"1d3efccdafd4e21303c444a","黄南":"84808004000000000402","黄山":"1c3afc4dafd0e251028444a","黄石":"1d3efccdafd4e21103c444a","黑河":"1c7cf84dafd0c211008044a","黔东南":"1d1efe4de7d4a251118044a","黔南":"1d1efe4de7d4e251118044a","黔西南":"1d1efe5de7d4e251108044a","齐齐哈尔":"1e3efdcdbfd0e251038044a","龙岩":"1d3efacdabd4a251038444a"};
+
+// 隐藏类目列表（不在地图中展示和统计）
+var HIDDEN_CATS = ["美食;火锅;其他"];
+
+function getInventoryForCity(cityName){
+  var hex = INV_MAP[cityName];
+  if(!hex) return [];
+  var cats = [];
+  for(var i = 0; i < INV_CATS.length; i++){
+    var charIdx = hex.length - 1 - Math.floor(i / 4);
+    if(charIdx < 0) break;
+    var nibble = parseInt(hex[charIdx], 16);
+    if((nibble >> (i % 4)) & 1 && HIDDEN_CATS.indexOf(INV_CATS[i]) < 0) cats.push(INV_CATS[i]);
+  }
+  return cats;
+}
+function getInventoryCount(cityName){
+  var hex = INV_MAP[cityName];
+  if(!hex) return 0;
+  var count = 0;
+  for(var i = 0; i < INV_CATS.length; i++){
+    var charIdx = hex.length - 1 - Math.floor(i / 4);
+    if(charIdx < 0) break;
+    var nibble = parseInt(hex[charIdx], 16);
+    if((nibble >> (i % 4)) & 1 && HIDDEN_CATS.indexOf(INV_CATS[i]) < 0) count++;
+  }
+  return count;
+}
+
+// ==================== 城市坐标 ====================
+var cityCoords = {
+  '七台河':[45.8,131.0],'万宁':[18.8,110.4],'三亚':[18.3,109.5],'三明':[26.3,117.6],
+  '三沙':[16.8,112.3],'三门峡':[34.8,111.2],'上海':[31.2,121.5],'上饶':[28.5,117.9],
+  '东方':[19.1,108.6],'东莞':[23.0,113.7],'东营':[37.5,118.5],'中卫':[37.5,105.2],
+  '中山':[22.5,113.4],'临夏':[35.6,103.2],'临汾':[36.1,111.5],'临沂':[35.1,118.3],
+  '临沧':[23.9,100.1],'临高':[19.9,109.7],'丹东':[40.0,124.4],'丽水':[28.5,119.9],
+  '丽江':[26.9,100.2],'乌兰察布':[41.0,113.1],'乌海':[39.7,106.8],'乌鲁木齐':[43.8,87.6],
+  '乐东':[18.7,109.2],'乐山':[29.6,103.8],'九江':[29.7,116.0],'云浮':[22.9,112.0],
+  '五家渠':[44.2,87.5],'五指山':[18.8,109.5],'亳州':[33.8,115.8],'仙桃':[30.4,113.4],
+  '伊春':[47.7,128.9],'伊犁':[43.9,81.3],'佛山':[23.0,113.1],'佳木斯':[46.8,130.4],
+  '保亭':[18.6,109.7],'保定':[38.9,115.5],'保山':[25.1,99.2],'信阳':[32.1,114.1],
+  '儋州':[19.5,109.6],'克孜勒苏':[39.7,76.2],'克拉玛依':[45.6,84.9],'六安':[31.7,116.5],
+  '六盘水':[26.6,104.8],'兰州':[36.1,103.8],'兴安盟':[46.1,122.0],'内江':[29.6,105.1],
+  '凉山':[27.9,102.3],'包头':[40.7,109.8],'北京':[39.9,116.4],'北屯':[47.4,87.8],
+  '北海':[21.5,109.1],'十堰':[32.6,110.8],'南京':[32.1,118.8],'南充':[30.8,106.1],
+  '南宁':[22.8,108.4],'南平':[26.6,118.2],'南昌':[28.7,115.9],'南通':[32.0,120.9],
+  '南阳':[33.0,112.5],'博尔塔拉':[44.9,82.1],'厦门':[24.5,118.1],'双河':[44.8,82.4],
+  '双鸭山':[46.6,131.2],'可克达拉':[43.9,81.0],'台州':[28.7,121.4],'台湾':[23.7,121.0],
+  '合肥':[31.8,117.3],'吉安':[27.1,115.0],'吉林':[43.8,126.6],'吐鲁番':[43.0,89.2],
+  '吕梁':[37.5,111.1],'吴忠':[37.9,106.2],'周口':[33.6,114.7],'呼伦贝尔':[49.2,119.8],
+  '呼和浩特':[40.8,111.7],'和田':[37.1,79.9],'咸宁':[29.8,114.3],'咸阳':[34.3,108.7],
+  '哈密':[42.8,93.5],'哈尔滨':[45.8,126.5],'唐山':[39.6,118.2],'商丘':[34.4,115.7],
+  '商洛':[33.9,109.9],'喀什':[39.5,76.0],'嘉兴':[30.8,120.8],'嘉峪关':[39.8,98.3],
+  '四平':[43.2,124.4],'固原':[36.0,106.3],'图木舒克':[39.9,79.1],'塔城':[46.7,83.0],
+  '大兴安岭':[52.3,124.7],'大同':[40.1,113.3],'大庆':[46.6,125.1],'大理':[25.6,100.2],
+  '大连':[38.9,121.6],'天水':[34.6,105.7],'天津':[39.1,117.2],'天门':[30.7,113.2],
+  '太原':[37.9,112.5],'威海':[37.5,122.1],'娄底':[27.7,112.0],'孝感':[30.9,113.9],
+  '宁德':[26.7,119.5],'宁波':[29.9,121.5],'安庆':[30.5,117.1],'安康':[32.7,109.0],
+  '安阳':[36.1,114.4],'安顺':[26.3,105.9],'定安':[19.7,110.3],'定西':[35.6,104.6],
+  '宜宾':[28.8,104.6],'宜昌':[30.7,111.3],'宜春':[27.8,114.4],'宝鸡':[34.4,107.2],
+  '宣城':[30.9,118.8],'宿州':[33.6,116.9],'宿迁':[33.9,118.3],'屯昌':[19.4,110.1],
+  '山南':[29.2,91.8],'岳阳':[29.4,113.1],'崇左':[22.4,107.4],'巴中':[31.9,106.8],
+  '巴彦淖尔':[40.7,107.4],'巴音郭楞':[41.8,86.1],'常州':[31.8,119.9],'常德':[29.0,111.7],
+  '平凉':[35.5,106.7],'平顶山':[33.8,113.2],'广元':[32.4,105.8],'广安':[30.5,106.6],
+  '广州':[23.1,113.3],'庆阳':[35.7,107.6],'廊坊':[39.5,116.7],'延安':[36.6,109.5],
+  '延边':[42.9,129.5],'开封':[34.8,114.3],'张家口':[40.8,114.9],'张家界':[29.1,110.5],
+  '张掖':[38.9,100.5],'徐州':[34.3,117.2],'德宏':[24.4,98.6],'德州':[37.4,116.4],
+  '德阳':[31.1,104.4],'忻州':[38.4,112.7],'怀化':[27.6,110.0],'怒江':[25.9,98.9],
+  '恩施':[30.3,109.5],'惠州':[23.1,114.4],'成都':[30.6,104.1],'扬州':[32.4,119.4],
+  '承德':[40.9,117.9],'抚州':[28.0,116.4],'抚顺':[41.9,123.9],'拉萨':[29.7,91.1],
+  '揭阳':[23.5,116.4],'攀枝花':[26.6,101.7],'文山':[23.4,104.2],'文昌':[19.5,110.8],
+  '新乡':[35.3,113.9],'新余':[27.8,114.9],'新星':[44.0,87.5],'无锡':[31.6,120.3],
+  '日喀则':[29.3,88.9],'日照':[35.4,119.5],'昆明':[25.0,102.7],'昌吉':[44.0,87.3],
+  '昌江':[19.3,109.1],'昌都':[31.1,97.2],'昭通':[27.3,103.7],'晋中':[37.7,112.7],
+  '晋城':[35.5,112.9],'普洱':[22.8,101.0],'景德镇':[29.3,117.2],'曲靖':[25.5,103.8],
+  '朔州':[39.3,112.4],'朝阳':[41.6,120.5],'本溪':[41.3,123.8],'来宾':[23.8,109.2],
+  '杭州':[30.3,120.2],'松原':[45.1,124.8],'林芝':[29.6,94.4],'果洛':[34.5,100.2],
+  '枣庄':[34.8,117.3],'柳州':[24.3,109.4],'株洲':[27.8,113.1],'桂林':[25.3,110.3],
+  '梅州':[24.3,116.1],'梧州':[23.5,111.3],'楚雄':[25.0,101.5],'榆林':[38.3,109.7],
+  '武威':[37.9,102.6],'武汉':[30.6,114.3],'毕节':[27.3,105.3],'永州':[26.4,111.6],
+  '汉中':[33.1,107.0],'汕头':[23.4,116.7],'汕尾':[22.8,115.4],'江门':[22.6,113.1],
+  '池州':[30.7,117.5],'沈阳':[41.8,123.4],'沧州':[38.3,116.8],'河池':[24.7,108.1],
+  '河源':[23.7,114.7],'泉州':[24.9,118.6],'泰安':[36.2,117.1],'泰州':[32.5,119.9],
+  '泸州':[28.9,105.4],'洛阳':[34.6,112.4],'济南':[36.7,117.0],'济宁':[35.4,116.6],
+  '济源':[35.1,112.6],'海东':[36.5,102.1],'海北':[36.9,100.9],'海南藏族':[36.3,100.6],
+  '海口':[20.0,110.3],'海西':[37.4,97.4],'淄博':[36.8,118.1],'淮北':[33.97,116.8],
+  '淮南':[32.6,117.0],'淮安':[33.6,119.0],'深圳':[22.5,114.1],'清远':[23.7,113.1],
+  '温州':[28.0,120.7],'渭南':[34.5,109.5],'湖州':[30.9,120.1],'湘潭':[27.8,112.9],
+  '湘西':[28.3,109.7],'湛江':[21.3,110.4],'滁州':[32.3,118.3],'滨州':[37.4,118.0],
+  '漯河':[33.6,114.0],'漳州':[24.5,117.6],'潍坊':[36.7,119.1],'潜江':[30.4,112.9],
+  '潮州':[23.7,116.6],'澄迈':[19.7,110.0],'澳门':[22.2,113.5],'濮阳':[35.8,115.0],
+  '烟台':[37.5,121.4],'焦作':[35.2,113.2],'牡丹江':[44.6,129.6],'玉林':[22.6,110.2],
+  '玉树':[33.0,97.0],'玉溪':[24.4,102.5],'珠海':[22.3,113.6],'琼中':[19.0,109.8],
+  '琼海':[19.2,110.5],'甘南':[35.0,103.0],'甘孜':[30.1,101.96],'白城':[45.6,122.8],
+  '白山':[41.9,126.4],'白沙':[19.2,109.5],'白银':[36.5,104.2],'百色':[23.9,106.6],
+  '益阳':[28.6,112.4],'盐城':[33.4,120.2],'盘锦':[41.1,122.1],'眉山':[30.1,103.8],
+  '石嘴山':[39.0,106.4],'石家庄':[38.0,114.5],'石河子':[44.3,86.0],'神农架':[31.7,110.7],
+  '福州':[26.1,119.3],'秦皇岛':[39.9,119.6],'红河':[23.4,103.4],'绍兴':[30.0,120.6],
+  '绥化':[46.6,127.0],'绵阳':[31.5,104.7],'聊城':[36.4,116.0],'肇庆':[23.1,112.5],
+  '胡杨河':[44.6,84.8],'自贡':[29.4,104.8],'舟山':[30.0,122.1],'芜湖':[31.3,118.4],
+  '苏州':[31.3,120.6],'茂名':[21.7,110.9],'荆州':[30.3,112.2],'荆门':[31.0,112.2],
+  '莆田':[25.4,119.0],'菏泽':[35.2,115.5],'萍乡':[27.6,113.9],'营口':[40.7,122.2],
+  '葫芦岛':[40.7,120.8],'蚌埠':[32.9,117.4],'衡水':[37.7,115.7],'衡阳':[26.9,112.6],
+  '衢州':[28.9,118.9],'襄阳':[32.0,112.1],'西双版纳':[22.0,100.8],'西宁':[36.6,101.8],
+  '西安':[34.3,108.9],'许昌':[34.0,113.8],'贵港':[23.1,109.6],'贵阳':[26.6,106.7],
+  '贺州':[24.4,111.6],'资阳':[30.1,104.6],'赣州':[25.9,115.0],'赤峰':[42.3,118.9],
+  '辽源':[42.9,125.1],'辽阳':[41.3,123.2],'达州':[31.2,107.5],'运城':[35.0,111.0],
+  '连云港':[34.6,119.2],'迪庆':[27.8,99.7],'通化':[41.7,125.9],'通辽':[43.6,122.3],
+  '遂宁':[30.5,105.6],'遵义':[27.7,106.9],'邢台':[37.1,114.5],'那曲':[31.5,92.1],
+  '邯郸':[36.6,114.5],'邵阳':[27.2,111.5],'郑州':[34.7,113.7],'郴州':[25.8,113.0],
+  '鄂尔多斯':[39.6,109.8],'鄂州':[30.4,114.9],'酒泉':[39.7,98.5],'重庆':[29.6,106.5],
+  '金华':[29.1,119.6],'金昌':[38.5,102.2],'钦州':[21.9,108.6],'铁岭':[42.3,123.8],
+  '铁门关':[41.8,85.5],'铜仁':[27.7,109.2],'铜川':[35.1,109.0],'铜陵':[30.9,117.8],
+  '银川':[38.5,106.3],'锡林郭勒':[43.9,116.1],'锦州':[41.1,121.1],'镇江':[32.2,119.4],
+  '长春':[43.9,125.3],'长沙':[28.2,113.0],'长治':[36.2,113.1],'阜新':[42.0,121.7],
+  '阜阳':[32.9,115.8],'防城港':[21.7,108.3],'阳江':[21.9,111.9],'阳泉':[37.9,113.6],
+  '阿克苏':[41.2,80.3],'阿勒泰':[47.8,88.1],'阿坝':[31.9,102.2],'阿拉善':[38.8,105.7],
+  '阿拉尔':[40.5,81.3],'阿里':[32.5,80.1],'陇南':[33.4,104.9],'陵水':[18.5,110.0],
+  '随州':[31.7,113.4],'雅安':[30.0,103.0],'青岛':[36.1,120.4],'鞍山':[41.1,122.9],
+  '韶关':[24.8,113.6],'香港':[22.3,114.2],'马鞍山':[31.7,118.5],'驻马店':[33.0,114.0],
+  '鸡西':[45.3,130.9],'鹤壁':[35.7,114.3],'鹤岗':[47.3,130.3],'鹰潭':[28.3,117.0],
+  '黄冈':[30.5,114.9],'黄南':[35.5,102.0],'黄山':[29.7,118.3],'黄石':[30.2,115.0],
+  '黑河':[50.2,127.5],'黔东南':[26.6,107.9],'黔南':[26.3,107.5],'黔西南':[25.1,104.9],
+  '齐齐哈尔':[47.4,124.0],'龙岩':[25.1,117.0]
+};
+
+// ==================== Searchable Select Component ====================
+function initSearchSelect(containerId, options, onChange){
+  var container = document.getElementById(containerId);
+  var input = container.querySelector('input');
+  var dropdown = container.querySelector('.ss-dropdown');
+  var clearBtn = container.querySelector('.ss-clear');
+  var allOptions = options || [];
+  var isOpen = false;
+
+  function render(filter){
+    var html = '<div class="ss-option" data-val="">-- 全部 --</div>';
+    var q = (filter || '').toLowerCase();
+    allOptions.forEach(function(opt){
+      if(!q || opt.toLowerCase().indexOf(q) >= 0){
+        html += '<div class="ss-option" data-val="'+opt+'">'+opt+'</div>';
+      }
+    });
+    dropdown.innerHTML = html;
+  }
+
+  function open(){
+    render(input.value === input.getAttribute('data-display') ? '' : input.value);
+    dropdown.classList.add('open');
+    isOpen = true;
+  }
+  function close(){
+    dropdown.classList.remove('open');
+    isOpen = false;
+    // restore display text
+    var val = input.getAttribute('data-value');
+    input.value = val ? val : '';
+  }
+
+  input.addEventListener('focus', function(){ open(); input.select(); });
+  input.addEventListener('input', function(){
+    if(!isOpen) open();
+    render(input.value);
+  });
+  input.addEventListener('blur', function(){
+    setTimeout(close, 150);
+  });
+  input.addEventListener('keydown', function(e){
+    if(e.key === 'Escape') { close(); input.blur(); }
+    if(e.key === 'Enter'){
+      var first = dropdown.querySelector('.ss-option[data-val]:not([data-val=""])');
+      if(first && input.value) { selectOption(first.getAttribute('data-val')); }
+      else { selectOption(''); }
+      input.blur();
+    }
+  });
+
+  dropdown.addEventListener('mousedown', function(e){
+    e.preventDefault(); // prevent blur
+    var opt = e.target.closest('.ss-option');
+    if(opt) selectOption(opt.getAttribute('data-val'));
+  });
+
+  clearBtn.addEventListener('mousedown', function(e){
+    e.preventDefault();
+    selectOption('');
+    input.blur();
+  });
+
+  function selectOption(val){
+    input.setAttribute('data-value', val);
+    input.setAttribute('data-display', val);
+    input.value = val;
+    close();
+    if(onChange) onChange(val);
+  }
+
+  // Public API
+  container._ss = {
+    setOptions: function(opts){ allOptions = opts; },
+    getValue: function(){ return input.getAttribute('data-value') || ''; },
+    setValue: function(v){ selectOption(v); }
+  };
+}
+
+// ==================== Core Logic ====================
+var rawData = [];
+var DEFAULT_RAW_DATA = []; // 内置数据，上传后通过"下载共享版"更新
+var filteredData = [];
+var allCityKeywords = {};
+var selectedCity = '';
+var keyOnly = false;
+var statsDimension = 'all';
+var currentTab = 'all';
+
+function today(){ return new Date(); }
+function dateStr(d){ return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate()); }
+function pad(n){ return n<10?'0'+n:''+n; }
+function addDays(d, n){ var r=new Date(d); r.setDate(r.getDate()+n); return r; }
+function parseDate(s){ var p=s.split('-'); return new Date(parseInt(p[0]),parseInt(p[1])-1,parseInt(p[2])); }
+
+function isOccupiedBefore30(item){
+  var t = today(); var d30 = addDays(t, 30);
+  if(item.date){
+    var d = parseDate(item.date);
+    return d >= t && d <= d30;
+  }
+  var start = parseDate(item.start_date); var end = parseDate(item.end_date);
+  return start <= d30 && end >= t;
+}
+function isOccupiedAt30(item){
+  var d30 = addDays(today(), 30);
+  if(item.date){
+    var d = parseDate(item.date);
+    return d.getFullYear()===d30.getFullYear() && d.getMonth()===d30.getMonth() && d.getDate()===d30.getDate();
+  }
+  var start = parseDate(item.start_date); var end = parseDate(item.end_date);
+  return d30 >= start && d30 <= end;
+}
+function nearestAvailDate(items){
+  var latestEnd = null;
+  items.forEach(function(item){
+    if(isOccupiedBefore30(item)){
+      var end = item.date ? parseDate(item.date) : parseDate(item.end_date);
+      if(!latestEnd || end > latestEnd) latestEnd = end;
+    }
+  });
+  return latestEnd ? addDays(latestEnd, 1) : today();
+}
+function buildAllKeywords(data){
+  var cities = {};
+  data.forEach(function(d){
+    if(!cities[d.city]) cities[d.city] = {};
+    cities[d.city][d.category] = true;
+  });
+  allCityKeywords = {};
+  Object.keys(cities).forEach(function(city){ allCityKeywords[city] = Object.keys(cities[city]); });
+}
+
+// ==================== Filters ====================
+function getFilterProvince(){ return document.getElementById('ssProvince')._ss.getValue(); }
+function getFilterCity(){ return document.getElementById('ssCity')._ss.getValue(); }
+function getFilterCategory(){ return document.getElementById('ssCategory')._ss.getValue(); }
+
+var tourismOnly = false;
+var occupancyFilter = 'all'; // 'all' | 'unoccupied' | 'occupied'
+function applyFilters(){
+  var fp = getFilterProvince();
+  var fc = getFilterCity();
+  var fcat = getFilterCategory();
+  filteredData = rawData.filter(function(d){
+    if(fp && CITY_PROVINCE[d.city] !== fp) return false;
+    if(fc && d.city !== fc) return false;
+    if(fcat && d.category !== fcat) return false;
+    return true;
+  });
+  renderMap();
+  renderStats();
+  // 城市筛选联动详情面板
+  if(fc){
+    selectedCity = fc;
+    renderDetail(fc);
+  } else if(!fc && fcat && !selectedCity){
+    // 类目筛选时展示跨城市类目汇总
+    renderCategoryDetail(fcat);
+  } else if(fcat && !fc){
+    renderCategoryDetail(fcat);
+  } else if(tourismOnly && !fc && !fcat && !selectedCity){
+    renderTourismSummary();
+  } else if(selectedCity){
+    renderDetail(selectedCity);
+  }
+}
+
+function initFilters(){
+  var provinces = [], cities = [], cats = [];
+  // Province: from all inventory cities + FBI data cities
+  var allCities = Object.keys(INV_MAP);
+  rawData.forEach(function(d){ if(allCities.indexOf(d.city)<0) allCities.push(d.city); });
+  allCities.forEach(function(c){
+    if(CITY_PROVINCE[c] && provinces.indexOf(CITY_PROVINCE[c])<0) provinces.push(CITY_PROVINCE[c]);
+  });
+  rawData.forEach(function(d){
+    if(cities.indexOf(d.city)<0) cities.push(d.city);
+    if(cats.indexOf(d.category)<0) cats.push(d.category);
+  });
+  // Also add inventory cities
+  allCities.forEach(function(c){ if(cities.indexOf(c)<0) cities.push(c); });
+  // Also add inventory categories (exclude hidden)
+  INV_CATS.forEach(function(c){ if(cats.indexOf(c)<0 && HIDDEN_CATS.indexOf(c)<0) cats.push(c); });
+  provinces.sort(); cities.sort(); cats.sort();
+  document.getElementById('ssProvince')._ss.setOptions(provinces);
+  document.getElementById('ssCity')._ss.setOptions(cities);
+  document.getElementById('ssCategory')._ss.setOptions(cats);
+}
+
+// ==================== Map ====================
+var chart; var mapReady = false;
+function initMap(callback){
+  chart = echarts.init(document.getElementById('mapChart'));
+  window.addEventListener('resize', function(){ chart.resize(); });
+  var chinaGeo = {"type":"FeatureCollection","features":[{"type":"Feature","id":"710000","properties":{"id":"710000","cp":[121.509062,24.044332],"name":"台湾","childNum":6},"geometry":{"type":"MultiPolygon","coordinates":[["@@°Ü¯Û"],["@@ƛĴÕƊÉɼģºðʀ\\ƎsÆNŌÔĚänÜƤɊĂǀĆĴĤǊŨxĚĮǂƺòƌâÔ®ĮXŦţƸZûÐƕƑGđ¨ĭMó·ęcëƝɉlÝƯֹÅŃ^Ó·śŃǋƏďíåɛGɉ¿@ăƑ¥ĘWǬÏĶŁâ"],["@@\\p|WoYG¿¥Ij@¢"],["@@¡@V^RqBbAnTXeRz¤L«³I"],["@@ÆEEkWqë @"],["@@fced"],["@@¯ɜÄèaì¯ØǓIġĽ"],["@@çûĖëĄhòř "]],"encodeOffsets":[[[122886,24033]],[[123335,22980]],[[122375,24193]],[[122518,24117]],[[124427,22618]],[[124862,26043]],[[126259,26318]],[[127671,26683]]]}},{"type":"Feature","id":"130000","properties":{"id":"130000","cp":[114.502461,38.045474],"name":"河北","childNum":3},"geometry":{"type":"MultiPolygon","coordinates":[["@@o~Z]ªrºc_ħ²G¼s`jÎŸnüsÂłNX_M`Ç½ÓnUKĜēs¤­©yrý§uģcJe"],["@@U`Ts¿mÂ"],["@@oºƋÄdeVDJj£J|ÅdzÂFt~KŨ¸IÆv|¢r}èonb}`RÎÄn°ÒdÞ²^®lnÐèĄlðÓ×]ªÆ}LiĂ±Ö`^°Ç¶p®đDcŋ`ZÔ¶êqvFÆN®ĆTH®¦O¾IbÐã´BĐɢŴÆíȦpĐÞXR·nndO¤OÀĈƒ­QgµFo|gȒęSWb©osx|hYhgŃfmÖĩnºTÌSp¢dYĤ¶UĈjlǐpäìë|³kÛfw²Xjz~ÂqbTÑěŨ@|oMzv¢ZrÃVw¬ŧĖ¸f°ÐTªqs{S¯r æÝlNd®²Ğ ǆiGĘJ¼lr}~K¨ŸƐÌWöÆzR¤lêmĞLÎ@¡|q]SvKÑcwpÏÏĿćènĪWlĄkT}J¤~ÈTdpddʾĬBVtEÀ¢ôPĎƗè@~kü\\rÊĔÖæW_§¼F´©òDòjYÈrbĞāøŀG{ƀ|¦ðrb|ÀH`pʞkvGpuARhÞÆǶgĘTǼƹS£¨¡ù³ŘÍ]¿ÂyôEP xX¶¹ÜO¡gÚ¡IwÃé¦ÅBÏ|Ç°N«úmH¯âDùyŜŲIÄuĐ¨D¸dɂFOhđ©OiÃ`ww^ÌkÑH«ƇǤŗĺtFu{Z}Ö@U´ʚLg®¯Oı°Ãw ^VbÉsmAê]]w§RRl£ȭµu¯b{ÍDěïÿȧuT£ġěŗƃĝQ¨fVƋƅn­a@³@ďyÃ½IĹÊKŭfċŰóxV@tƯJ]eR¾fe|rHA|h~Ėƍl§ÏlTíb ØoÅbbx³^zÃĶ¶Sj®AyÂhðk`«PËµEFÛ¬Y¨Ļrõqi¼Wi°§Ð±´°^[À|ĠO@ÆxO\\ta\\tĕtû{ġȧXýĪÓjùÎRb^ÎfK[ÝděYfíÙTyuUSyŌŏů@Oi½éŅ­aVcř§ax¹XŻácWU£ôãºQ¨÷Ñws¥qEHÙ|šYQoŕÇyáĂ£MÃ°oťÊP¡mWO¡v{ôvîēÜISpÌhp¨ jdeŔQÖjX³àĈ[n`Yp@UcM`RKhEbpŞlNut®EtqnsÁgAiúoHqCXhfgu~ÏWP½¢G^}¯ÅīGCÑ^ãziMáļMTÃƘrMc|O_¯Ŏ´|morDkO\\mĆJfl@cĢ¬¢aĦtRıÒ¾ùƀ^juųœK­UFyƝīÛ÷ąV×qƥV¿aȉd³BqPBmaËđŻģmÅ®V¹d^KKonYg¯XhqaLdu¥Ípǅ¡KąÅkĝęěhq}HyÃ]¹ǧ£Í÷¿qáµ§g¤o^á¾ZE¤i`ĳ{nOl»WÝĔįhgF[¿¡ßkOüš_ūiǱàUtėGyl}ÓM}jpEC~¡FtoQiHkk{Ãmï"]],"encodeOffsets":[[[119712,40641]],[[121616,39981]],[[116462,37237]]]}},{"type":"Feature","id":"140000","properties":{"id":"140000","cp":[111.849248,36.857014],"name":"山西","childNum":1},"geometry":{"type":"Polygon","coordinates":["@@ÞĩÒSra}ÁyWix±Üe´lèßÓǏokćiµVZģ¡coTSË¹ĪmnÕńehZg{gtwªpXaĚThȑp{¶Eh®RćƑP¿£Pmc¸mQÝWďȥoÅîɡųAďä³aÏJ½¥PG­ąSM­EÅruµéYÓŌ_dĒCo­Èµ]¯_²ÕjāK~©ÅØ^ÔkïçămÏk]­±cÝ¯ÑÃmQÍ~_apm~ç¡qu{JÅŧ·Ls}EyÁÆcI{¤IiCfUcƌÃp§]ě«vD@¡SÀµMÅwuYY¡DbÑc¡h×]nkoQdaMç~eDÛtT©±@¥ù@É¡ZcW|WqOJmĩl«ħşvOÓ«IqăV¥D[mI~Ó¢cehiÍ]Ɠ~ĥqX·eƷn±}v[ěďŕ]_œ`¹§ÕōIo©b­s^}Ét±ū«³p£ÿ·Wµ|¡¥ăFÏs×¥ŅxÊdÒ{ºvĴÎêÌɊ²¶ü¨|ÞƸµȲLLúÉƎ¤ϊęĔV`_bªS^|dzY|dz¥pZbÆ£¶ÒK}tĦÔņƠPYznÍvX¶Ěn ĠÔzý¦ª÷ÑĸÙUȌ¸dòÜJð´ìúNM¬XZ´¤ŊǸ_tldI{¦ƀðĠȤ¥NehXnYGR° ƬDj¬¸|CĞKqºfƐiĺ©ª~ĆOQª ¤@ìǦɌ²æBÊTŸʂōĖĴŞȀÆÿȄlŤĒötÎ½î¼ĨXh|ªM¤Ðz"],"encodeOffsets":[[116874,41716]]}},{"type":"Feature","id":"150000","properties":{"id":"150000","cp":[111.670801,41.818311],"name":"内蒙古","childNum":2},"geometry":{"type":"MultiPolygon","coordinates":[["@@¯PqFB|S³C|kñHdiÄ¥sŉÅPóÑÑE^ÅPpy_YtShQ·aHwsOnŉÃs©iqjUSiº]ïW«gW¡ARë¥_sgÁnUI«m]jvV¼euhwqAaW_µj»çjioQR¹ēÃßt@r³[ÛlćË^ÍÉáGOUÛOB±XkÅ¹£k|e]olkVÍ¼ÕqtaÏõjgÁ£§U^RLËnX°ÇBz^~wfvypV ¯ƫĉ˭ȫƗŷɿÿĿƑ˃ĝÿÃǃßËőó©ǐȍŒĖM×ÍEyxþp]ÉvïèvƀnÂĴÖ@V~Ĉv¦wĖtējyÄDXÄxGQuv_i¦aBçw˛wD©{tāmQ{EJ§KPśƘƿ¥@sCTÉ}ɃwƇy±gÑ}T[÷kÐç¦«SÒ¥¸ëBX½HáÅµÀğtSÝÂa[ƣ°¯¦Pï¡]£ġÒk®G²èQ°óMq}EóƐÇ\\@áügQÍu¥FTÕ¿Jû]|mvāÎYua^WoÀa·­ząÒot×¶CLƗi¯¤mƎHǊ¤îìɾŊìTdåwsRÖgĒųúÍġäÕ}Q¶¿A[¡{d×uQAMxVvMOmăl«ct[wº_ÇÊjbÂ£ĦS_éQZ_lwgOiýe`YYLq§IÁǳ£ÙË[ÕªuƏ³ÍTs·bÁĽäė[b[ŗfãcn¥îC¿÷µ[ŏÀQ­ōĉm¿Á^£mJVmL[{Ï_£F¥Ö{ŹA}×Wu©ÅaųĳƳhB{·TQqÙIķËZđ©Yc|M¡LeVUóK_QWk_ĥ¿ãZ»X\\ĴuUèlG®ěłTĠğDŃOrÍdÆÍz]±ŭ©Å]ÅÐ}UË¥©TċïxgckfWgi\\ÏĒ¥HkµEë{»ÏetcG±ahUiñiWsɁ·cCÕk]wȑ|ća}wVaĚá G°ùnM¬¯{ÈÐÆA¥ÄêJxÙ¢hP¢ÛºµwWOóFÁz^ÀŗÎú´§¢T¤ǻƺSėǵhÝÅQgvBHouʝl_o¿Ga{ïq{¥|ſĿHĂ÷aĝÇqZñiñC³ª»E`¨åXēÕqÉû[l}ç@čƘóO¿¡FUsAʽīccocÇS}£IS~ălkĩXçmĈŀÐoÐdxÒuL^T{r@¢ÍĝKén£kQyÅõËXŷƏL§~}kq»IHėǅjĝ»ÑÞoå°qTt|r©ÏS¯·eŨĕx«È[eM¿yupN~¹ÏyN£{©għWí»Í¾səšǅ_ÃĀɗ±ąĳĉʍŌŷSÉA±åǥɋ@ë£R©ąP©}ĹªƏj¹erLDĝ·{i«ƫC£µsKCGS|úþXgp{ÁX¿ć{ƱȏñZáĔyoÁhA}ŅĆfdŉ_¹Y°ėǩÑ¡H¯¶oMQqð¡Ë|Ñ`ƭŁX½·óÛxğįÅcQs«tȋǅFù^it«Č¯[hAi©á¥ÇĚ×l|¹y¯YȵƓñǙµïċĻ|Düȭ¶¡oŽäÕG\\ÄT¿Òõr¯LguÏYęRƩɷŌO\\İÐ¢æ^Ŋ ĲȶȆbÜGĝ¬¿ĚVĎgª^íu½jÿĕęjık@Ľ]ėl¥ËĭûÁėéV©±ćn©­ȇÍq¯½YÃÔŉÉNÑÅÝy¹NqáʅDǡËñ­ƁYÅy̱os§ȋµʽǘǏƬɱàưN¢ƔÊuľýľώȪƺɂļxZĈ}ÌŉŪĺœĭFЛĽ̅ȣͽÒŵìƩÇϋÿȮǡŏçƑůĕ~Ç¼ȳÐUfdIxÿ\\G zâɏÙOº·pqy£@qþ@Ǟ˽IBäƣzsÂZÁàĻdñ°ŕzéØűzșCìDȐĴĺf®Àľưø@ɜÖÞKĊŇƄ§͑těï͡VAġÑÑ»d³öǍÝXĉĕÖ{þĉu¸ËʅğU̎éhɹƆ̗̮ȘǊ֥ड़ࡰţાíϲäʮW¬®ҌeרūȠkɬɻ̼ãüfƠSצɩςåȈHϚÎKǳͲOðÏȆƘ¼CϚǚ࢚˼ФÔ¤ƌĞ̪Qʤ´¼mȠJˀƲÀɠmǐnǔĎȆÞǠN~ʢĜ¶ƌĆĘźʆȬ˪ĚĒ¸ĞGȖƴƀj`ĢçĶāàŃºēĢĖćYÀŎüôQÐÂŎŞǆŞêƖoˆDĤÕºÑǘÛˤ³̀gńƘĔÀ^ªƂ`ªt¾äƚêĦĀ¼ÐĔǎ¨Ȕ»͠^ˮÊȦƤøxRrŜH¤¸ÂxDÄ|ø˂˜ƮÐ¬ɚwɲFjĔ²Äw°ǆdÀÉ_ĸdîàŎjÊêTĞªŌŜWÈ|tqĢUB~´°ÎFCU¼pĀēƄN¦¾O¶łKĊOjĚj´ĜYp{¦SĚÍ\\T×ªV÷Ší¨ÅDK°ßtŇĔK¨ǵÂcḷ̌ĚǣȄĽFlġUĵŇȣFʉɁMğįʏƶɷØŭOǽ«ƽū¹Ʊő̝Ȩ§ȞʘĖiɜɶʦ}¨֪ࠜ̀ƇǬ¹ǨE˦ĥªÔêFxúQEr´Wrh¤Ɛ \\talĈDJÜ|[Pll̚¸ƎGú´P¬W¦^¦H]prRn|or¾wLVnÇIujkmon£cX^Bh`¥V¦U¤¸}xRj[^xN[~ªxQ[`ªHÆÂExx^wN¶Ê|¨ìMrdYpoRzNyÀDs~bcfÌ`L¾n|¾T°c¨È¢ar¤`[|òDŞĔöxElÖdHÀI`Ď\\Àì~ÆR¼tf¦^¢ķ¶eÐÚMptgjɡČÅyġLûŇV®ÄÈƀĎ°P|ªVVªj¬ĚÒêp¬E|ŬÂc|ÀtƐK f{ĘFĒƌXƲąo½Ę\\¥o}Ûu£ç­kX{uĩ«āíÓUŅßŢqŤ¥lyň[oi{¦LńðFȪȖĒL¿Ìf£K£ʺoqNwğc`uetOj×°KJ±qÆġmĚŗos¬qehqsuH{¸kH¡ÊRǪÇƌbȆ¢´äÜ¢NìÉʖ¦â©Ġu¦öČ^â£ĂhĖMÈÄw\\fŦ°W ¢¾luŸDw\\̀ʉÌÛMĀ[bÓEn}¶Vcês"]],"encodeOffsets":[[[129102,52189]]]}},{"type":"Feature","id":"210000","properties":{"id":"210000","cp":[123.429096,41.796767],"name":"辽宁","childNum":16},"geometry":{"type":"MultiPolygon","coordinates":[["@@L@@sa"],["@@MnNm"],["@@dc"],["@@eÀC@b"],["@@fXwkbrÄ`qg"],["@@^jtWQ"],["@@~ Y]c"],["@@G`ĔN^_¿ZÃM"],["@@iX¶BY"],["@@YZ"],["@@L_{Epf"],["@@^WqCT\\"],["@@\\[§t|¤_"],["@@m`n_"],["@@Ïxǌ{q_×^Giip"],["@@@é^BntaÊU]x ¯ÄPĲ­°hʙK³VÕ@Y~|EvĹsÇ¦­L^pÃ²ŸÒG Ël]xxÄ_fT¤Ď¤cPC¨¸TVjbgH²sdÎdHt`B²¬GJję¶[ÐhjeXdlwhðSČ¦ªVÊÏÆZÆŶ®²^ÎyÅÎcPqńĚDMħĜŁH­kçvV[ĳ¼WYÀäĦ`XlR`ôLUVfK¢{NZdĒªYĸÌÚJRr¸SA|ƴgŴĴÆbvªØX~źB|¦ÕE¤Ð`\\|KUnnI]¤ÀÂĊnŎR®Ő¿¶\\ÀøíDm¦ÎbŨabaĘ\\ľãÂ¸atÎSƐ´©v\\ÖÚÌǴ¤Â¨JKrZ_ZfjþhPkx`YRIjJcVf~sCN¤ EhæmsHy¨SðÑÌ\\\\ĐRZk°IS§fqŒßýáĞÙÉÖ[^¯ǤŲê´\\¦¬ĆPM¯£»uïpùzExanµyoluqe¦W^£ÊL}ñrkqWňûPUP¡ôJoo·U}£[·¨@XĸDXm­ÛÝºGUCÁª½{íĂ^cjk¶Ã[q¤LÉö³cux«zZf²BWÇ®Yß½ve±ÃCý£W{Ú^q^sÑ·¨ÍOt¹·C¥GDrí@wÕKţÃ«V·i}xËÍ÷i©ĝɝǡ]{c±OW³Ya±_ç©HĕoƫŇqr³Lys[ñ³¯OSďOMisZ±ÅFC¥Pq{Ã[Pg}\\¿ghćOk^ģÁFıĉĥM­oEqqZûěŉ³F¦oĵhÕP{¯~TÍlªNßYÐ{Ps{ÃVUeĎwk±ŉVÓ½ŽJãÇÇ»Jm°dhcÀffdF~ĀeĖd`sx² ®EżĀdQÂd^~ăÔH¦\\LKpĄVez¤NP ǹÓRÆąJSh­a[¦´ÂghwmBÐ¨źhI|VV|p] Â¼èNä¶ÜBÖ¼L`¼bØæKVpoúNZÞÒKxpw|ÊEMnzEQIZZNBčÚFÜçmĩWĪñtÞĵÇñZ«uD±|Əlĳ¥ãn·±PmÍada CLǑkùó¡³Ï«QaċÏOÃ¥ÕđQȥċƭy³ÃA"]],"encodeOffsets":[[[123686,41445]],[[126019,40435]],[[124393,40128]],[[126117,39963]],[[125322,40140]],[[126686,40700]],[[126041,40374]],[[125584,40168]],[[125453,40165]],[[125362,40214]],[[125280,40291]],[[125774,39997]],[[125976,40496]],[[125822,39993]],[[125509,40217]],[[122731,40949]]]}},{"type":"Feature","id":"220000","properties":{"id":"220000","cp":[125.3245,43.886841],"name":"吉林","childNum":1},"geometry":{"type":"Polygon","coordinates":["@@pä³PClFbbÍzwBGĭZÅi»lY­ċ²SgkÇ£^Sqd¯R©é£¯S\\cZ¹iűƏCuƍÓXoR}M^o£R}oªU­FuuXHlEÅÏ©¤ÛmTþ¤D²ÄufàÀ­XXÈ±AeyYw¬dvõ´KÊ£\\rµÄlidā]|î©¾DÂVH¹Þ®ÜWnCķ W§@\\¸~¤Vp¸póIO¢VOŇürXql~òÉK]¤¥Xrfkvzpm¶bwyFoúvð¼¤ N°ąO¥«³[éǡű_°Õ\\ÚÊĝþâőàerR¨­JYlďQ[ ÏYëÐ§TGztnß¡gFkMāGÁ¤ia ÉÈ¹`\\xs¬dĆkNnuNUuP@vRY¾\\¢GªóĄ~RãÖÎĢùđŴÕhQxtcæëSɽŉíëǉ£ƍG£nj°KƘµDsØÑpyĆ¸®¿bXp]vbÍZuĂ{n^IüÀSÖ¦EvRÎûh@â[ƏÈô~FNr¯ôçR±­HÑlĢ^¤¢OðævxsŒ]ÞÁTĠs¶¿âÆGW¾ìA¦·TÑ¬è¥ÏÐJ¨¼ÒÖ¼ƦɄxÊ~StD@Ă¼Ŵ¡jlºWvÐzƦZÐ²CH AxiukdGgetqmcÛ£Ozy¥cE}|¾cZk¿uŐã[oxGikfeäT@SUwpiÚFM©£è^Ú`@v¶eňf heP¶täOlÃUgÞzŸU`l}ÔÆUvØ_Ō¬Öi^ĉi§²ÃB~¡ĈÚEgc|DC_Ȧm²rBx¼MÔ¦ŮdĨÃâYxƘDVÇĺĿg¿cwÅ\\¹¥Yĭl¤OvLjM_a W`zļMž·\\swqÝSAqŚĳ¯°kRē°wx^ĐkǂÒ\\]nrĂ}²ĊŲÒøãh·M{yMzysěnĒġV·°G³¼XÀ¤¹i´o¤ŃÈ`ÌǲÄUĞd\\iÖmÈBĤÜɲDEh LG¾ƀÄ¾{WaYÍÈĢĘÔRîĐj}ÇccjoUb½{h§Ǿ{KƖµÎ÷GĀÖŠåưÎs­lyiē«`å§H¥Ae^§GK}iã\\c]v©ģZmÃ|[M}ģTɟĵÂÂ`ÀçmFK¥ÚíÁbX³ÌQÒHof{]ept·GŋĜYünĎųVY^ydõkÅZW«WUa~U·SbwGçǑiW^qFuNĝ·EwUtW·Ýďæ©PuqEzwAVXRãQ`­©GMehccďÏd©ÑW_ÏYƅ»é\\ɹ~ǙG³mØ©BšuT§Ĥ½¢Ã_Ã½L¡ýqT^rme\\PpZZbyuybQefµ]UhĿDCmûvaÙNSkCwncćfv~YÇG"],"encodeOffsets":[[130196,42528]]}},{"type":"Feature","id":"230000","properties":{"id":"230000","cp":[128.642464,46.756967],"name":"黑龙江","childNum":2},"geometry":{"type":"MultiPolygon","coordinates":[["@@UµNÿ¥īèçHÍøƕ¶Lǽ|g¨|a¾pVidd~ÈiíďÓQġėÇZÎXb½|ſÃH½KFgɱCģÛÇAnjÕc[VĝǱÃËÇ_ £ń³pj£º¿»WH´¯U¸đĢmtĜyzzNN|g¸÷äűÑ±ĉā~mq^[ǁÑďlw]¯xQĔ¯l°řĴrBÞTxr[tŽ¸ĻN_yX`biNKuP£kZĮ¦[ºxÆÀdhĹŀUÈƗCwáZħÄŭcÓ¥»NAw±qȥnD`{ChdÙFć}¢A±Äj¨]ĊÕjŋ«×`VuÓÅ~_kŷVÝyhVkÄãPsOµfgeŇµf@u_Ù ÙcªNªÙEojVxT@ãSefjlwH\\pŏäÀvlY½d{F~¦dyz¤PÜndsrhfHcvlwjF£G±DÏƥYyÏu¹XikĿ¦ÏqƗǀOŜ¨LI|FRĂn sª|C˜zxAè¥bfudTrFWÁ¹Am|ĔĕsķÆF´N}ćUÕ@Áĳſmuçuð^ÊýowFzØÎĕNőǏȎôªÌŒǄàĀÄ˄ĞŀƒʀĀƘŸˮȬƬĊ°Uzouxe]}AyÈW¯ÌmKQ]Īºif¸ÄX|sZt|½ÚUÎ lk^p{f¤lºlÆW A²PVÜPHÊâ]ÎĈÌÜk´\\@qàsĔÄQºpRij¼èi`¶bXrBgxfv»uUi^v~J¬mVp´£´VWrnP½ì¢BX¬hðX¹^TjVriªjtŊÄmtPGx¸bgRsT`ZozÆO]ÒFôÒOÆŊvÅpcGêsx´DR{AEOr°x|íb³Wm~DVjºéNNËÜ˛ɶ­GxŷCSt}]ûōSmtuÇÃĕNāg»íT«u}ç½BĵÞʣ¥ëÊ¡MÛ³ãȅ¡ƋaǩÈÉQG¢·lG|tvgrrf«ptęŘnÅĢrI²¯LiØsPf_vĠdxM prʹL¤¤eËÀđKïÙVY§]Ióáĥ]ķK¥j|pŇ\\kzţ¦šnņäÔVĂîĪ¬|vW®l¤èØrxm¶ă~lÄƯĄ̈́öȄEÔ¤ØQĄĄ»ƢjȦOǺ¨ìSŖÆƬyQv`cwZSÌ®ü±Ǆ]ŀç¬B¬©ńzƺŷɄeeOĨSfm ĊƀP̎ēz©ĊÄÕÊmgÇsJ¥ƔŊśæÎÑqv¿íUOµªÂnĦÁ_½ä@êí£P}Ġ[@gġ}gɊ×ûÏWXá¢užƻÌsNÍ½ƎÁ§čŐAēeL³àydl¦ĘVçŁpśǆĽĺſÊQíÜçÛġÔsĕ¬Ǹ¯YßċġHµ ¡eå`ļrĉŘóƢFìĎWøxÊkƈdƬv|I|·©NqńRŀ¤éeŊŀàŀU²ŕƀBQ£Ď}L¹Îk@©ĈuǰųǨÚ§ƈnTËÇéƟÊcfčŤ^XmHĊĕË«W·ċëx³ǔķÐċJāwİ_ĸȀ^ôWr­°oú¬ĦŨK~ȰCĐ´Ƕ£fNÎèâw¢XnŮeÂÆĶ¾¾xäLĴĘlļO¤ÒĨA¢Êɚ¨®ØCÔ ŬGƠƦYĜĘÜƬDJg_ͥœ@čŅĻA¶¯@wÎqC½Ĉ»NăëKďÍQÙƫ[«ÃígßÔÇOÝáWñuZ¯ĥŕā¡ÑķJu¤E å¯°WKÉ±_d_}}vyõu¬ï¹ÓU±½@gÏ¿rÃ½DgCdµ°MFYxw¿CG£Rƛ½Õ{]L§{qqą¿BÇƻğëܭǊË|c²}Fµ}ÙRsÓpg±QNqǫŋRwŕnéÑÉK«SeYRŋ@{¤SJ}D Ûǖ֍]gr¡µŷjqWÛham³~S«Þ]"]],"encodeOffsets":[[[134456,44547]]]}},{"type":"Feature","id":"320000","properties":{"id":"320000","cp":[119.767413,33.041544],"name":"江苏","childNum":1},"geometry":{"type":"Polygon","coordinates":["@@cþÅPi`ZRu¥É\\]~°Y`µÓ^phÁbnÀşúòaĬºTÖŒbe¦¦{¸ZâćNp©Hr|^mjhSEb\\afv`sz^lkljÄtg¤D­¾X¿À|ĐiZȀåB·î}GL¢õcßjayBFµÏC^ĭcÙt¿sğH]j{s©HM¢QnDÀ©DaÜÞ·jgàiDbPufjDk`dPOîhw¡ĥ¥GP²ĐobºrYî¶aHŢ´ ]´rılw³r_{£DB_Ûdåuk|Ũ¯F Cºyr{XFye³Þċ¿ÂkĭB¿MvÛpm`rÚã@Ę¹hågËÖƿxnlč¶Åì½Ot¾dJlVJĂǀŞqvnO^JZż·Q}êÍÅmµÒ]ƍ¦Dq}¬R^èĂ´ŀĻĊIÔtĲyQŐĠMNtR®òLhĚs©»}OÓGZz¶A\\jĨFäOĤHYJvÞHNiÜaĎÉnFQlNM¤B´ĄNöɂtpŬdfåqm¿QûùŞÚb¤uŃJŴu»¹ĄlȖħŴw̌ŵ²ǹǠ͛hĭłƕrçü±Yxcitğ®jű¢KOķCoy`å®VTa­_Ā]ŐÝɞï²ʯÊ^]afYǸÃĆēĪȣJđ͍ôƋÄÄÍīçÛɈǥ£­ÛmY`ó£Z«§°Ó³QafusNıǅ_k}¢m[ÝóDµ¡RLčiXyÅNïă¡¸iĔÏNÌŕoēdōîåŤûHcs}~Ûwbù¹£¦ÓCtOPrE^ÒogĉIµÛÅʹK¤½phMü`oæŀ"],"encodeOffsets":[[121740,32276]]}},{"type":"Feature","id":"330000","properties":{"id":"330000","cp":[120.153576,29.287459],"name":"浙江","childNum":45},"geometry":{"type":"MultiPolygon","coordinates":[["@@E^dQ]K"],["@@jX^j"],["@@sfbU"],["@@qP\\xz[ck"],["@@R¢FX}°[s_"],["@@Cb\\}"],["@@e|v\\la{u"],["@@v~u}"],["@@QxÂF¯}"],["@@¹nvÞs¯o"],["@@rSkUEj"],["@@bi­ZP"],["@@p[}INf"],["@@À¿"],["@@¹dnb"],["@@rSBnR"],["@@g~h}"],["@@FlEk"],["@@OdPc"],["@@v[u\\"],["@@FjâL~wyoo~sµL\\"],["@@¬e¹aN"],["@@\\nÔ¡q]L³ë\\ÿ®QÖ"],["@@ÊA­©[¬"],["@@Kxv­"],["@@@hlIk]"],["@@pW{o||j"],["@@Md|_mC"],["@@¢X£ÏylD¼XtH"],["@@hlÜ[LykAvyfw^E¤"],["@@fp¤MusR"],["@@®_ma~LÁ¬Z"],["@@iMxZ"],["@@ZcYd"],["@@Z~dOSo|A¿qZv"],["@@@`EN¡v"],["@@|TY{"],["@@@n@m"],["@@XWkCT\\"],["@@ºwZRkĕWO¢"],["@@X®±GrÆª\\ÔáXq{"],["@@ůTG°ĄLHm°UC"],["@@¤aÜx~}dtüGæţŎíĔcŖpMËÐjē¢·ðĄÆMzjWKĎ¢Q¶À_ê_Bıi«pZgf¤Nrq]§ĂN®«H±yƳí¾×ŸīàLłčŴǝĂíÀBŖÕªÁŖHŗŉåqûõi¨hÜ·ñt»¹ýv_[«¸mYL¯QªmĉÅdMgÇjcº«ę¬­K­´B«Âącoċ\\xKd¡gěŧ«®á[~ıxu·ÅKsËÉc¢Ù\\ĭƛëbf¹­ģSĜkáƉÔ­ĈZB{aMµfzŉfåÂŧįƋǝÊĕġć£g³ne­ą»@­¦S®\\ßðChiqªĭiAuA­µ_W¥ƣO\\lċĢttC¨£t`PZäuXßBsĻyekOđġĵHuXBµ]×­­\\°®¬F¢¾pµ¼kŘó¬Wät¸|@L¨¸µrºù³Ù~§WIZW®±Ð¨ÒÉx`²pĜrOògtÁZ}þÙ]¡FKwsPlU[}¦Rvn`hq¬\\nQ´ĘRWb_ rtČFIÖkĦPJ¶ÖÀÖJĈĄTĚòC ²@PúØz©Pî¢£CÈÚĒ±hŖl¬â~nm¨f©iļ«mntuÖZÜÄjL®EÌFª²iÊxØ¨IÈhhst"],["@@o\\VzRZ}y"],["@@@°¡mÛGĕ¨§Ianá[ýƤjfæØLäGr"]],"encodeOffsets":[[[125592,31553]],[[125785,31436]],[[125729,31431]],[[125513,31380]],[[125223,30438]],[[125115,30114]],[[124815,29155]],[[124419,28746]],[[124095,28635]],[[124005,28609]],[[125000,30713]],[[125111,30698]],[[125078,30682]],[[125150,30684]],[[124014,28103]],[[125008,31331]],[[125411,31468]],[[125329,31479]],[[125626,30916]],[[125417,30956]],[[125254,30976]],[[125199,30997]],[[125095,31058]],[[125083,30915]],[[124885,31015]],[[125218,30798]],[[124867,30838]],[[124755,30788]],[[124802,30809]],[[125267,30657]],[[125218,30578]],[[125200,30562]],[[124968,30474]],[[125167,30396]],[[124955,29879]],[[124714,29781]],[[124762,29462]],[[124325,28754]],[[123990,28459]],[[125366,31477]],[[125115,30363]],[[125369,31139]],[[122495,31878]],[[125329,30690]],[[125192,30787]]]}},{"type":"Feature","id":"340000","properties":{"id":"340000","cp":[117.283042,31.26119],"name":"安徽","childNum":3},"geometry":{"type":"MultiPolygon","coordinates":[["@@^iuLX^"],["@@e©Ehl"],["@@°ZÆëĎµmkǀwÌÕæhºgBĝâqÙĊzÖgņtÀÁĂÆáhEz|WzqD¹°Eŧl{ævÜcA`¤C`|´qxĲkq^³³GšµbíZ¹qpa±ď OH¦Ħx¢gPícOl_iCveaOjChß¸iÝbÛªCC¿mRV§¢A|t^iĠGÀtÚsd]ĮÐDE¶zAb àiödK¡~H¸íæAǿYj{ď¿À½W®£ChÃsikkly]_teu[bFaTign{]GqªoĈMYá|·¥f¥őaSÕėNµñĞ«Im_m¿Âa]uĜp Z_§{Cäg¤°r[_YjÆOdý[I[á·¥Q_nùgL¾mvˊBÜÆ¶ĊJhpc¹O]iŠ]¥ jtsggJÇ§w×jÉ©±EFË­KiÛÃÕYvsm¬njĻª§emná}k«ŕgđ²ÙDÇ¤í¡ªOy×Où±@DñSęćăÕIÕ¿IµĥOjNÕËT¡¿tNæŇàåyķrĕq§ÄĩsWÆßF¶X®¿mwRIÞfßoG³¾©uyHį{Ɓħ¯AFnuPÍÔzVdàôº^Ðæd´oG¤{S¬ćxã}ŧ×Kǥĩ«ÕOEÐ·ÖdÖsƘÑ¨[Û^Xr¢¼§xvÄÆµ`K§ tÒ´Cvlo¸fzŨð¾NY´ı~ÉĔēßúLÃÃ_ÈÏ|]ÂÏFlg`ben¾¢pUh~ƴĖ¶_r sĄ~cƈ]|r c~`¼{À{ȒiJjz`îÀT¥Û³]u}fïQl{skloNdjäËzDvčoQďHI¦rbtHĔ~BmlRV_ħTLnñH±DL¼Lªl§Ťa¸ĚlK²\\RòvDcÎJbt[¤D@®hh~kt°ǾzÖ@¾ªdbYhüóZ ň¶vHrľ\\ÊJuxAT|dmÀO[ÃÔG·ĚąĐlŪÚpSJ¨ĸLvÞcPæķŨ®mÐálwKhïgA¢ųÆ©Þ¤OÈm°K´"]],"encodeOffsets":[[[121722,32278]],[[119475,30423]],[[119168,35472]]]}},{"type":"Feature","id":"350000","properties":{"id":"350000","cp":[118.306239,26.075302],"name":"福建","childNum":18},"geometry":{"type":"MultiPolygon","coordinates":[["@@zht´]"],["@@aj^~ĆG©O"],["@@ed¨C}}i"],["@@@vPGsQ"],["@@sBzddW]Q"],["@@S¨Q{"],["@@NVucW"],["@@qptBAq"],["@@¸[mu"],["@@Q\\pD]_"],["@@jSwUadpF"],["@@eXª~"],["@@AjvFso"],["@@fT_Çí\\v|ba¦jZÆy°"],["@@IjJi"],["@@wJIx«¼AoNe{M­"],["@@K±¡ÓČäeZ"],["@@k¡¹Eh~c®wBkUplÀ¡I~Māe£bN¨gZý¡a±Öcp©PhI¢QqÇGj|¥U g[Ky¬ŏv@OptÉEF\\@ åA¬V{XģĐBycpě¼³Ăp·¤¥ohqqÚ¡ŅLs^Ã¡§qlÀhH¨MCe»åÇGD¥zPO£čÙkJA¼ßėuĕeûÒiÁŧSW¥Qûŗ½ùěcÝ§SùĩąSWó«íęACµeRåǃRCÒÇZÍ¢ź±^dlstjD¸ZpuÔâÃH¾oLUêÃÔjjēò´ĄWƛ^Ñ¥Ħ@ÇòmOw¡õyJyD}¢ďÑÈġfZda©º²z£NjD°Ötj¶¬ZSÎ~¾c°¶ÐmxO¸¢Pl´SL|¥AȪĖMņĲg®áIJČĒü` QF¬h|ĂJ@zµ |ê³È ¸UÖŬŬÀEttĸr]ðM¤ĶĲHtÏ AĬkvsq^aÎbvdfÊòSD´Z^xPsĂrvƞŀjJd×ŘÉ ®AÎ¦ĤdxĆqAZRÀMźnĊ»İÐZ YXæJyĊ²·¶q§·K@·{sXãô«lŗ¶»o½E¡­«¢±¨Y®Ø¶^AvWĶGĒĢPlzfļtàAvWYãO_¤sD§ssČġ[kƤPX¦`¶®BBvĪjv©jx[L¥àï[F¼ÍË»ğV`«Ip}ccÅĥZEãoP´B@D¸m±z«Ƴ¿å³BRØ¶Wlâþäą`]Z£Tc ĹGµ¶Hm@_©k¾xĨôȉðX«½đCIbćqK³ÁÄš¬OAwã»aLŉËĥW[ÂGIÂNxĳ¤D¢îĎÎB§°_JGs¥E@¤ućPåcuMuw¢BI¿]zG¹guĮck\\_"]],"encodeOffsets":[[[123250,27563]],[[122541,27268]],[[123020,27189]],[[122916,27125]],[[122887,26845]],[[122808,26762]],[[122568,25912]],[[122778,26197]],[[122515,26757]],[[122816,26587]],[[123388,27005]],[[122450,26243]],[[122578,25962]],[[121255,25103]],[[120987,24903]],[[122339,25802]],[[121042,25093]],[[122439,26024]]]}},{"type":"Feature","id":"360000","properties":{"id":"360000","cp":[115.592151,27.676493],"name":"江西","childNum":1},"geometry":{"type":"Polygon","coordinates":["@@ĢĨƐgļ¼ÂMD~ņªe^\\^§ý©j×cZØ¨zdÒa¶lÒJìõ`oz÷@¤uŞ¸´ôęöY¼HČƶajlÞƩ¥éZ[|h}^U  ¥pĄžƦO lt¸Æ Q\\aÆ|CnÂOjt­ĚĤdÈF`¶@Ðë ¦ōÒ¨SêvHĢûXD®QgÄWiØPÞìºr¤ǆNĠ¢lĄtZoCƞÔºCxrpĠV®Ê{f_Y`_eq®Aot`@oDXfkp¨|s¬\\DÄSfè©Hn¬^DhÆyøJhØxĢĀLÊƠPżċĄwȠĚ¦G®ǒĤäTŠÆ~Ħw«|TF¡nc³Ïå¹]ĉđxe{ÎÓvOEm°BƂĨİ|Gvz½ª´HàpeJÝQxnÀW­EµàXÅĪt¨ÃĖrÄwÀFÎ|ňÓMå¼ibµ¯»åDT±m[r«_gmQu~¥V\\OkxtL E¢Ú^~ýêPóqoě±_Êw§ÑªåƗā¼mĉŹ¿NQYBąrwģcÍ¥B­ŗÊcØiIƝĿuqtāwO]³YCñTeÉcaubÍ]trluīBÐGsĵıN£ï^ķqss¿FūūVÕ·´Ç{éĈýÿOER_đûIċâJh­ŅıNȩĕB¦K{Tk³¡OP·wnµÏd¯}½TÍ«YiµÕsC¯iM¤­¦¯P|ÿUHvhe¥oFTuõ\\OSsMòđƇiaºćXĊĵà·çhƃ÷Ç{ígu^đgm[×zkKN¶Õ»lčÓ{XSÆv©_ÈëJbVkĔVÀ¤P¾ºÈMÖxlò~ªÚàGĂ¢B±ÌKyáV¼Ã~­`gsÙfIƋlę¹e|~udjuTlXµf`¿Jd[\\L²"],"encodeOffsets":[[116689,26234]]}},{"type":"Feature","id":"370000","properties":{"id":"370000","cp":[118.000923,36.275807],"name":"山东","childNum":13},"geometry":{"type":"MultiPolygon","coordinates":[["@@Xjd]{K"],["@@itbFHy"],["@@HlGk"],["@@TGy"],["@@K¬U"],["@@WdXc"],["@@PtOs"],["@@LnXhc"],["@@ppVu]Or"],["@@cdzAUa"],["@@udRhnCI"],["@@oIpR"],["@@Ľč{fzƤîKÎMĮ]ZF½Y]â£ph¶¨râøÀÎǨ¤^ºÄGz~grĚĜlĞÆLĆǆ¢Îo¦cvKbgr°WhmZp L]LºcUÆ­nżĤÌĒbAnrOA´ȊcÀbƦUØrĆUÜøĬƞEzVL®öØBkŖÝĐĖ¹ŧ̄±ÀbÎÉnb²ĦhņBĖįĦåXćì@L¯´ywƕCéÃµė ƿ¸lµ¾Z|ZWyFY¨Mf~C¿`à_RÇzwƌfQnny´INoƬèôº|sTJULîVjǎ¾ĒØDz²XPn±ŴPè¸ŔLƔÜƺ_TüÃĤBBċÈöA´faM¨{«M`¶d¡ôÖ°mȰBÔjj´PM|c^d¤u¤Û´ä«ƢfPk¶Môl]Lb}su^ke{lCMrDÇ­]NÑFsmoõľHyGă{{çrnÓEƕZGª¹Fj¢ïWuøCǷë¡ąuhÛ¡^KxC`C\\bÅxì²ĝÝ¿_NīCȽĿåB¥¢·IŖÕy\\¹kxÃ£Č×GDyÃ¤ÁçFQ¡KtŵƋ]CgÏAùSedcÚźuYfyMmhUWpSyGwMPqŀÁ¼zK¶G­Y§Ë@´śÇµƕBm@IogZ¯uTMx}CVKï{éƵP_K«pÛÙqċtkkù]gTğwoɁsMõ³ăAN£MRkmEÊčÛbMjÝGuIZGPģãħE[iµBEuDPÔ~ª¼ęt]ûG§¡QMsğNPŏįzs£Ug{đJĿļā³]ç«Qr~¥CƎÑ^n¶ÆéÎR~Ż¸YI] PumŝrƿIā[xeÇ³L¯v¯s¬ÁY~}ťuŁgƋpÝĄ_ņī¶ÏSR´ÁP~¿Cyċßdwk´SsX|t`Ä ÈðAªìÎT°¦Dda^lĎDĶÚY°`ĪŴǒàŠv\\ebZHŖR¬ŢƱùęOÑM­³FÛWp["]],"encodeOffsets":[[[123806,39303]],[[123821,39266]],[[123742,39256]],[[123702,39203]],[[123649,39066]],[[123847,38933]],[[123580,38839]],[[123894,37288]],[[123043,36624]],[[123344,38676]],[[123522,38857]],[[123628,38858]],[[118260,36742]]]}},{"type":"Feature","id":"410000","properties":{"id":"410000","cp":[113.665412,33.757975],"name":"河南","childNum":1},"geometry":{"type":"Polygon","coordinates":["@@ýLùµP³swIÓxcŢĞð´E®ÚPtĴXØxÂ¶@«ŕŕQGYfa[şußǩđš_X³ĳÕčC]kbc¥CS¯ëÍB©÷³­Si_}mYTt³xlàcČzÀD}ÂOQ³ÐTĨ¯ƗòËŖ[hłŦv~}ÂZ«¤lPÇ£ªÝŴÅR§ØnhctâknÏ­ľŹUÓÝdKuķI§oTũÙďkęĆH¸Ó\\Ä¿PcnS{wBIvÉĽ[GqµuŇôYgûZca©@½Õǽys¯}lgg@­C\\£asIdÍuCQñ[L±ęk·ţb¨©kK»KC²òGKmĨS`UQnk}AGēsqaJ¥ĐGRĎpCuÌy ã iMcplk|tRkðev~^´¦ÜSí¿_iyjI|ȑ|¿_»d}q^{Ƈdă}tqµ`Ƴĕg}V¡om½faÇo³TTj¥tĠRyK{ùÓjuµ{t}uËRivGçJFjµÍyqÎàQÂFewixGw½Yŷpµú³XU½ġyłåkÚwZX·l¢Á¢KzOÎÎjc¼htoDHr|­J½}JZ_¯iPq{tę½ĕ¦Zpĵø«kQĹ¤]MÛfaQpě±ǽ¾]u­Fu÷nčÄ¯ADp}AjmcEÇaª³o³ÆÍSƇĈÙDIzËčľ^KLiÞñ[aA²zzÌ÷D|[íÄ³gfÕÞd®|`Ć~oĠƑô³ŊD×°¯CsøÀ«ìUMhTº¨¸ǡîSÔDruÂÇZÖEvPZW~ØÐtĄE¢¦Ðy¸bô´oŬ¬²Ês~]®tªapŎJ¨Öº_Ŕ`Ŗ^Đ\\Ĝu~m²Ƹ¸fWĦrƔ}Î^gjdfÔ¡J}\\n C¦þWxªJRÔŠu¬ĨĨmFdM{\\d\\YÊ¢ú@@¦ª²SÜsC}fNècbpRmlØ^gd¢aÒ¢CZZxvÆ¶N¿¢T@uC¬^ĊðÄn|lGlRjsp¢ED}Fio~ÔN~zkĘHVsǲßjŬŢ`Pûàl¢\\ÀEhİgÞē X¼Pk|m"],"encodeOffsets":[[118256,37017]]}},{"type":"Feature","id":"420000","properties":{"id":"420000","cp":[113.298572,30.684355],"name":"湖北","childNum":3},"geometry":{"type":"MultiPolygon","coordinates":[["@@AB"],["@@lskt"],["@@¾«}{ra®pîÃ\\{øCËyyB±b\\òÝjKL ]ĎĽÌJyÚCƈćÎT´Å´pb©ÈdFin~BCo°BĎÃømv®E^vǾ½Ĝ²RobÜeN^ĺ£R¬lĶ÷YoĖ¥Ě¾|sOr°jY`~I¾®I{GqpCgyl{£ÍÍyPLÂ¡¡¸kWxYlÙæŁĢz¾V´W¶ùŸo¾ZHxjwfxGNÁ³Xéæl¶EièIH ujÌQ~v|sv¶Ôi|ú¢FhQsğ¦SiŠBgÐE^ÁÐ{čnOÂÈUÎóĔÊēĲ}Z³½Mŧïeyp·uk³DsÑ¨L¶_ÅuÃ¨w»¡WqÜ]\\Ò§tƗcÕ¸ÕFÏǝĉăxŻČƟOKÉġÿ×wg÷IÅzCg]m«ªGeçÃTC«[t§{loWeC@ps_Bp­rf_``Z|ei¡oċMqow¹DƝÓDYpûsYkıǃ}s¥ç³[§cY§HK«Qy]¢wwö¸ïx¼ņ¾Xv®ÇÀµRĠÐHM±cÏdƒǍũȅȷ±DSyúĝ£ŤĀàtÖÿï[îb\\}pĭÉI±Ñy¿³x¯No|¹HÏÛmjúË~TuęjCöAwě¬Rđl¯ Ñb­ŇTĿ_[IčĄʿnM¦ğ\\É[T·k¹©oĕ@A¾wya¥Y\\¥Âaz¯ãÁ¡k¥ne£ÛwE©Êō¶˓uoj_U¡cF¹­[WvP©whuÕyBF`RqJUw\\i¡{jEPïÿ½fćQÑÀQ{°fLÔ~wXgītêÝ¾ĺHd³fJd]HJ²EoU¥HhwQsƐ»Xmg±çve]DmÍPoCc¾_hhøYrŊU¶eD°Č_N~øĹĚ·`z]Äþp¼äÌQv\\rCé¾TnkžŐÚÜa¼ÝƆĢ¶ÛodĔňÐ¢JqPb ¾|J¾fXƐîĨ_Z¯À}úƲN_ĒÄ^ĈaŐyp»CÇÄKñL³ġM²wrIÒŭxjb[n«øæà ^²­h¯ÚŐªÞ¸Y²ĒVø}Ā^İ´LÚm¥ÀJÞ{JVųÞŃx×sxxƈē ģMřÚðòIfĊŒ\\Ʈ±ŒdÊ§ĘDvČ_Àæ~Dċ´A®µ¨ØLV¦êHÒ¤"]],"encodeOffsets":[[[113712,34000]],[[115612,30507]],[[113649,34054]]]}},{"type":"Feature","id":"430000","properties":{"id":"430000","cp":[111.782279,28.09409],"name":"湖南","childNum":3},"geometry":{"type":"MultiPolygon","coordinates":[["@@nFTs"],["@@ßÅÆá½ÔXrCOËRïÿĩ­TooQyÓ[ŅBE¬ÎÓXaį§Ã¸G °ITxpúxÚĳ¥ÏĢ¾edÄ©ĸGàGhM¤Â_U}Ċ}¢pczfþg¤ÇòAVM"],["@@©KA·³CQ±Á«³BUƑ¹AtćOwD]JiØSm¯b£ylXHËÑ±H«C^õľAÅ§¤É¥ïyuǙuA¢^{ÌC´­¦ŷJ£^[ª¿ĕ~ƇN skóā¹¿ï]ă~÷O§­@Vm¡Qđ¦¢Ĥ{ºjÔª¥nf´~Õo×ÛąMąıuZmZcÒ ĲĪ²SÊǄŶ¨ƚCÖŎªQØ¼rŭ­«}NÏürÊ¬mjr@ĘrTW ­SsdHzƓ^ÇÂyUi¯DÅYlŹu{hT}mĉ¹¥ěDÿë©ıÓ[Oº£¥ótł¹MÕƪ`PDiÛU¾ÅâìUñBÈ£ýhedy¡oċ`pfmjP~kZaZsÐd°wj§@Ĵ®w~^kÀÅKvNmX\\¨aŃqvíó¿F¤¡@ũÑVw}S@j}¾«pĂrªg àÀ²NJ¶¶DôK|^ª°LX¾ŴäPĪ±£EXd^¶ĲÞÜ~u¸ǔMRhsRe`ÄofIÔ\\Ø  ićymnú¨cj ¢»GČìƊÿÐ¨XeĈĀ¾Oð Fi ¢|[jVxrIQ_EzAN¦zLU`cªxOTu RLÄ¢dVi`p˔vŎµªÉF~Ød¢ºgİàw¸Áb[¦Zb¦z½xBĖ@ªpºlS¸Ö\\Ĕ[N¥ˀmĎăJ\\ŀ`ňSÚĖÁĐiOĜ«BxDõĚivSÌ}iùÜnÐºG{p°M´wÀÒzJ²ò¨ oTçüöoÛÿñőĞ¤ùTz²CȆȸǎŪƑÐc°dPÎğË¶[È½u¯½WM¡­ÉB·rínZÒ `¨GA¾\\pēXhÃRC­üWGġuTé§ŎÑ©ò³I±³}_EÃħg®ęisÁPDmÅ{b[RÅs·kPŽƥóRoOV~]{g\\êYƪ¦kÝbiċƵGZ»Ěõó·³vŝ£ø@pyö_ëIkÑµbcÑ§y×dYØªiþ¨[]f]Ņ©C}ÁN»hĻħƏĩ"]],"encodeOffsets":[[[115640,30489]],[[112543,27312]],[[116690,26230]]]}},{"type":"Feature","id":"440000","properties":{"id":"440000","cp":[113.280637,23.125178],"name":"广东","childNum":24},"geometry":{"type":"MultiPolygon","coordinates":[["@@QdAua"],["@@lxDLo"],["@@sbhNLo"],["@@Ă ā"],["@@WltO[["],["@@Kr]S"],["@@eI]y"],["@@I|Mym"],["@@Û³LS¼Y"],["@@nvºBëui©`¾"],["@@zdÛJw®"],["@@°¯"],["@@a yAª¸ËJIxØ@ĀHAmÃV¡ofuo"],["@@sŗÃÔėAƁZÄ ~°ČPäh"],["@@¶ÝÌvmĞh­ıQ"],["@@HdSjĒ¢D}waru«ZqadYM"],["@@el\\LqqU"],["@@~rMo\\"],["@@f^C"],["@@øPªoj÷ÍÝħXČx°Q¨ıXNv"],["@@gÇƳo[~tly"],["@@EÆC¿"],["@@OP"],["@@wđógĝ[³¡VÙæÅöMÌ³¹pÁaËýý©D©ÜJŹƕģGą¤{ÙūÇO²«BƱéAÒĥ¡«BhlmtÃPµyU¯ucd·w_bŝcīímGO|KPȏŹãŝIŕŭŕ@Óoo¿ē±ß}ŭĲWÈCőâUâǙIğŉ©IĳE×Á³AówXJþ±ÌÜÓĨ£L]ĈÙƺZǾĆĖMĸĤfÎĵlŨnÈĐtFFĤêk¶^k°f¶g}®Faf`vXŲxl¦ÔÁ²¬Ð¦pqÊÌ²iXØRDÎ}Ä@ZĠsx®AR~®ETtĄZƈfŠŠHâÒÐAµ\\S¸^wĖkRzalŜ|E¨ÈNĀňZTpBh£\\ĎƀuXĖtKL¶G|»ĺEļĞ~ÜĢÛĊrOÙîvd]n¬VÊĜ°RÖpMƂªFbwEÀ©\\¤]ŸI®¥D³|Ë]CöAŤ¦æ´¥¸Lv¼¢ĽBaôF~®²GÌÒEYzk¤°ahlVÕI^CxĈPsBƒºV¸@¾ªR²ĨN]´_eavSivc}p}Đ¼ƌkJÚe th_¸ ºx±ò_xNË²@ă¡ßH©Ùñ}wkNÕ¹ÇO½¿£ĕ]ly_WìIÇª`uTÅxYĒÖ¼kÖµMjJÚwn\\hĒv]îh|ÈƄøèg¸Ķß ĉĈWb¹ƀdéĘNTtP[öSvrCZaGubo´ŖÒÇĐ~¡zCIözx¢PnÈñ @ĥÒ¦]ƞV}³ăĔñiiÄÓVépKG½ÄÓávYoC·sitiaÀyŧÎ¡ÈYDÑům}ý|m[węõĉZÅxUO}÷N¹³ĉo_qtăqwµŁYÙǝŕ¹tïÛUÃ¯mRCºĭ|µÕÊK½Rē ó]GªęAx»HO£|ām¡diď×YïYWªŉOeÚtĐ«zđ¹TāúEá²\\ķÍ}jYàÙÆſ¿Çdğ·ùTßÇţʄ¡XgWÀǇğ·¿ÃOj YÇ÷Qěi"]],"encodeOffsets":[[[117381,22988]],[[116552,22934]],[[116790,22617]],[[116973,22545]],[[116444,22536]],[[116931,22515]],[[116496,22490]],[[116453,22449]],[[113301,21439]],[[118726,21604]],[[118709,21486]],[[113210,20816]],[[115482,22082]],[[113171,21585]],[[113199,21590]],[[115232,22102]],[[115739,22373]],[[115134,22184]],[[113056,21175]],[[119573,21271]],[[119957,24020]],[[115859,22356]],[[116561,22649]],[[116285,22746]]]}},{"type":"Feature","id":"450000","properties":{"id":"450000","cp":[108.320004,22.82402],"name":"广西","childNum":2},"geometry":{"type":"MultiPolygon","coordinates":[["@@H TQ§A"],["@@ĨÊªLƊDÎĹĐCǦė¸zÚGn£¾rªŀÜt¬@ÖÚSx~øOŒŶÐÂæȠ\\ÈÜObĖw^oÞLf¬°bI lTØBÌF£Ć¹gñĤaYt¿¤VSñK¸¤nM¼JE±½¸ñoÜCƆæĪ^ĚQÖ¦^f´QüÜÊz¯lzUĺš@ìp¶n]sxtx¶@~ÒĂJb©gk{°~c°`Ô¬rV\\la¼¤ôá`¯¹LCÆbxEræOv[H­[~|aB£ÖsºdAĐzNÂðsÞÆĤªbab`ho¡³F«èVlo¤ÔRzpp®SĪº¨ÖºNĳd`a¦¤F³ºDÎńĀìCĜº¦Ċ~nS|gźvZkCÆj°zVÈÁƔ]LÊFZgčP­kini«qÇczÍY®¬Ů»qR×ō©DÕ§ƙǃŵTÉĩ±ıdÑnYYĲvNĆĆØÜ Öp}e³¦m©iÓ|¹ħņ|ª¦QF¢Â¬ʖovg¿em^ucà÷gÕuíÙćĝ}FĻ¼Ĺ{µHKsLSđƃrč¤[AgoSŇYMÿ§Ç{FśbkylQxĕ]T·¶[BÑÏGáşşƇeăYSs­FQ}­BwtYğÃ@~CÍQ ×WjË±rÉ¥oÏ ±«ÓÂ¥kwWűmcih³K~µh¯e]lµélEģEďsmÇŧē`ãògK_ÛsUʝćğ¶höO¤Ǜn³c`¡y¦CezYwa[ďĵűMę§]XÎ_íÛ]éÛUćİÕBƣ±dy¹T^dûÅÑŦ·PĻþÙ`K¦¢ÍeĥR¿³£[~äu¼dltW¸oRM¢ď\\z}Æzdvň{ÎXF¶°Â_ÒÂÏL©ÖTmu¼ãlīkiqéfA·Êµ\\őDc¥ÝFyÔćcűH_hLÜêĺĐ¨c}rn`½Ì@¸¶ªVLhŒ\\Ţĺk~Ġið°|gtTĭĸ^xvKVGréAébUuMJVÃO¡qĂXËSģãlýà_juYÛÒBG^éÖ¶§EGÅzěƯ¤EkN[kdåucé¬dnYpAyČ{`]þ¯TbÜÈk¡ĠvàhÂƄ¢Jî¶²"]],"encodeOffsets":[[[111707,21520]],[[107619,25527]]]}},{"type":"Feature","id":"460000","properties":{"id":"460000","cp":[109.83119,19.031971],"name":"海南","childNum":1},"geometry":{"type":"Polygon","coordinates":["@@¦Ŝil¢XƦƞòïè§ŞCêɕrŧůÇąĻõ·ĉ³œ̅kÇm@ċȧŧĥĽʉ­ƅſȓÒË¦ŝE}ºƑ[ÍĜȋ gÎfǐÏĤ¨êƺ\\Ɔ¸ĠĎvʄȀÐ¾jNðĀÒRZǆzÐŘÎ°H¨Ƣb²_Ġ "],"encodeOffsets":[[112750,20508]]}},{"type":"Feature","id":"510000","properties":{"id":"510000","cp":[104.065735,30.659462],"name":"四川","childNum":2},"geometry":{"type":"MultiPolygon","coordinates":[["@@LqKr"],["@@[ĻéV£_ţġñpG réÏ·~ąSfy×Í·ºſƽiÍıƣıĻmHH}siaX@iÇ°ÁÃ×t«­T¤JJJyJÈ`Ohß¦¡uËhIyCjmÿwZGTiSsOB²fNmsPa{M{õE^Hj}gYpaeu¯oáwHjÁ½M¡pMuåmni{fk\\oÎqCwEZ¼KĝAy{m÷LwO×SimRI¯rKõBS«sFe]fµ¢óY_ÆPRcue°Cbo×bd£ŌIHgtrnyPt¦foaXďxlBowz_{ÊéWiêEGhÜ¸ºuFĈIxf®Y½ĀǙ]¤EyF²ċw¸¿@g¢§RGv»áW`ÃĵJwi]t¥wO­½a[×]`Ãi­üL¦LabbTÀåc}ÍhÆh®BHî|îºÉk­¤Sy£ia©taį·Ɖ`ō¥UhOĝLk}©Fos´JmµlŁuønÑJWÎªYÀïAetTŅÓGË«bo{ıwodƟ½OġÜÂµxàNÖ¾P²§HKv¾]|BÆåoZ`¡Ø`ÀmºĠ~ÌÐ§nÇ¿¤]wğ@srğu~Io[é±¹ ¿ſđÓ@qg¹zƱřaí°KtÇ¤V»Ã[ĩǭƑ^ÇÓ@áťsZÏÅĭƋěpwDóÖáŻneQËq·GCœýS]x·ýq³OÕ¶Qzßti{řáÍÇWŝŭñzÇWpç¿JXĩè½cFÂLiVjx}\\NŇĖ¥GeJA¼ÄHfÈu~¸Æ«dE³ÉMA|bÒćhG¬CMõƤąAvüVéŀ_VÌ³ĐwQj´·ZeÈÁ¨X´Æ¡Qu·»ÕZ³ġqDoy`L¬gdp°şp¦ėìÅĮZ°Iähzĵf²å ĚÑKpIN|Ñz]ń·FU×é»R³MÉ»GM«kiér}Ã`¹ăÞmÈnÁîRǀ³ĜoİzŔwǶVÚ£À]ɜ»ĆlƂ²ĠþTº·àUȞÏʦ¶I«dĽĢdĬ¿»Ĕ×h\\c¬ä²GêëĤł¥ÀǿżÃÆMº}BÕĢyFVvwxBèĻĒ©ĈtCĢɽŠȣ¦āæ·HĽîôNÔ~^¤Ɗu^s¼{TA¼ø°¢İªDè¾Ň¶ÝJ®Z´ğ~Sn|ªWÚ©òzPOȸbð¢|øĞŒQìÛÐ@ĞǎRS¤Á§di´ezÝúØã]HqkIþËQÇ¦ÃsÇ¤[E¬ÉŪÍxXƒ·ÖƁİlƞ¹ª¹|XÊwnÆƄmÀêErĒtD®ċæcQE®³^ĭ¥©l}äQtoŖÜqÆkµªÔĻĴ¡@Ċ°B²Èw^^RsºTĀ£ŚæQPJvÄz^Đ¹Æ¯fLà´GC²dt­ĀRt¼¤ĦOðğfÔðDŨŁĞƘïPÈ®âbMüÀXZ ¸£@Å»»QÉ­]dsÖ×_Í_ÌêŮPrĔĐÕGĂeZÜîĘqBhtO ¤tE[h|YÔZśÎs´xº±Uñt|OĩĠºNbgþJy^dÂY Į]Řz¦gC³R`Āz¢Aj¸CL¤RÆ»@­Ŏk\\Ç´£YW}z@Z}Ã¶oû¶]´^NÒ}èNªPÍy¹`S°´ATeVamdUĐwʄvĮÕ\\uÆŗ¨Yp¹àZÂmWh{á}WØǍÉüwga§áCNęÎ[ĀÕĪgÖÉªXøx¬½Ů¦¦[NÎLÜUÖ´òrÙŠxR^JkĳnDX{U~ET{ļº¦PZcjF²Ė@pg¨B{u¨ŦyhoÚD®¯¢ WòàFÎ¤¨GDäz¦kŮPġqË¥À]eâÚ´ªKxīPÖ|æ[xÃ¤JÞĥsNÖ½I¬nĨY´®ÐƐmDŝuäđđEbee_v¡}ìęǊē}qÉåT¯µRs¡M@}ůaa­¯wvƉåZw\\Z{åû^"]],"encodeOffsets":[[[108815,30935]],[[110617,31811]]]}},{"type":"Feature","id":"520000","properties":{"id":"520000","cp":[106.713478,26.578343],"name":"贵州","childNum":3},"geometry":{"type":"MultiPolygon","coordinates":[["@@G\\lY£in"],["@@q|mc¯tÏVSÎ"],["@@hÑ£IsNgßHHªķÃh_¹¡ĝÄ§ń¦uÙùgS¯JH|sÝÅtÁïyMDč»eÕtA¤{b\\}G®u\\åPFqwÅaDK°ºâ_£ùbµmÁÛĹM[q|hlaªāI}Ñµ@swtwm^oµDéĽŠyVky°ÉûÛR³e¥]RÕěħ[ƅåÛDpJiVÂF²I»mN·£LbÒYbWsÀbpkiTZĄă¶Hq`ĥ_J¯ae«KpÝx]aĕÛPÇȟ[ÁåŵÏő÷Pw}TÙ@Õs«ĿÛq©½m¤ÙH·yǥĘĉBµĨÕnđ]K©œáGçş§ÕßgǗĦTèƤƺ{¶ÉHÎd¾ŚÊ·OÐjXWrãLyzÉAL¾ę¢bĶėy_qMĔąro¼hĊw¶øV¤w²Ĉ]ÊKx|`ź¦ÂÈdrcÈbe¸`I¼čTF´¼Óýȃr¹ÍJ©k_șl³´_pĐ`oÒh¶pa^ÓĔ}D»^Xy`d[KvJPhèhCrĂĚÂ^Êƌ wZL­Ġ£ÁbrzOIlMMĪŐžËr×ÎeŦtw|¢mKjSǘňĂStÎŦEtqFT¾Eì¬¬ôxÌO¢ K³ŀºäYPVgŎ¦ŊmŞ¼VZwVlz¤£Tl®ctĽÚó{G­AÇge~Îd¿æaSba¥KKûj®_Ä^\\Ø¾bP®¦x^sxjĶI_Ä Xâ¼Hu¨Qh¡À@Ëô}±GNìĎlT¸`V~R°tbÕĊ`¸úÛtÏFDu[MfqGH·¥yAztMFe|R_GkChZeÚ°tov`xbDnÐ{E}ZèxNEÞREn[Pv@{~rĆAB§EO¿|UZ~ìUf¨J²ĂÝÆsªB`s¶fvö¦Õ~dÔq¨¸º»uù[[§´sb¤¢zþF¢ÆÀhÂW\\ıËIÝo±ĭŠ£þÊs}¡R]ěDg´VG¢j±®èºÃmpU[Áëº°rÜbNu¸}º¼`niºÔXĄ¤¼ÔdaµÁ_ÃftQQgR·Ǔv}Ý×ĵ]µWc¤F²OĩųãW½¯K©]{LóµCIµ±Mß¿h©āq¬o½~@i~TUxŪÒ¢@£ÀEîôruńb[§nWuMÆLl¿]x}ĳ­½"]],"encodeOffsets":[[[112158,27383]],[[112105,27474]],[[112095,27476]]]}},{"type":"Feature","id":"530000","properties":{"id":"530000","cp":[101.512251,24.740609],"name":"云南","childNum":1},"geometry":{"type":"Polygon","coordinates":["@@[ùx½}ÑRHYīĺûsÍniEoã½Ya²ė{c¬ĝgĂsAØÅwďõzFjw}«Dx¿}Uũlê@HÅ­F¨ÇoJ´Ónũuą¡Ã¢pÒÅØ TF²xa²ËXcÊlHîAßËŁkŻƑŷÉ©hW­æßUËs¡¦}teèÆ¶StÇÇ}Fd£jĈZĆÆ¤Tč\\D}O÷£U§~ŃGåŃDĝ¸Tsd¶¶Bª¤u¢ŌĎo~t¾ÍŶÒtD¦ÚiôözØX²ghįh½Û±¯ÿm·zR¦Ɵ`ªŊÃh¢rOÔ´£Ym¼èêf¯ŪĽncÚbw\\zlvWªâ ¦gmĿBĹ£¢ƹřbĥkǫßeeZkÙIKueT»sVesbaĕ  ¶®dNĄÄpªy¼³BE®lGŭCǶwêżĔÂepÍÀQƞpC¼ŲÈ­AÎô¶RäQ^Øu¬°_Èôc´¹ò¨PÎ¢hlĎ¦´ĦÆ´sâÇŲPnÊD^¯°Upv}®BPÌªjǬxSöwlfòªvqĸ|`H­viļndĜ­Ćhňem·FyÞqóSį¯³X_ĞçêtryvL¤§z¦c¦¥jnŞklD¤øz½ĜàĂŧMÅ|áƆàÊcðÂFÜáŢ¥\\\\ºİøÒÐJĴîD¦zK²ǏÎEh~CD­hMn^ÌöÄ©ČZÀaüfɭyœpį´ěFűk]Ôě¢qlÅĆÙa¶~ÄqêljN¬¼HÊNQ´ê¼VØ¸E^ŃÒyM{JLoÒęæe±Ķygã¯JYÆĭĘëo¥Šo¯hcK«z_prC´ĢÖY¼ v¸¢RÅW³Â§fÇ¸Yi³xR´ďUË`êĿUûuĆBƣöNDH«ĈgÑaB{ÊNF´¬c·Åv}eÇÃGB»If¦HňĕM~[iwjUÁKE¾dĪçWIèÀoÈXòyŞŮÈXâÎŚj|àsRyµÖPr´þ ¸^wþTDŔHr¸RÌmfżÕâCôoxĜƌÆĮÐYtâŦÔ@]ÈǮƒ\\Ī¼Ä£UsÈ¯LbîƲŚºyhr@ĒÔƀÀ²º\\êpJ}ĠvqtĠ@^xÀ£È¨mËÏğ}n¹_¿¢×Y_æpÅA^{½Lu¨GO±Õ½ßM¶wÁĢÛPƢ¼pcĲx|apÌ¬HÐŊSfsðBZ¿©XÏÒKk÷Eû¿SrEFsÕūkóVǥŉiTL¡n{uxţÏhôŝ¬ğōNNJkyPaqÂğ¤K®YxÉƋÁ]āęDqçgOgILu\\_gz]W¼~CÔē]bµogpÑ_oď`´³Țkl`IªºÎȄqÔþ»E³ĎSJ»_f·adÇqÇc¥Á_Źw{L^É±ćxU£µ÷xgĉp»ĆqNē`rĘzaĵĚ¡K½ÊBzyäKXqiWPÏÉ¸½řÍcÊG|µƕƣGË÷k°_^ý|_zċBZocmø¯hhcæ\\lMFlư£ĜÆyHF¨µêÕ]HAàÓ^it `þßäkĤÎT~Wlÿ¨ÔPzUCNVv [jâôDôď[}z¿msSh¯{jïğl}šĹ[őgK©U·µË@¾m_~q¡f¹ÅË^»f³ø}Q¡ÖË³gÍ±^Ç\\ëÃA_¿bWÏ[¶ƛé£F{īZgm@|kHǭƁć¦UĔť×ë}ǝeďºȡȘÏíBÉ£āĘPªĳ¶ŉÿy©nď£G¹¡I±LÉĺÑdĉÜW¥}gÁ{aqÃ¥aıęÏZï`"],"encodeOffsets":[[104636,22969]]}},{"type":"Feature","id":"540000","properties":{"id":"540000","cp":[89.132212,30.860361],"name":"西藏","childNum":1},"geometry":{"type":"Polygon","coordinates":["@@ÂhľxŖxÒVºÅâAĪÝȆµę¯Ňa±r_w~uSÕňqOj]ɄQ£ZUDûoY»©M[L¼qãË{VÍçWVi]ë©Ä÷àyƛhÚU°adcQ~Mx¥cc¡ÙaSyFÖk­uRýq¿ÔµQĽ³aG{¿FµëªéĜÿª@¬·K·àariĕĀ«V»ŶĴūgèLǴŇƶaftèBŚ£^âǐÝ®M¦ÁǞÿ¬LhJ¾óƾÆºcxwf]Y´¦|QLn°adĊ\\¨oǀÍŎ´ĩĀd`tÊQŞŕ|¨C^©Ĉ¦¦ÎJĊ{ëĎjª²rÐl`¼Ą[t|¦Stè¾PÜK¸dƄı]s¤î_v¹ÎVòŦj£Əsc¬_Ğ´|Ł¦Av¦w`ăaÝaa­¢e¤ı²©ªSªÈMĄwÉØŔì@T¤Ę\\õª@þo´­xA sÂtŎKzó´ÇĊµ¢r^nĊ­Æ¬×üG¢³ {âĊ]G~bÀgVjzlhǶfOfdªB]pjTOtĊn¤}®¦Č¥d¢¼»ddY¼t¢eȤJ¤}Ǿ¡°§¤AÐlc@ĝsªćļđAçwxUuzEÖġ~AN¹ÄÅȀŻ¦¿ģŁéì±Hãd«g[Ø¼ēÀcīľġ¬cJµÐʥVȝ¸ßS¹ý±ğkƁ¼ą^ɛ¤Ûÿb[}¬ōõÃ]ËNm®g@Bg}ÍF±ǐyL¥íCIĳÏ÷Ñį[¹¦[âšEÛïÁÉdƅß{âNÆāŨß¾ě÷yC£k­´ÓH@Â¹TZ¥¢į·ÌAÐ§®Zcv½Z­¹|ÅWZqgW|ieZÅYVÓqdqbc²R@c¥Rã»GeeƃīQ}J[ÒK¬Ə|oėjġĠÑN¡ð¯EBčnwôɍėª²CλŹġǝʅįĭạ̃ūȹ]ΓͧgšsgȽóϧµǛęgſ¶ҍć`ĘąŌJÞä¤rÅň¥ÖÁUětęuůÞiĊÄÀ\\Æs¦ÓRb|Â^řÌkÄŷ¶½÷f±iMÝ@ĥ°G¬ÃM¥n£Øąğ¯ß§aëbéüÑOčk£{\\eµª×MÉfm«Ƒ{Å×Gŏǩãy³©WÑăû··Qòı}¯ãIéÕÂZ¨īès¶ZÈsæĔTŘvgÌsN@îá¾ó@ÙwU±ÉTå»£TđWxq¹Zobs[×¯cĩvėŧ³BM|¹kªħ¥TzNYnÝßpęrñĠĉRS~½ěVVµõ«M££µBĉ¥áºae~³AuĐh`Ü³ç@BÛïĿa©|z²Ý¼D£àč²ŸIûI āóK¥}rÝ_Á´éMaň¨~ªSĈ½½KÙóĿeƃÆB·¬ën×W|Uº}LJrƳlŒµ`bÔ`QÐÓ@s¬ñIÍ@ûws¡åQÑßÁ`ŋĴ{ĪTÚÅTSÄ³Yo|Ç[Ç¾µMW¢ĭiÕØ¿@MhpÕ]jéò¿OƇĆƇpêĉâlØwěsǩĵ¸cbU¹ř¨WavquSMzeo_^gsÏ·¥Ó@~¯¿RiīB\\qTGªÇĜçPoÿfñòą¦óQīÈáPābß{ZŗĸIæÅhnszÁCËìñÏ·ąĚÝUm®ó­L·ăUÈíoù´Êj°ŁŤ_uµ^°ìÇ@tĶĒ¡ÆM³Ģ«İĨÅ®ğRāðggheÆ¢zÊ©Ô\\°ÝĎz~ź¤PnMĪÖB£kné§żćĆKĒ°¼L¶èâz¨u¦¥LDĘz¬ýÎmĘd¾ßFzhg²Fy¦ĝ¤ċņbÎ@yĄæm°NĮZRÖíJ²öLĸÒ¨Y®ƌÐVàtt_ÚÂyĠz]ŢhzĎ{ÂĢXc|ÐqfO¢¤ögÌHNPKŖUú´xx[xvĐCûĀìÖT¬¸^}Ìsòd´_KgžLĴÀBon|H@Êx¦BpŰŌ¿fµƌA¾zǈRx¶FkĄźRzŀ~¶[´HnªVƞuĒ­È¨ƎcƽÌm¸ÁÈM¦x͊ëÀxǆBú^´W£dkɾĬpw˂ØɦļĬIŚÊnŔa¸~J°îlɌxĤÊÈðhÌ®gT´øàCÀ^ªerrƘd¢İP|Ė ŸWªĦ^¶´ÂLaT±üWƜǀRÂŶUńĖ[QhlLüAÜ\\qRĄ©"],"encodeOffsets":[[90849,37210]]}},{"type":"Feature","id":"610000","properties":{"id":"610000","cp":[108.948024,34.263161],"name":"陕西","childNum":1},"geometry":{"type":"Polygon","coordinates":["@@p¢ȮµûGĦ}Ħðǚ¶òƄjɂz°{ºØkÈęâ¦jªBg\\ċ°s¬]jú EȌǆ¬stRÆdĠİwÜ¸ôW¾ƮłÒ_{Ìû¼jº¹¢GǪÒ¯ĘZ`ºŊecņą~BÂgzpâēòYǠȰÌTÎ¨ÂW|fcă§uF@N¢XLRMº[ğȣſï|¥Jkc`sŉǷY¹W@µ÷Kãï³ÛIcñ·VȋÚÒķø©þ¥yÓğęmWµÎumZyOŅƟĥÓ~sÑL¤µaÅY¦ocyZ{y c]{Ta©`U_Ěē£ωÊƍKùK¶ȱÝƷ§{û»ÅÁȹÍéuĳ|¹cÑdìUYOuFÕÈYvÁCqÓTǢí§·S¹NgV¬ë÷Át°DØ¯C´ŉƒópģ}ċcEËFéGU¥×K§­¶³BČ}C¿åċ`wġB·¤őcƭ²ő[Å^axwQOÿEËßŚĤNĔwƇÄńwĪ­o[_KÓª³ÙnKÇěÿ]ďă_d©·©Ýŏ°Ù®g]±ßå¬÷m\\iaǑkěX{¢|ZKlçhLtŇîŵœè[É@ƉĄEtƇÏ³­ħZ«mJ×¾MtÝĦ£IwÄå\\Õ{OwĬ©LÙ³ÙgBƕŀrÌĢŭO¥lãyC§HÍ£ßEñX¡­°ÙCgpťzb`wIvA|§hoĕ@E±iYd¥OĻ¹S|}F@¾oAO²{tfÜ¢FǂÒW²°BĤh^Wx{@¬­F¸¡ķn£P|ªĴ@^ĠĈæbÔc¶lYi^MicĎ°Â[ävï¶gv@ÀĬ·lJ¸sn|¼u~a]ÆÈtŌºJpþ£KKf~¦UbyäIĺãnÔ¿^­ŵMThĠÜ¤ko¼Ŏìąǜh`[tRd²Ĳ_XPrɲlXiL§à¹H°Ȧqº®QCbAŌJ¸ĕÚ³ĺ§ `d¨YjiZvRĺ±öVKkjGȊÄePĞZmļKÀ[`ösìhïÎoĬdtKÞ{¬èÒÒBÔpĲÇĬJŊ¦±J«Y§@·pHµàåVKepWftsAÅqC·¬ko«pHÆuK@oHĆÛķhxenS³àǍrqƶRbzy¸ËÐl¼EºpĤ¼x¼½~Ğà@ÚüdK^mÌSj"],"encodeOffsets":[[110234,38774]]}},{"type":"Feature","id":"620000","properties":{"id":"620000","cp":[103.823557,36.058039],"name":"甘肃","childNum":2},"geometry":{"type":"MultiPolygon","coordinates":[["@@VuUv"],["@@ũEĠtt~nkh`Q¦ÅÄÜdwAb×ĠąJ¤DüègĺqBqj°lI¡ĨÒ¤úSHbjÎB°aZ¢KJO[|A£Dx}NĂ¬HUnrk kp¼Y kMJn[aGáÚÏ[½rc}aQxOgsPMnUsncZsKúvAtÞġ£®ĀYKdnFw¢JE°Latf`¼h¬we|Æbj}GA·~W`¢MC¤tL©Ĳ°qdfObÞĬ¹ttu`^ZúE`[@Æsîz®¡CƳƜG²R¢RmfwĸgÜą G@pzJM½mhVy¸uÈÔO±¨{LfæU¶ßGĂq\\ª¬²I¥IŉÈīoıÓÑAçÑ|«LÝcspīðÍgtë_õ\\ĉñLYnĝgRǡÁiHLlõUĹ²uQjYi§Z_c¨´ĹĖÙ·ŋIaBD­R¹ȥr¯GºßK¨jWkɱOqWĳ\\a­Q\\sg_ĆǛōëp»£lğÛgSŶN®À]ÓämĹãJaz¥V}Le¤Lýo¹IsŋÅÇ^bz³tmEÁ´a¹cčecÇNĊãÁ\\č¯dNj]jZµkÓdaćå]ğĳ@ ©O{¤ĸm¢E·®«|@Xwg]Aģ±¯XǁÑǳªcwQÚŝñsÕ³ÛV_ý¥\\ů¥©¾÷w©WÕÊĩhÿÖÁRo¸V¬âDb¨hûxÊ×ǌ~Zâg|XÁnßYoº§ZÅŘv[ĭÖʃuďxcVbnUSfB¯³_TzºÎO©çMÑ~M³]µ^püµÄY~y@X~¤Z³[Èōl@®Å¼£QK·Di¡ByÿQ_´D¥hŗy^ĭÁZ]cIzýah¹MĪğPs{ò²Vw¹t³ŜË[Ñ}X\\gsF£sPAgěp×ëfYHāďÖqēŭOÏëdLü\\it^c®RÊº¶¢H°mrY£B¹čIoľu¶uI]vģSQ{UŻÅ}QÂ|Ì°ƅ¤ĩŪU ęĄÌZÒ\\v²PĔ»ƢNHĂyAmƂwVm`]ÈbH`Ì¢²ILvĜH®¤Dlt_¢JJÄämèÔDëþgºƫaʎÌrêYi~ Îİ¤NpÀA¾Ĕ¼bð÷®üszMzÖĖQdȨýv§Tè|ªHÃ¾a¸|Ð ƒwKĢx¦ivr^ÿ ¸l öæfƟĴ·PJv}n\\h¹¶v·À|\\ƁĚN´ĜçèÁz]ġ¤²¨QÒŨTIlªťØ}¼˗ƦvÄùØEÂ«FïËIqōTvāÜŏíÛßÛVj³âwGăÂíNOPìyV³ŉĖýZso§HÑiYw[ß\\X¦¥c]ÔƩÜ·«jÐqvÁ¦m^ċ±R¦΋ƈťĚgÀ»IïĨʗƮ°ƝĻþÍAƉſ±tÍEÕÞāNUÍ¡\\ſčåÒʻĘm ƭÌŹöʥëQ¤µ­ÇcƕªoIýIÉ_mkl³ăƓ¦j¡YzŇi}Msßõīʋ }ÁVm_[n}eı­Uĥ¼ªI{Î§DÓƻėojqYhĹT©oūĶ£]ďxĩǑMĝq`B´ƃ˺Чç~²ņj@¥@đ´ί}ĥtPńÇ¾V¬ufÓÉCtÓ̻¹£G³]ƖƾŎĪŪĘ̖¨ʈĢƂlɘ۪üºňUðǜȢƢż̌ȦǼĤŊɲĖÂ­Kq´ï¦ºĒǲņɾªǀÞĈĂD½ĄĎÌŗĞrôñnN¼â¾ʄľԆ|Ǆ֦ज़ȗǉ̘̭ɺƅêgV̍ʆĠ·ÌĊv|ýĖÕWĊǎÞ´õ¼cÒÒBĢ͢UĜð͒s¨ňƃLĉÕÝ@ɛƯ÷¿Ľ­ĹeȏĳëCȚDŲyê×Ŗyò¯ļcÂßYtÁƤyAã˾J@ǝrý@¤rz¸oP¹ɐÚyáHĀ[JwcVeȴÏ»ÈĖ}ƒŰŐèȭǢόĀƪÈŶë;Ñ̆ȤМľĮEŔĹŊũ~ËUă{ĻƹɁύȩþĽvĽƓÉ@ēĽɲßǐƫʾǗĒpäWÐxnsÀ^ƆwW©¦cÅ¡Ji§vúF¶¨c~c¼īeXǚ\\đ¾JwÀďksãAfÕ¦L}waoZD½Ml«]eÒÅaÉ²áo½FõÛ]ĻÒ¡wYR£¢rvÓ®y®LFLzĈôe]gx}|KK}xklL]c¦£fRtív¦PĤoH{tK"]],"encodeOffsets":[[[108619,36299]],[[108589,36341]]]}},{"type":"Feature","id":"630000","properties":{"id":"630000","cp":[96.778916,35.623178],"name":"青海","childNum":2},"geometry":{"type":"MultiPolygon","coordinates":[["@@InJm"],["@@CÆ½OŃĦsΰ~Ē³¦@@Ņi±è}ШƄ˹A³r_ĞǒNĪĐw¤^ŬĵªpĺSZgrpiƼĘÔ¨C|ÍJ©Ħ»®VĲ~f\\m `UnÂ~ʌĬàöNt~ňjy¢ZiƔ¥Ąk´nl`JÊJþ©pdƖ®È£¶ìRʦźõƮËnʼėæÑƀĎ[¢VÎĂMÖÝÎF²sƊƀÎBļýƞ¯ʘƭðħ¼Jh¿ŦęΌƇ¥²Q]Č¥nuÂÏri¸¬ƪÛ^Ó¦d¥[Wàx\\ZjÒ¨GtpþYŊĕ´zUOëPîMĄÁxH´áiÜUàîÜŐĂÛSuŎrJðÌ¬EFÁú×uÃÎkrĒ{V}İ«O_ÌËĬ©ÓŧSRÑ±§Ģ£^ÂyèçěM³Ƃę{[¸¿uºµ[gt£¸OƤĿéYõ·kĀq]juw¥DĩƍõÇPéÄ½G©ã¤GuȧþRcÕĕNyyût­øï»a½ē¿BMoį£Íj}éZËqbʍƬh¹ìÿÓAçãnIÃ¡I`ks£CG­ěUy×Cy@¶ʡÊBnāzGơMē¼±O÷õJËĚăVĪũƆ£¯{ËL½ÌzżVR|ĠTbuvJvµhĻĖHAëáa­OÇðñęNwœľ·LmI±íĠĩPÉ×®ÿscB³±JKßĊ«`ađ»·QAmOVţéÿ¤¹SQt]]Çx±¯A@ĉĳ¢Óļ©l¶ÅÛrŕspãRk~¦ª]Į­´FRåd­ČsCqđéFn¿ÅƃmÉx{W©ºƝºįkÕƂƑ¸wWūÐ©ÈF£\\tÈ¥ÄRÈýÌJ lGr^×äùyÞ³fjc¨£ÂZ|ǓMĝÏ@ëÜőRĝ÷¡{aïȷPu°ËXÙ{©TmĠ}Y³­ÞIňµç½©C¡į÷¯B»|St»]vųs»}MÓ ÿʪƟǭA¡fs»PY¼c¡»¦cċ­¥£~msĉPSi^o©AecPeǵkgyUi¿h}aHĉ^|á´¡HØûÅ«ĉ®]m¡qĉ¶³ÈyôōLÁstB®wn±ă¥HSòė£Së@×œÊăxÇN©©T±ª£Ĳ¡fb®Þbb_Ą¥xu¥B{łĝ³«`dƐt¤ťiñÍUuºí`£^tƃĲc·ÛLO½sç¥Ts{ă\\_»kÏ±q©čiìĉ|ÍI¥ć¥]ª§D{ŝŖÉR_sÿc³ĪōƿÎ§p[ĉc¯bKmR¥{³Ze^wx¹dƽÅ½ôIg §Mĕ ƹĴ¿ǣÜÍ]Ý]snåA{eƭ`ǻŊĿ\\ĳŬűYÂÿ¬jĖqßb¸L«¸©@ěĀ©ê¶ìÀEH|´bRľÓ¶rÀQþvl®ÕETzÜdb hw¤{LRdcb¯ÙVgƜßzÃôì®^jUèXÎ|UäÌ»rK\\ªN¼pZCüVY¤ɃRi^rPŇTÖ}|br°qňbĚ°ªiƶGQ¾²x¦PmlŜ[Ĥ¡ΞsĦÔÏâ\\ªÚŒU\\f¢N²§x|¤§xĔsZPòʛ²SÐqF`ªVÞŜĶƨVZÌL`¢dŐIqr\\oäõFÎ·¤»Ŷ×h¹]ClÙ\\¦ďÌį¬řtTӺƙgQÇÓHţĒ´ÃbEÄlbʔC|CŮkƮ[ʼ¬ň´KŮÈΰÌĪ¶ƶlðļATUvdTGº̼ÔsÊDÔveOg"]],"encodeOffsets":[[[105308,37219]],[[95370,40081]]]}},{"type":"Feature","id":"640000","properties":{"id":"640000","cp":[106.278179,37.26637],"name":"宁夏","childNum":2},"geometry":{"type":"MultiPolygon","coordinates":[["@@KëÀęĞ«Oęȿȕı]ŉ¡åįÕÔ«ǴõƪĚQÐZhv K°öqÀÑS[ÃÖHƖčËnL]ûcÙß@ĝ¾}w»»oģF¹»kÌÏ·{zP§B­¢íyÅt@@á]Yv_ssģ¼ißĻL¾ġsKD£¡N_X¸}B~HaiÅf{«x»ge_bsKF¯¡IxmELcÿZ¤­ĢÝsuBLùtYdmVtNmtOPhRw~bd¾qÐ\\âÙH\\bImlNZ»loqlVmGā§~QCw¤{A\\PKNY¯bFkC¥sks_Ã\\ă«¢ħkJi¯rrAhĹûç£CUĕĊ_ÔBixÅÙĄnªÑaM~ħpOu¥sîeQ¥¤^dkKwlL~{L~hw^ófćKyE­K­zuÔ¡qQ¤xZÑ¢^ļöÜ¾Ep±âbÊÑÆ^fk¬NC¾YpxbK~¥eÖäBlt¿Đx½I[ĒǙWf»Ĭ}d§dµùEuj¨IÆ¢¥dXªƅx¿]mtÏwßRĶX¢͎vÆzƂZò®ǢÌʆCrâºMÞzÆMÒÊÓŊZÄ¾r°Î®Ȉmª²ĈUªĚîøºĮ¦ÌĘk^FłĬhĚiĀĖ¾iİbjÕ"],["@@mfwěwMrŢªv@G"]],"encodeOffsets":[[[109366,40242]],[[108600,36303]]]}},{"type":"Feature","id":"650000","properties":{"id":"650000","cp":[85.617733,40.792818],"name":"新疆","childNum":1},"geometry":{"type":"Polygon","coordinates":["@@QØĔ²X¨~ǘBºjʐßØvKƔX¨vĊOÃ·¢i@~cĝe_«E}QxgɪëÏÃ@sÅyXoŖ{ô«ŸuXêÎf`C¹ÂÿÐGĮÕĞXŪōŸMźÈƺQèĽôe|¿ƸJR¤ĘEjcUóº¯Ĩ_ŘÁMª÷Ð¥OéÈ¿ÖğǤǷÂFÒzÉx[]­Ĥĝœ¦EP}ûƥé¿İƷTėƫœŕƅƱB»Đ±ēO¦E}`cȺrĦáŖuÒª«ĲπdƺÏØZƴwʄ¤ĖGĐǂZĶèH¶}ÚZצʥĪï|ÇĦMŔ»İĝǈì¥Βba­¯¥ǕǚkĆŵĦɑĺƯxūД̵nơʃĽá½M»òmqóŘĝčË¾ăCćāƿÝɽ©ǱŅ¹đ¥³ðLrÁ®ɱĕģŉǻ̋ȥơŻǛȡVï¹Ň۩ûkɗġƁ§ʇė̕ĩũƽō^ƕUv£ƁQïƵkŏ½ΉÃŭÇ³LŇʻ«ƭ\\lŭD{ʓDkaFÃÄa³ŤđÔGRÈƚhSӹŚsİ«ĐË[¥ÚDkº^Øg¼ŵ¸£EÍöůŉT¡c_ËKYƧUśĵÝU_©rETÏʜ±OñtYwē¨{£¨uM³x½şL©Ùá[ÓÐĥ Νtģ¢\\śnkOw¥±T»ƷFɯàĩÞáB¹ÆÑUwŕĽw[mG½Èå~Æ÷QyěCFmĭZīŵVÁƿQƛûXS²b½KÏ½ĉS©ŷXĕ{ĕK·¥Ɨcqq©f¿]ßDõU³h­gËÇïģÉɋwk¯í}I·œbmÉřīJɥĻˁ×xoɹīlc¤³Xù]ǅA¿w͉ì¥wÇN·ÂËnƾƍdÇ§đ®ƝvUm©³G\\}µĿQyŹlăµEwǇQ½yƋBe¶ŋÀůo¥AÉw@{Gpm¿AĳŽKLh³`ñcËtW±»ÕSëüÿďDu\\wwwù³VLŕOMËGh£õP¡erÏd{ġWÁč|yšg^ğyÁzÙs`s|ÉåªÇ}m¢Ń¨`x¥ù^}Ì¥H«YªƅAÐ¹n~ź¯f¤áÀzgÇDIÔ´AňĀÒ¶ûEYospõD[{ù°]uJqU|Soċxţ[õÔĥkŋÞŭZËºóYËüċrw ÞkrťË¿XGÉbřaDü·Ē÷AÃª[ÄäIÂ®BÕĐÞ_¢āĠpÛÄȉĖġDKwbmÄNôfƫVÉviǳHQµâFù­Âœ³¦{YGd¢ĚÜO {Ö¦ÞÍÀP^bƾl[vt×ĈÍEË¨¡Đ~´î¸ùÎhuè`¸HÕŔVºwĠââWò@{ÙNÝ´ə²ȕn{¿¥{l÷eé^eďXj©î\\ªÑòÜìc\\üqÕ[Č¡xoÂċªbØ­ø|¶ȴZdÆÂońéG\\¼C°ÌÆn´nxÊOĨŪƴĸ¢¸òTxÊǪMīĞÖŲÃɎOvʦƢ~FRěò¿ġ~åŊúN¸qĘ[Ĕ¶ÂćnÒPĒÜvúĀÊbÖ{Äî¸~Ŕünp¤ÂH¾ĄYÒ©ÊfºmÔĘcDoĬMŬS¤s²ʘÚžȂVŦ èW°ªB|ĲXŔþÈJĦÆæFĚêYĂªĂ]øªŖNÞüAfɨJ¯ÎrDDĤ`mz\\§~D¬{vJÂ«lµĂb¤pŌŰNĄ¨ĊXW|ų ¿¾ɄĦƐMTòP÷fØĶK¢ȝ˔Sô¹òEð­`Ɩ½ǒÂň×äı§ĤƝ§C~¡hlåǺŦŞkâ~}FøàĲaĞfƠ¥Ŕd®U¸źXv¢aƆúŪtŠųƠjdƺƺÅìnrh\\ĺ¯äɝĦ]èpĄ¦´LƞĬ´ƤǬ˼Ēɸ¤rºǼ²¨zÌPðŀbþ¹ļD¢¹\\ĜÑŚ¶ZƄ³àjĨoâȴLÊȮĐ­ĚăÀêZǚŐ¤qȂ\\L¢ŌİfÆs|zºeªÙæ§΢{Ā´ƐÚ¬¨Ĵà²łhʺKÞºÖTiƢ¾ªì°`öøu®Ê¾ãØ"],"encodeOffsets":[[88824,50096]]}},{"type":"Feature","id":"110000","properties":{"id":"110000","cp":[116.405285,39.904989],"name":"北京","childNum":1},"geometry":{"type":"Polygon","coordinates":["@@ĽOÁûtŷmiÍt_H»Ĩ±d`¹­{bwYr³S]§§o¹qGtm_SŧoaFLgQN_dV@Zom_ć\\ßcÂ±x¯oœRcfe£o§ËgToÛJíĔóu|wP¤XnO¢ÉŦ¯rNÄā¤zâŖÈRpŢZÚ{GrFt¦Òx§ø¹RóäV¤XdżâºWbwŚ¨Ud®bêņ¾jnŎGŃŶnzÚSeîĜZczî¾i]ÍQaúÍÔiþĩȨWĢü|Ėu[qb[swP@ÅğP¿{\\¥A¨ÏÑ¨j¯X\\¯MKpA³[Hīu}}"],"encodeOffsets":[[120023,41045]]}},{"type":"Feature","id":"120000","properties":{"id":"120000","cp":[117.190182,39.125596],"name":"天津","childNum":1},"geometry":{"type":"Polygon","coordinates":["@@ŬgX§Ü«E¶FÌ¬O_ïlÁgz±AXeµÄĵ{¶]gitgIj·¥îakS¨ÐƎk}ĕ{gBqGf{¿aU^fIư³õ{YıëNĿk©ïËZŏR§òoY×Ógcĥs¡bġ«@dekąI[nlPqCnp{ō³°`{PNdƗqSÄĻNNâyj]äÒD ĬH°Æ]~¡HO¾X}ÐxgpgWrDGpù^LrzWxZ^¨´T\\|~@IzbĤjeĊªz£®ĔvěLmV¾Ô_ÈNW~zbĬvG²ZmDM~~"],"encodeOffsets":[[120237,41215]]}},{"type":"Feature","id":"310000","properties":{"id":"310000","cp":[121.472644,31.231706],"name":"上海","childNum":6},"geometry":{"type":"MultiPolygon","coordinates":[["@@ɧư¬EpƸÁxc"],["@@©ª"],["@@MA"],["@@QpİE§ÉC¾"],["@@bŝÕÕEȣÚƥêImɇǦèÜĠÚÃƌÃ͎ó"],["@@ǜûȬɋŭ×^sYɍDŋŽąñCG²«ªč@h_p¯A{oloY¬j@Ĳ`gQÚhr|ǀ^MĲvtbe´R¯Ô¬¨Yô¤r]ìƬį"]],"encodeOffsets":[[[124702,32062]],[[124547,32200]],[[124808,31991]],[[124726,32110]],[[124903,32376]],[[124438,32149]]]}},{"type":"Feature","id":"500000","properties":{"id":"500000","cp":[107.304962,29.533155],"name":"重庆","childNum":2},"geometry":{"type":"MultiPolygon","coordinates":[["@@vjG~nGŘŬĶȂƀƾ¹¸ØÎezĆT¸}êÐqHðqĖä¥^CÆIj²p\\_ æüY|[YxƊæu°xb®Űb@~¢NQt°¶Sæ Ê~rǉĔëĚ¢~uf`faĔJåĊnÖ]jƎćÊ@£¾a®£Ű{ŶĕFègLk{Y|¡ĜWƔtƬJÑxq±ĢN´òKLÈÃ¼D|s`ŋć]Ã`đMûƱ½~Y°ħ`ƏíW½eI½{aOIrÏ¡ĕŇapµÜƅġ^ÖÛbÙŽŏml½SêqDu[RãË»ÿw`»y¸_ĺę}÷`M¯ċfCVµqŉ÷Zgg`d½pDOÎCn^uf²ènh¼WtƏxRGg¦pVFI±G^Ic´ecGĹÞ½sëĬhxW}KÓe­XsbkF¦LØgTkïƵNï¶}Gyw\\oñ¡nmĈzj@Óc£»Wă¹Ój_m»¹·~MvÛaq»­ê\\ÂoVnÓØÍ²«bq¿efE Ĝ^Q~ Évýş¤²ĮpEİ}zcĺL½¿gÅ¡ýE¡ya£³t\\¨\\vú»¼§·Ñr_oÒý¥u_n»_At©ÞÅ±ā§IVeëY}{VPÀFA¨ąB}q@|Ou\\FmQFÝMwå}]|FmÏCawu_p¯sfÙgYDHl`{QEfNysB¦zG¸rHeN\\CvEsÐùÜ_·ÖĉsaQ¯}_UxÃđqNH¬Äd^ÝŰR¬ã°wećJE·vÝ·HgéFXjÉê`|ypxkAwWĐpb¥eOsmzwqChóUQl¥F^lafanòsrEvfQdÁUVfÎvÜ^eftET¬ôA\\¢sJnQTjPØxøK|nBzĞ»LYFDxÓvr[ehľvN¢o¾NiÂxGpâ¬zbfZo~hGi]öF||NbtOMn eA±tPTLjpYQ|SHYĀxinzDJÌg¢và¥Pg_ÇzIIII£®S¬ØsÎ¼£N"],["@@ifjN@s"]],"encodeOffsets":[[[109628,30765]],[[111725,31320]]]}},{"type":"Feature","id":"810000","properties":{"id":"810000","cp":[114.173355,22.320048],"name":"香港","childNum":5},"geometry":{"type":"MultiPolygon","coordinates":[["@@AlBk"],["@@mn"],["@@EpFo"],["@@ea¢pl¸Eõ¹hj[]ÔCÎ@lj¡uBX´AI¹[yDU]W`çwZkmcMpÅv}IoJlcafŃK°ä¬XJmÐ đhI®æÔtSHnEÒrÈc"],["@@rMUwAS®e"]],"encodeOffsets":[[[117111,23002]],[[117072,22876]],[[117045,22887]],[[116975,23082]],[[116882,22747]]]}},{"type":"Feature","id":"820000","properties":{"id":"820000","cp":[113.54909,22.198951],"name":"澳门","childNum":1},"geometry":{"type":"Polygon","coordinates":["@@kÊd°å§s"],"encodeOffsets":[[116279,22639]]}}],"UTF8Encoding":true};
+  echarts.registerMap('china', chinaGeo);
+  mapReady = true;
+  if(callback) callback();
+}
+
+function renderMap(){
+  if(!mapReady) return;
+  var fp = getFilterProvince();
+  var fc = getFilterCity();
+  var fcat = getFilterCategory();
+
+  var cityMap = {};
+  filteredData.forEach(function(d){
+    if(tourismOnly && !isTourismCity(d.city)) return;
+    if(!cityMap[d.city]) cityMap[d.city] = {city:d.city, lat:d.lat, lng:d.lng, items:[]};
+    cityMap[d.city].items.push(d);
+  });
+
+  // Show inventory cities even without FBI data
+  Object.keys(INV_MAP).forEach(function(city){
+    if(tourismOnly && !isTourismCity(city)) return;
+    if(fp && CITY_PROVINCE[city] !== fp) return;
+    if(fc && city !== fc) return;
+    if(fcat){
+      var invCats = getInventoryForCity(city);
+      if(invCats.indexOf(fcat) < 0) return;
+    }
+    if(!cityMap[city] && cityCoords[city]){
+      cityMap[city] = {city:city, lat:cityCoords[city][0], lng:cityCoords[city][1], items:[]};
+    }
+  });
+
+  var scatterData = [];
+  Object.keys(cityMap).forEach(function(city){
+    var c = cityMap[city];
+    var invCount = fcat ? (getInventoryForCity(city).indexOf(fcat)>=0 ? 1 : 0) : getInventoryCount(city);
+    if(invCount === 0) return;
+
+    var occupiedCats = {};
+    c.items.forEach(function(item){
+      if(isOccupiedBefore30(item)) occupiedCats[item.category] = true;
+    });
+    var occupied30 = Object.keys(occupiedCats).length;
+    var rate = occupied30 / invCount;
+
+    if(occupancyFilter === 'unoccupied' && rate > 0) return;
+    if(occupancyFilter === 'occupied' && rate <= 0) return;
+
+    var color;
+    if(rate <= 0) color = '#22c55e';
+    else color = '#dc2626';
+
+    var size = Math.max(10, Math.min(36, 8 + invCount * 0.4));
+    var isTour = isTourismCity(city);
+    scatterData.push({
+      name: city, value: [c.lng, c.lat, rate], symbolSize: size,
+      itemStyle: isTour
+        ? { color: color, opacity: 0.95, borderColor: '#db2777', borderWidth: 2.5, shadowColor: '#db2777', shadowBlur: 8 }
+        : { color: color, opacity: 0.85 },
+      label: { show: true, formatter: '{b}', fontSize: 9, color: isTour ? '#f9a8d4' : '#94a3b8', position: 'bottom', distance: 4 },
+      _city: city, _invCount: invCount, _occupied30: occupied30, _rate: rate
+    });
+  });
+
+  var option = {
+    backgroundColor: '#0f1923',
+    geo: { map: 'china', roam: true, zoom: 1.2, center: [104, 36],
+      itemStyle: { areaColor: '#1a2634', borderColor: '#2d3e50' },
+      emphasis: { itemStyle: { areaColor: '#243447' } },
+      label: { show: true, color: '#475569', fontSize: 10 },
+      regions: []
+    },
+    tooltip: { trigger: 'item', backgroundColor: '#1a2634', borderColor: '#2d3e50',
+      textStyle: { color: '#e2e8f0', fontSize: 12 },
+      formatter: function(p){
+        if(!p.data || !p.data._city) return '';
+        var d = p.data;
+        var prov = CITY_PROVINCE[d._city] || '';
+        var tags = []; if(isTourismCity(d._city)) tags.push('✨暑期旅游热门'); var sp = getSpecialty(d._city); if(sp) tags.push('特色:'+sp.keywords.slice(0,2).join('/')); return '<b>'+d._city+'</b>'+(prov ? ' ('+prov+')' : '')+'<br>可售坑位: '+d._invCount+'<br>D+30已占: '+d._occupied30+'<br>占量率: '+Math.round(d._rate*100)+'%<br>剩余可售: '+(d._invCount - d._occupied30)+(tags.length ? '<br><span style=color:#fbbf24>'+tags.join(' | ')+'</span>' : '');
+      }
+    },
+    series: [{
+      type: 'scatter', coordinateSystem: 'geo', data: scatterData, encode: { value: 2 }
+    }]
+  };
+  chart.setOption(option, true);
+  chart.off('click');
+  chart.on('click', function(params){
+    if(params.data && params.data._city){ selectedCity = params.data._city; renderDetail(selectedCity); }
+  });
+}
+
+// ==================== Stats ====================
+function renderStats(){
+  var fp = getFilterProvince();
+  var fc = getFilterCity();
+  var fcat = getFilterCategory();
+  var dim = statsDimension; // 'all', 'tourism', 'key'
+
+  var totalInv = 0;
+  var citiesWithInv = Object.keys(INV_MAP);
+  if(fc) citiesWithInv = [fc];
+  else if(fp) citiesWithInv = citiesWithInv.filter(function(c){ return CITY_PROVINCE[c] === fp; });
+  if(dim === 'tourism') citiesWithInv = citiesWithInv.filter(function(c){ return isTourismCity(c); });
+
+  citiesWithInv.forEach(function(city){
+    var invCats = getInventoryForCity(city);
+    if(dim === 'key') invCats = invCats.filter(function(c){ return isKeyCategory(c); });
+    if(fcat){
+      if(invCats.indexOf(fcat) >= 0) totalInv++;
+    } else {
+      totalInv += invCats.length;
+    }
+  });
+
+  var occupied30 = 0, occupiedCities = {}, occupiedCats = {};
+  var cityMap = {};
+  filteredData.forEach(function(d){
+    if(dim === 'tourism' && !isTourismCity(d.city)) return;
+    if(dim === 'key' && !isKeyCategory(d.category)) return;
+    if(!cityMap[d.city]) cityMap[d.city] = {};
+    if(!cityMap[d.city][d.category]) cityMap[d.city][d.category] = [];
+    cityMap[d.city][d.category].push(d);
+  });
+  Object.keys(cityMap).forEach(function(city){
+    Object.keys(cityMap[city]).forEach(function(cat){
+      var items = cityMap[city][cat];
+      if(items.some(function(it){ return isOccupiedBefore30(it); })){
+        occupied30++;
+        occupiedCities[city] = true;
+        occupiedCats[cat] = true;
+      }
+    });
+  });
+
+  var avail = totalInv - occupied30;
+  var rate = totalInv > 0 ? Math.round(occupied30 / totalInv * 100) : 0;
+
+  document.getElementById('statTotal').textContent = totalInv;
+  document.getElementById('statOccupied').textContent = occupied30;
+  document.getElementById('statAvail').textContent = avail > 0 ? avail : 0;
+  document.getElementById('statRate').textContent = rate + '%';
+  document.getElementById('statCities').textContent = Object.keys(occupiedCities).length;
+  document.getElementById('statCats').textContent = Object.keys(occupiedCats).length;
+}
+
+// ==================== Detail Panel ====================
+function renderDetail(city){
+  document.getElementById('detailTabs').style.display = 'flex';
+  var prov = CITY_PROVINCE[city] || '';
+  document.getElementById('detailTitle').textContent = (prov ? prov+' · ' : '') + city + ' 占量详情';
+
+  var cityItems = filteredData.filter(function(d){ return d.city === city; });
+  var catMap = {};
+  cityItems.forEach(function(d){
+    if(!catMap[d.category]) catMap[d.category] = [];
+    catMap[d.category].push(d);
+  });
+
+  var invCats = getInventoryForCity(city);
+  var invCount = invCats.length;
+  var occupiedCats = {};
+  Object.keys(catMap).forEach(function(cat){
+    if(catMap[cat].some(function(it){ return isOccupiedBefore30(it); })) occupiedCats[cat] = true;
+  });
+  var occCount = Object.keys(occupiedCats).length;
+  var rate = invCount > 0 ? Math.round(occCount / invCount * 100) : 0;
+
+  document.getElementById('detailSubtitle').textContent =
+    '可售'+invCount+' · 已占'+occCount+' · 占量率'+rate+'% · 剩余'+(invCount-occCount)+' · 单店买全城';
+  // 旅游+特色提示条
+  var hintHtml = '';
+  if(isTourismCity(city)) hintHtml += '<span class="tag tag-tourism">✨ 暑期旅游热门</span>';
+  var sp = getSpecialty(city);
+  if(sp) hintHtml += '<span class="tag tag-specialty">本地特色: '+sp.keywords.join(', ')+'</span>';
+  var hintEl = document.getElementById('specialtyHint');
+  if(!hintEl){ hintEl = document.createElement('div'); hintEl.id='specialtyHint'; hintEl.className='specialty-hint'; var tabsEl = document.getElementById('detailTabs'); tabsEl.parentNode.insertBefore(hintEl, tabsEl); }
+  hintEl.innerHTML = hintHtml;
+  hintEl.style.display = hintHtml ? '' : 'none';
+  renderDetailTab(city, catMap);
+}
+
+function renderDetailTab(city, catMap){
+  if(!catMap){
+    var cityItems = filteredData.filter(function(d){ return d.city === city; });
+    catMap = {};
+    cityItems.forEach(function(d){
+      if(!catMap[d.category]) catMap[d.category] = [];
+      catMap[d.category].push(d);
+    });
+  }
+  var invCats = getInventoryForCity(city);
+  var html = '';
+
+  if(currentTab === 'all'){
+    html = '<input type="text" id="detailTabFilter" placeholder="搜索类目..." style="width:100%;padding:4px 8px;margin-bottom:6px;border:1px solid #e2e8f0;border-radius:4px;font-size:11px;box-sizing:border-box;">';
+    html += '<table class="data-table"><thead><tr><th>类目</th><th>区域</th><th>占量日期</th><th>状态</th><th>时段</th></tr></thead><tbody>';
+    Object.keys(catMap).sort().forEach(function(cat){
+      catMap[cat].forEach(function(item){
+        var period = item.date || (item.start_date+' ~ '+item.end_date);
+        var t = today();
+        var itemEnd = item.date ? parseDate(item.date) : parseDate(item.end_date);
+        var itemStart = item.date ? parseDate(item.date) : parseDate(item.start_date);
+        var statusText, statusClass, timeTag, timeClass;
+        if(itemEnd < t){
+          statusText = '已过期'; statusClass = 'badge-date';
+          timeTag = '已结束'; timeClass = 'badge-date';
+        } else {
+          statusText = '已占'; statusClass = 'badge-occupied';
+          var b30 = isOccupiedBefore30(item);
+          timeTag = b30 ? '30天内' : '>30天';
+          timeClass = b30 ? 'badge-key' : 'badge-date';
+        }
+        html += '<tr class="filterable-row" data-cat="'+item.category+'"><td>'+item.category+(isKeyCategory(item.category)?' <span class="status-badge badge-key">重点</span>':'')+'</td><td>'+(item.area_name||'')+'</td><td>'+period+'</td>';
+        html += '<td><span class="status-badge '+statusClass+'">'+statusText+'</span></td>';
+        html += '<td><span class="status-badge '+timeClass+'">'+timeTag+'</span></td></tr>';
+      });
+    });
+    html += '</tbody></table>';
+    if(Object.keys(catMap).length === 0) html = '<div class="detail-placeholder">该城市暂无占量数据<br>所有'+invCats.length+'个类目均可售</div>';
+
+  } else if(currentTab === 'unoccupied'){
+    // 未占类目：库存中今天→D+30整个窗口内无任何排期的类目
+    var occupiedCatSet = {};
+    Object.keys(catMap).forEach(function(cat){
+      if(catMap[cat].some(function(it){ return isOccupiedBefore30(it); })) occupiedCatSet[cat] = true;
+    });
+    html = '<div style="margin-bottom:6px;font-size:10px;color:#64748b;">口径：今天→D+30整个30天内无任何排期占量的类目</div>';
+    html += '<input type="text" id="detailTabFilter" placeholder="搜索类目..." style="width:100%;padding:4px 8px;margin-bottom:6px;border:1px solid #e2e8f0;border-radius:4px;font-size:11px;box-sizing:border-box;">';
+    html += '<table class="data-table"><thead><tr><th>可售类目</th><th>单店买全城</th><th>状态</th></tr></thead><tbody>';
+    var sp = getSpecialty(city);
+    var unoccCount = 0;
+    invCats.sort().forEach(function(cat){
+      if(!occupiedCatSet[cat]){
+        unoccCount++;
+        var isSpec = sp && sp.cats.indexOf(cat)>=0; var isKey = isKeyCategory(cat); html += '<tr class="filterable-row" data-cat="'+cat+'"><td>'+cat+(isKey?' <span class="status-badge badge-key">重点</span>':'')+(isSpec?' <span class="status-badge badge-specialty">本地特色</span>':'')+'</td><td><span class="status-badge badge-citywide">支持</span></td><td><span class="status-badge badge-available">可售</span></td></tr>';
+      }
+    });
+    html += '</tbody></table>';
+    if(unoccCount === 0) html = '<div class="detail-placeholder">该城市30天内所有库存类目均已被占</div>';
+    else html = '<div style="font-size:10px;color:#64748b;margin-bottom:6px;">共 '+unoccCount+' / '+invCats.length+' 个类目可售</div>' + html;
+
+  } else if(currentTab === 'avail30'){
+    // D+30可售：第30天当天未被占的类目（可能前面有排期但D+30那天释放了）
+    html = '<div style="margin-bottom:6px;font-size:10px;color:#64748b;">口径：第30天（'+dateStr(addDays(today(),30))+'）当天未被占量的类目</div>';
+    html += '<input type="text" id="detailTabFilter" placeholder="搜索类目..." style="width:100%;padding:4px 8px;margin-bottom:6px;border:1px solid #e2e8f0;border-radius:4px;font-size:11px;box-sizing:border-box;">';
+    html += '<table class="data-table"><thead><tr><th>可售类目</th><th>最近可占日期</th><th>状态</th></tr></thead><tbody>';
+    var allCats = invCats.length > 0 ? invCats : (allCityKeywords[city] || Object.keys(catMap));
+    var sp30 = getSpecialty(city);
+    var avail30Count = 0;
+    allCats.sort().forEach(function(cat){
+      var items = catMap[cat] || [];
+      var occupiedAt30 = items.some(function(it){ return isOccupiedAt30(it); });
+      if(!occupiedAt30){
+        avail30Count++;
+        var occupiedBefore = items.some(function(it){ return isOccupiedBefore30(it); });
+        var availDate = occupiedBefore ? dateStr(nearestAvailDate(items)) : dateStr(today());
+        var isSpec30 = sp30 && sp30.cats.indexOf(cat)>=0; var isKey30 = isKeyCategory(cat); html += '<tr class="filterable-row" data-cat="'+cat+'"><td>'+cat+(isKey30?' <span class="status-badge badge-key">重点</span>':'')+(isSpec30?' <span class="status-badge badge-specialty">本地特色</span>':'')+'</td><td><span class="status-badge badge-date">'+availDate+'</span></td><td><span class="status-badge badge-available">可售</span></td></tr>';
+      }
+    });
+    html += '</tbody></table>';
+    if(avail30Count === 0) html = '<div class="detail-placeholder">该城市D+30所有类目均已被占</div>';
+  }
+  document.getElementById('detailContent').innerHTML = html;
+  // Bind in-tab filter for unoccupied/avail30 + keyOnly
+  var tabFilter = document.getElementById('detailTabFilter');
+  if(tabFilter){
+    tabFilter.addEventListener('input', function(){ applyDetailFilter(); });
+  }
+  // sync keyOnly button state
+  var kb = document.getElementById('btnKeyOnly');
+  if(kb) kb.classList.toggle('active', keyOnly);
+}
+
+
+// ==================== 旅游城市汇总指引 ====================
+function renderTourismSummary(){
+  document.getElementById('detailTabs').style.display = 'none';
+  document.getElementById('detailTitle').textContent = '\u2728 暑期旅游热门城市指引';
+  selectedCity = '';
+  var hintEl = document.getElementById('specialtyHint');
+  if(hintEl) hintEl.style.display = 'none';
+  document.getElementById('detailSubtitle').textContent = '\u5171'+TOURISM_CITIES.length+'\u4e2a旅游热门城市\uff0c以下为各城市可占类目概览';
+  var fp = getFilterProvince();
+  var cities = TOURISM_CITIES.filter(function(c){ if(fp && CITY_PROVINCE[c] !== fp) return false; return !!INV_MAP[c]; });
+  var cityMap = {};
+  filteredData.forEach(function(d){ if(!cityMap[d.city]) cityMap[d.city]={}; if(!cityMap[d.city][d.category]) cityMap[d.city][d.category]=[]; cityMap[d.city][d.category].push(d); });
+  var html = '<input type="text" id="detailTabFilter" placeholder="\u641c\u7d22\u57ce\u5e02\u6216\u7c7b\u76ee..." style="width:100%;padding:4px 8px;margin-bottom:6px;border:1px solid #e2e8f0;border-radius:4px;font-size:11px;box-sizing:border-box;">';
+  html += '<table class="data-table"><thead><tr><th>\u57ce\u5e02</th><th>\u672c\u5730\u7279\u8272</th><th>\u53ef\u5360\u7279\u8272\u7c7b\u76ee</th><th>\u5269\u4f59\u53ef\u552e</th></tr></thead><tbody>';
+  cities.sort().forEach(function(city){
+    var invCats = getInventoryForCity(city);
+    var items = cityMap[city] || {};
+    var occupiedSet = {};
+    Object.keys(items).forEach(function(cat){ if(items[cat].some(function(it){return isOccupiedBefore30(it);})) occupiedSet[cat]=true; });
+    var avail = invCats.length - Object.keys(occupiedSet).length;
+    var sp = getSpecialty(city);
+    var spText = sp ? sp.keywords.slice(0,2).join('/') : '-';
+    var spAvail = [];
+    if(sp){ sp.cats.forEach(function(c){ if(invCats.indexOf(c)>=0 && !occupiedSet[c]) spAvail.push(c.split(';').pop()); }); }
+    var spAvailText = spAvail.length > 0 ? '<span class="status-badge badge-specialty">'+spAvail.join(', ')+'</span>' : '<span style="color:#64748b">\u5df2\u5360\u6ee1</span>';
+    html += '<tr class="filterable-row" data-cat="'+city+' '+spText+'"><td style="cursor:pointer;color:#3b82f6" data-city="'+city+'">'+city+'</td><td>'+spText+'</td><td>'+spAvailText+'</td><td>'+avail+'/'+invCats.length+'</td></tr>';
+  });
+  html += '</tbody></table>';
+  document.getElementById('detailContent').innerHTML = html;
+  // Bind city click
+  document.querySelectorAll('[data-city]').forEach(function(el){ el.addEventListener('click', function(){ selectedCity=this.getAttribute('data-city'); renderDetail(selectedCity); }); });
+  var tabFilter = document.getElementById('detailTabFilter');
+  if(tabFilter){ tabFilter.addEventListener('input', function(){ var q=this.value.toLowerCase(); document.querySelectorAll('.filterable-row').forEach(function(r){ r.style.display=(!q||r.getAttribute('data-cat').toLowerCase().indexOf(q)>=0)?'':'none'; }); }); }
+}
+
+function applyDetailFilter(){
+  var tabFilter = document.getElementById('detailTabFilter');
+  var q = tabFilter ? tabFilter.value.toLowerCase() : '';
+  var rows = document.querySelectorAll('.filterable-row');
+  rows.forEach(function(r){
+    var text = r.getAttribute('data-cat').toLowerCase();
+    var matchText = !q || text.indexOf(q) >= 0;
+    var matchKey = !keyOnly || isKeyCategory(r.getAttribute('data-cat'));
+    r.style.display = (matchText && matchKey) ? '' : 'none';
+  });
+}
+
+document.getElementById('btnKeyOnly').addEventListener('click', function(e){
+  e.stopPropagation();
+  keyOnly = !keyOnly;
+  this.classList.toggle('active', keyOnly);
+  this.style.background = keyOnly ? '#dc2626' : '#fee2e2';
+  this.style.color = keyOnly ? '#fff' : '#dc2626';
+  applyDetailFilter();
+});
+
+// Tab switching
+document.getElementById('detailTabs').addEventListener('click', function(e){
+  var tab = e.target.getAttribute('data-tab');
+  if(!tab) return;
+  currentTab = tab;
+  document.querySelectorAll('.detail-tab').forEach(function(t){ t.classList.remove('active'); });
+  e.target.classList.add('active');
+  if(selectedCity) renderDetailTab(selectedCity);
+  else {
+    var fcat = getFilterCategory();
+    if(fcat) renderCategoryDetail(fcat);
+  }
+});
+
+// ==================== Category Cross-City Detail ====================
+function renderCategoryDetail(cat){
+  document.getElementById('detailTabs').style.display = 'flex';
+  document.getElementById('detailTitle').textContent = '类目详情: ' + cat;
+  selectedCity = '';
+
+  var fp = getFilterProvince();
+  var citiesWithCat = [];
+  Object.keys(INV_MAP).forEach(function(city){
+    if(fp && CITY_PROVINCE[city] !== fp) return;
+    var invCats = getInventoryForCity(city);
+    if(invCats.indexOf(cat) >= 0) citiesWithCat.push(city);
+  });
+
+  var occupiedCities = {};
+  filteredData.forEach(function(d){
+    if(d.category === cat && isOccupiedBefore30(d)) occupiedCities[d.city] = true;
+  });
+
+  var occCount = Object.keys(occupiedCities).length;
+  var totalCount = citiesWithCat.length;
+  var rate = totalCount > 0 ? Math.round(occCount / totalCount * 100) : 0;
+  document.getElementById('detailSubtitle').textContent =
+    '可售城市'+totalCount+' · 已占'+occCount+' · 占量率'+rate+'% · 剩余'+(totalCount-occCount)+' · 单店买全城';
+
+  var html = '';
+  if(currentTab === 'all'){
+    html = '<table class="data-table"><thead><tr><th>城市</th><th>省份</th><th>区域</th><th>占量日期</th><th>D+30</th></tr></thead><tbody>';
+    filteredData.forEach(function(d){
+      if(d.category !== cat) return;
+      var a30 = isOccupiedAt30(d);
+      html += '<tr><td>'+d.city+'</td><td>'+(CITY_PROVINCE[d.city]||'')+'</td><td>'+(d.area_name||'')+'</td><td>'+(d.date||'')+'</td>';
+      html += '<td><span class="status-badge '+(a30?'badge-occupied':'badge-available')+'">'+(a30?'已占':'可售')+'</span></td></tr>';
+    });
+    html += '</tbody></table>';
+    if(!filteredData.some(function(d){ return d.category===cat; }))
+      html = '<div class="detail-placeholder">该类目暂无占量数据<br>所有'+totalCount+'个城市均可售</div>';
+
+  } else if(currentTab === 'unoccupied'){
+    html = '<div style="margin-bottom:6px;font-size:10px;color:#64748b;">口径：该类目30天内无排期的城市</div>';
+    html += '<input type="text" id="detailCatFilter" placeholder="搜索城市..." style="width:100%;padding:5px 8px;margin-bottom:6px;border-radius:4px;border:1px solid #334155;background:#0f1923;color:#e2e8f0;font-size:11px;outline:none;">';
+    html += '<table class="data-table"><thead><tr><th>城市</th><th>省份</th><th>单店买全城</th><th>状态</th></tr></thead><tbody>';
+    var count = 0;
+    citiesWithCat.sort().forEach(function(city){
+      if(!occupiedCities[city]){
+        count++;
+        html += '<tr class="cat-row" data-city="'+city+'"><td>'+city+'</td><td>'+(CITY_PROVINCE[city]||'')+'</td><td><span class="status-badge badge-citywide">支持</span></td><td><span class="status-badge badge-available">可售</span></td></tr>';
+      }
+    });
+    html += '</tbody></table>';
+    if(count === 0) html = '<div class="detail-placeholder">该类目在所有城市均已被占</div>';
+    else html = '<div style="font-size:10px;color:#64748b;margin-bottom:6px;">共 '+count+' / '+totalCount+' 个城市可售</div>' + html;
+
+  } else if(currentTab === 'avail30'){
+    html = '<div style="margin-bottom:6px;font-size:10px;color:#64748b;">'+dateStr(addDays(today(),30))+' 当天可售的城市</div>';
+    html += '<input type="text" id="detailCatFilter" placeholder="搜索城市..." style="width:100%;padding:5px 8px;margin-bottom:6px;border-radius:4px;border:1px solid #334155;background:#0f1923;color:#e2e8f0;font-size:11px;outline:none;">';
+    html += '<table class="data-table"><thead><tr><th>城市</th><th>省份</th><th>状态</th></tr></thead><tbody>';
+    var count30 = 0;
+    var occupiedAt30Cities = {};
+    filteredData.forEach(function(d){ if(d.category===cat && isOccupiedAt30(d)) occupiedAt30Cities[d.city]=true; });
+    citiesWithCat.sort().forEach(function(city){
+      if(!occupiedAt30Cities[city]){
+        count30++;
+        html += '<tr class="cat-row" data-city="'+city+'"><td>'+city+'</td><td>'+(CITY_PROVINCE[city]||'')+'</td><td><span class="status-badge badge-available">可售</span></td></tr>';
+      }
+    });
+    html += '</tbody></table>';
+    if(count30 === 0) html = '<div class="detail-placeholder">D+30该类目在所有城市均已被占</div>';
+  }
+  document.getElementById('detailContent').innerHTML = html;
+  var cityFilter = document.getElementById('detailCatFilter');
+  if(cityFilter){
+    cityFilter.addEventListener('input', function(){
+      var q = this.value.toLowerCase();
+      document.querySelectorAll('.cat-row').forEach(function(r){
+        var city = r.getAttribute('data-city').toLowerCase();
+        var prov = (CITY_PROVINCE[r.getAttribute('data-city')]||'').toLowerCase();
+        r.style.display = (!q || city.indexOf(q)>=0 || prov.indexOf(q)>=0) ? '' : 'none';
+      });
+    });
+  }
+}
+
+// ==================== Data Transform ====================
+function transformApiData(rows){
+  if(!rows || !rows.length) return [];
+  function matchCity(rawCity){
+    if(!rawCity) return null;
+    if(cityCoords[rawCity]) return {name: rawCity, coords: cityCoords[rawCity]};
+    var stripped = rawCity.replace(/市$/, '');
+    if(cityCoords[stripped]) return {name: stripped, coords: cityCoords[stripped]};
+    stripped = rawCity.replace(/特别行政区$/, '');
+    if(cityCoords[stripped]) return {name: stripped, coords: cityCoords[stripped]};
+    stripped = rawCity.replace(/(藏族羌族自治州|藏族自治州|彝族自治州|朝鲜族自治州|土家族苗族自治州|傣族景颇族自治州|傣族自治州|布依族苗族自治州|白族自治州|黎族自治县|自治州|自治县|地区|盟)$/, '');
+    if(cityCoords[stripped]) return {name: stripped, coords: cityCoords[stripped]};
+    return null;
+  }
+  function normalizeDate(d){
+    if(!d) return '';
+    var s = String(d).trim();
+    if(/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+    if(/^\d{8}$/.test(s)) return s.slice(0,4)+'-'+s.slice(4,6)+'-'+s.slice(6,8);
+    if(/^\d+$/.test(s) && parseInt(s) > 40000){
+      var utc_days = Math.floor(parseInt(s) - 25569);
+      var dt = new Date(utc_days * 86400 * 1000);
+      return dt.getFullYear()+'-'+pad(dt.getMonth()+1)+'-'+pad(dt.getDate());
+    }
+    return s;
+  }
+  var data = [];
+  rows.forEach(function(row){
+    var product = row.product || '';
+    if(product !== '顶展') return;
+    var catName = row.industry || '';
+    if(HIDDEN_CATS.indexOf(catName) >= 0) return;
+    var matched = matchCity(row.city || '');
+    if(!matched) return;
+    data.push({
+      city: matched.name, lat: matched.coords[0], lng: matched.coords[1],
+      category: row.industry || '', keyword: row.industry || '',
+      product: product, date: normalizeDate(row.date),
+      area_name: row.district || row.city || '',
+      industry_level1: row.industry_level1 || ''
+    });
+  });
+  return data;
+}
+
+// ==================== Init ====================
+function init(){
+  initSearchSelect('ssProvince', [], applyFilters);
+  initSearchSelect('ssCity', [], applyFilters);
+  initSearchSelect('ssCategory', [], applyFilters);
+  initFilters();
+  initMap(function(){
+    renderMap(); renderStats();
+  });
+  document.getElementById('dataTime').textContent = '数据更新: 请上传数据';
+}
+init();
+
+// ==================== Excel Upload ====================
+(function(){
+  var modal = document.getElementById('pasteModal');
+  var btnOpen = document.getElementById('btnUpdateData');
+  var btnClose = document.getElementById('btnCloseModal');
+  var btnParse = document.getElementById('btnParsePaste');
+  var dropZone = document.getElementById('dropZone');
+  var fileInput = document.getElementById('fileInput');
+  var fileInfo = document.getElementById('fileInfo');
+  var fileNameEl = document.getElementById('fileName');
+  var btnRemoveFile = document.getElementById('btnRemoveFile');
+  var status = document.getElementById('parseStatus');
+  var selectedFile = null;
+
+  function showModal(){ modal.style.display='flex'; status.textContent=''; }
+  function hideModal(){ modal.style.display='none'; selectedFile=null; fileInfo.style.display='none'; fileInput.value=''; }
+  btnOpen.addEventListener('click', showModal);
+  btnClose.addEventListener('click', hideModal);
+  modal.addEventListener('click', function(e){ if(e.target===modal) hideModal(); });
+
+  dropZone.addEventListener('click', function(){ fileInput.click(); });
+  dropZone.addEventListener('dragover', function(e){ e.preventDefault(); dropZone.style.borderColor='#3b82f6'; });
+  dropZone.addEventListener('dragleave', function(e){ e.preventDefault(); dropZone.style.borderColor='#334155'; });
+  dropZone.addEventListener('drop', function(e){
+    e.preventDefault(); dropZone.style.borderColor='#334155';
+    if(e.dataTransfer.files.length > 0) handleFile(e.dataTransfer.files[0]);
+  });
+  fileInput.addEventListener('change', function(){ if(fileInput.files.length > 0) handleFile(fileInput.files[0]); });
+  btnRemoveFile.addEventListener('click', function(e){ e.stopPropagation(); selectedFile=null; fileInfo.style.display='none'; fileInput.value=''; });
+
+  function handleFile(file){
+    var ext = file.name.split('.').pop().toLowerCase();
+    if(['xlsx','xls','csv'].indexOf(ext)<0){ status.textContent='不支持的格式'; status.style.color='#ef4444'; return; }
+    selectedFile = file;
+    fileNameEl.textContent = file.name + ' (' + (file.size<1024*1024?(file.size/1024).toFixed(1)+'KB':(file.size/1048576).toFixed(1)+'MB') + ')';
+    fileInfo.style.display = 'block'; status.textContent = '';
+  }
+
+  btnParse.addEventListener('click', function(){
+    var pwd = document.getElementById('uploadPassword').value;
+    if(pwd !== '666888'){ status.textContent='密码错误，无权更新数据'; status.style.color='#ef4444'; return; }
+    if(!selectedFile){ status.textContent='请先选择文件'; status.style.color='#ef4444'; return; }
+    status.textContent='解析中...'; status.style.color='#94a3b8';
+    var reader = new FileReader();
+    reader.onload = function(e){
+      try {
+        var wb = XLSX.read(new Uint8Array(e.target.result), {type:'array'});
+        var jsonRows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], {defval:''});
+        if(!jsonRows||!jsonRows.length){ status.textContent='文件为空'; status.style.color='#ef4444'; return; }
+        var rows = mapExcelRows(jsonRows);
+        if(!rows||!rows.length){ status.textContent='无有效数据行'; status.style.color='#f59e0b'; return; }
+        var dashData = transformApiData(rows);
+        if(!dashData.length){ status.textContent='无匹配城市'; status.style.color='#f59e0b'; return; }
+        try { localStorage.setItem('brand_ad_map_data', JSON.stringify(rows)); } catch(ex){}
+        refreshDashboard(dashData, '上传·'+dashData.length+'条');
+        // 提供发布到线上 + 下载离线版
+        var ghCfg = getGhConfig();
+        var pubStyle = ghCfg ? 'background:#059669;' : 'background:#475569;';
+        var pubLabel = ghCfg ? '🚀 一键发布到线上' : '🚀 发布到线上（需先配置）';
+        status.innerHTML = '✅ 解析成功！共'+dashData.length+'条数据<br><button id="btnPublishOnline" style="margin-top:8px;padding:8px 18px;border-radius:6px;border:none;'+pubStyle+'color:#fff;font-size:13px;cursor:pointer;font-weight:500;">'+pubLabel+'</button> <button id="btnDownloadShare" style="margin-top:8px;padding:6px 14px;border-radius:6px;border:1px solid #334155;background:transparent;color:#94a3b8;font-size:11px;cursor:pointer;">下载离线版</button><div id="publishProgress" style="font-size:11px;margin-top:6px;"></div>';
+        status.style.color = '#10b981';
+        document.getElementById('btnPublishOnline').addEventListener('click', function(){
+          publishToGitHub(rows);
+        });
+        document.getElementById('btnDownloadShare').addEventListener('click', function(){
+          var html = document.documentElement.outerHTML;
+          var marker = 'var DEFAULT_RAW_DATA = [];';
+          var replacement = 'var DEFAULT_RAW_DATA = ' + JSON.stringify(rows) + ';';
+          html = html.replace(marker, replacement);
+          var blob = new Blob(['<!DOCTYPE html><html>' + html.split('<html>').slice(1).join('<html>')], {type:'text/html'});
+          var a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+          a.download = 'brand-ad-map.html'; a.click();
+        });
+        // 不自动关闭弹窗，让用户看到发布按钮
+      } catch(ex){ status.textContent='解析出错: '+ex.message; status.style.color='#ef4444'; }
+    };
+    reader.readAsArrayBuffer(selectedFile);
+  });
+
+  function mapExcelRows(jsonRows){
+    var fieldMap = {'date':'date','日期':'date','date_time':'date','city':'city','城市':'city','city_name':'city','district':'district','区域':'district','area_name':'district','industry_level1':'industry_level1','一级行业':'industry_level1','biz_parent':'industry_level1','industry':'industry','二级行业':'industry','行业':'industry','biz_name':'industry','product':'product','产品':'product','scene':'product'};
+    var keys = Object.keys(jsonRows[0]);
+    var colMapping = {};
+    keys.forEach(function(k){ var m = fieldMap[k.trim().toLowerCase()]; if(m&&!colMapping[m]) colMapping[m]=k; });
+    if(!colMapping.city){
+      var order=['date','city','district','industry_level1','industry','product'];
+      order.forEach(function(f,i){ if(i<keys.length) colMapping[f]=keys[i]; });
+    }
+    if(!colMapping.city) return null;
+    var rows = [];
+    jsonRows.forEach(function(raw){
+      var row = {};
+      Object.keys(colMapping).forEach(function(f){
+        var v = raw[colMapping[f]];
+        row[f] = (f==='date'&&typeof v==='number') ? excelDateToStr(v) : (v!=null?String(v).trim():'');
+      });
+      if(row.city) rows.push(row);
+    });
+    return rows;
+  }
+  function excelDateToStr(serial){ var d=new Date((Math.floor(serial-25569))*86400000); return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate()); }
+
+  // Load cache or default data, then try remote
+  try {
+    var cached = localStorage.getItem('brand_ad_map_data');
+    if(cached){
+      var cachedData = transformApiData(JSON.parse(cached));
+      if(cachedData.length > 0) refreshDashboard(cachedData, '缓存·'+cachedData.length+'条');
+    } else if(DEFAULT_RAW_DATA && DEFAULT_RAW_DATA.length > 0){
+      var defaultData = transformApiData(DEFAULT_RAW_DATA);
+      if(defaultData.length > 0) refreshDashboard(defaultData, '内置·'+defaultData.length+'条');
+    }
+  } catch(e){}
+  // Try fetch remote data.json (GitHub Pages)
+  loadRemoteData();
+})();
+
+function refreshDashboard(data, label){
+  rawData = data; filteredData = data;
+  buildAllKeywords(data);
+  initFilters();
+  applyFilters();
+  selectedCity = '';
+  document.getElementById('detailTabs').style.display = 'none';
+  document.getElementById('detailTitle').textContent = '点击地图城市查看详情';
+  document.getElementById('detailSubtitle').textContent = '选择城市后展示占量明细与可售空位';
+  document.getElementById('detailContent').innerHTML = '<div class="detail-placeholder">点击左侧地图城市气泡<br>查看该城市占量明细与空余坑位</div>';
+  document.getElementById('dataTime').textContent = '数据更新: ' + dateStr(today()) + ' (' + label + ')';
+}
+
+// ==================== GitHub API 发布功能 ====================
+function getGhConfig(){
+  try {
+    var cfg = JSON.parse(localStorage.getItem('gh_publish_config') || 'null');
+    if(cfg && cfg.token && cfg.owner && cfg.repo) return cfg;
+  } catch(e){}
+  return null;
+}
+
+function saveGhConfig(cfg){
+  localStorage.setItem('gh_publish_config', JSON.stringify(cfg));
+}
+
+function loadRemoteData(){
+  var ghCfg = getGhConfig();
+  var dataUrl = 'brand-ad-map-data.json';
+  if(ghCfg){
+    dataUrl = 'https://raw.githubusercontent.com/' + ghCfg.owner + '/' + ghCfg.repo + '/main/' + (ghCfg.path || 'brand-ad-map-data.json') + '?t=' + Date.now();
+  }
+  fetch(dataUrl).then(function(r){
+    if(!r.ok) throw new Error('HTTP ' + r.status);
+    return r.json();
+  }).then(function(rows){
+    if(!rows || !rows.length) return;
+    var dashData = transformApiData(rows);
+    if(dashData.length > 0) refreshDashboard(dashData, '线上·'+dashData.length+'条');
+  }).catch(function(e){
+    if(ghCfg){
+      fetch('brand-ad-map-data.json').then(function(r){
+        if(!r.ok) return;
+        return r.json();
+      }).then(function(rows){
+        if(rows && rows.length){
+          var dashData = transformApiData(rows);
+          if(dashData.length > 0) refreshDashboard(dashData, '线上·'+dashData.length+'条');
+        }
+      }).catch(function(){});
+    }
+  });
+}
+
+function publishToGitHub(rows){
+  var ghCfg = getGhConfig();
+  var progressEl = document.getElementById('publishProgress');
+  if(!ghCfg){
+    document.getElementById('ghConfigModal').style.display = 'flex';
+    if(progressEl) progressEl.innerHTML = '<span style="color:#f59e0b;">请先完成发布配置，保存后再次点击发布</span>';
+    return;
+  }
+  if(progressEl) progressEl.innerHTML = '<span style="color:#3b82f6;">正在发布到 GitHub...</span>';
+  var filePath = ghCfg.path || 'brand-ad-map-data.json';
+  var apiUrl = 'https://api.github.com/repos/' + ghCfg.owner + '/' + ghCfg.repo + '/contents/' + filePath;
+  var content = btoa(unescape(encodeURIComponent(JSON.stringify(rows))));
+
+  fetch(apiUrl, {
+    headers: { 'Authorization': 'token ' + ghCfg.token, 'Accept': 'application/vnd.github.v3+json' }
+  }).then(function(r){ return r.json(); }).then(function(existing){
+    var body = {
+      message: 'update inventory data ' + dateStr(today()),
+      content: content,
+      branch: 'main'
+    };
+    if(existing && existing.sha) body.sha = existing.sha;
+    return fetch(apiUrl, {
+      method: 'PUT',
+      headers: {
+        'Authorization': 'token ' + ghCfg.token,
+        'Accept': 'application/vnd.github.v3+json',
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(body)
+    });
+  }).then(function(r){
+    if(!r.ok) return r.json().then(function(err){ throw new Error(err.message || 'HTTP '+r.status); });
+    return r.json();
+  }).then(function(result){
+    if(progressEl) progressEl.innerHTML = '<span style="color:#10b981;">✅ 发布成功！同事刷新页面即可看到最新数据</span>';
+  }).catch(function(err){
+    if(progressEl) progressEl.innerHTML = '<span style="color:#ef4444;">发布失败: ' + err.message + '</span>';
+    if(err.message && err.message.indexOf('Bad credentials') >= 0){
+      if(progressEl) progressEl.innerHTML += '<br><span style="color:#f59e0b;">Token 无效或已过期，请点击"发布设置"重新配置</span>';
+    }
+  });
+}
+
+// GitHub config modal logic
+(function(){
+  var modal = document.getElementById('ghConfigModal');
+  var btnOpen = document.getElementById('btnGhConfig');
+  var btnClose = document.getElementById('ghConfigClose');
+  var btnSave = document.getElementById('ghConfigSave');
+  var statusEl = document.getElementById('ghConfigStatus');
+
+  btnOpen.addEventListener('click', function(){
+    var pwd = prompt('请输入管理密码：');
+    if(pwd !== '666888'){ alert('密码错误'); return; }
+    modal.style.display = 'flex';
+    var cfg = getGhConfig();
+    if(cfg){
+      document.getElementById('ghOwner').value = cfg.owner || '';
+      document.getElementById('ghRepo').value = cfg.repo || '';
+      document.getElementById('ghToken').value = cfg.token || '';
+      document.getElementById('ghPath').value = cfg.path || 'brand-ad-map-data.json';
+    }
+  });
+  btnClose.addEventListener('click', function(){ modal.style.display = 'none'; });
+  modal.addEventListener('click', function(e){ if(e.target === modal) modal.style.display = 'none'; });
+
+  btnSave.addEventListener('click', function(){
+    var owner = document.getElementById('ghOwner').value.trim();
+    var repo = document.getElementById('ghRepo').value.trim();
+    var token = document.getElementById('ghToken').value.trim();
+    var path = document.getElementById('ghPath').value.trim() || 'brand-ad-map-data.json';
+    if(!owner || !repo || !token){
+      statusEl.innerHTML = '<span style="color:#ef4444;">请填写完整信息</span>';
+      return;
+    }
+    statusEl.innerHTML = '<span style="color:#3b82f6;">验证中...</span>';
+    fetch('https://api.github.com/repos/' + owner + '/' + repo, {
+      headers: { 'Authorization': 'token ' + token, 'Accept': 'application/vnd.github.v3+json' }
+    }).then(function(r){
+      if(!r.ok) throw new Error('验证失败 (HTTP '+r.status+')');
+      return r.json();
+    }).then(function(repoInfo){
+      saveGhConfig({ owner: owner, repo: repo, token: token, path: path });
+      statusEl.innerHTML = '<span style="color:#10b981;">✅ 配置已保存！仓库: ' + repoInfo.full_name + '</span>';
+      setTimeout(function(){ modal.style.display = 'none'; }, 1500);
+    }).catch(function(err){
+      statusEl.innerHTML = '<span style="color:#ef4444;">' + err.message + '，请检查用户名/仓库名/Token</span>';
+    });
+  });
+})();
+
+// ==================== 统计维度切换 ====================
+document.getElementById('statsDim').addEventListener('click', function(e){
+  var btn = e.target.closest('.stats-dim-btn');
+  if(!btn) return;
+  statsDimension = btn.getAttribute('data-dim');
+  this.querySelectorAll('.stats-dim-btn').forEach(function(b){ b.classList.remove('active'); });
+  btn.classList.add('active');
+  renderStats();
+  // 维度联动详情面板
+  if(statsDimension === 'tourism'){
+    renderTourismCitiesTable();
+  } else if(statsDimension === 'key'){
+    renderKeyCategoriesTable();
+  } else {
+    // all: 恢复默认提示
+    selectedCity = '';
+    document.getElementById('detailTabs').style.display = 'none';
+    document.getElementById('detailTitle').textContent = '点击地图城市查看详情';
+    document.getElementById('detailSubtitle').textContent = '选择城市后展示占量明细与可售空位';
+    document.getElementById('detailContent').innerHTML = '<div class="detail-placeholder">点击左侧地图城市气泡<br>查看该城市占量明细与空余坑位</div>';
+  }
+});
+
+var sortStateTourism = { col: 'rate', dir: 'desc' };
+var sortStateKey = { col: 'rate', dir: 'desc' };
+
+function renderTourismCitiesTable(){
+  document.getElementById('detailTabs').style.display = 'none';
+  document.getElementById('detailTitle').textContent = '✨ 旅游城市占量概览';
+  document.getElementById('detailSubtitle').textContent = '共'+TOURISM_CITIES.length+'个旅游热门城市，可点击表头排序';
+  selectedCity = '';
+  var hintEl = document.getElementById('specialtyHint');
+  if(hintEl) hintEl.style.display = 'none';
+
+  var fp = getFilterProvince();
+  var cities = TOURISM_CITIES.filter(function(c){ if(fp && CITY_PROVINCE[c] !== fp) return false; return !!INV_MAP[c]; });
+  var cityMap = {};
+  rawData.forEach(function(d){
+    if(!cityMap[d.city]) cityMap[d.city] = {};
+    if(!cityMap[d.city][d.category]) cityMap[d.city][d.category] = [];
+    cityMap[d.city][d.category].push(d);
+  });
+  var rows = cities.map(function(city){
+    var invCats = getInventoryForCity(city);
+    var items = cityMap[city] || {};
+    var occupied = 0;
+    Object.keys(items).forEach(function(cat){
+      if(invCats.indexOf(cat) < 0) return;
+      if(items[cat].some(function(it){ return isOccupiedBefore30(it); })) occupied++;
+    });
+    var total = invCats.length;
+    var avail = total - occupied;
+    var rate = total > 0 ? occupied / total : 0;
+    return { city: city, total: total, occupied: occupied, avail: avail, rate: rate };
+  }).filter(function(r){ return r.total > 0; });
+
+  rows.sort(function(a, b){
+    var col = sortStateTourism.col;
+    var dir = sortStateTourism.dir === 'asc' ? 1 : -1;
+    if(col === 'city') return (a.city > b.city ? 1 : -1) * dir;
+    return (a[col] - b[col]) * dir;
+  });
+
+  function sortIcon(col){
+    if(sortStateTourism.col !== col) return '<span style="color:#475569;">⇅</span>';
+    return sortStateTourism.dir === 'asc' ? '<span style="color:#3b82f6;">↑</span>' : '<span style="color:#3b82f6;">↓</span>';
+  }
+
+  var html = '<table class="data-table"><thead><tr>';
+  html += '<th class="sortable" data-col="city" style="cursor:pointer;">城市 ' + sortIcon('city') + '</th>';
+  html += '<th class="sortable" data-col="occupied" style="cursor:pointer;">已占 ' + sortIcon('occupied') + '</th>';
+  html += '<th class="sortable" data-col="avail" style="cursor:pointer;">可售 ' + sortIcon('avail') + '</th>';
+  html += '<th class="sortable" data-col="total" style="cursor:pointer;">总坑位 ' + sortIcon('total') + '</th>';
+  html += '<th class="sortable" data-col="rate" style="cursor:pointer;">占量率 ' + sortIcon('rate') + '</th>';
+  html += '</tr></thead><tbody>';
+  rows.forEach(function(r){
+    var rateColor = r.rate <= 0 ? '#22c55e' : '#dc2626';
+    html += '<tr><td style="cursor:pointer;color:#3b82f6" data-city="'+r.city+'">'+r.city+'</td>';
+    html += '<td style="color:#dc2626;font-weight:500;">'+r.occupied+'</td>';
+    html += '<td style="color:#22c55e;font-weight:500;">'+r.avail+'</td>';
+    html += '<td>'+r.total+'</td>';
+    html += '<td style="color:'+rateColor+';font-weight:600;">'+(r.rate*100).toFixed(1)+'%</td></tr>';
+  });
+  html += '</tbody></table>';
+  document.getElementById('detailContent').innerHTML = html;
+
+  document.querySelectorAll('#detailContent .sortable').forEach(function(th){
+    th.addEventListener('click', function(){
+      var col = this.getAttribute('data-col');
+      if(sortStateTourism.col === col) sortStateTourism.dir = sortStateTourism.dir === 'asc' ? 'desc' : 'asc';
+      else { sortStateTourism.col = col; sortStateTourism.dir = (col === 'city' ? 'asc' : 'desc'); }
+      renderTourismCitiesTable();
+    });
+  });
+  document.querySelectorAll('#detailContent [data-city]').forEach(function(el){
+    el.addEventListener('click', function(){ selectedCity = this.getAttribute('data-city'); renderDetail(selectedCity); });
+  });
+}
+
+function renderKeyCategoriesTable(){
+  document.getElementById('detailTabs').style.display = 'none';
+  document.getElementById('detailTitle').textContent = '🎯 重点类目占量概览';
+  document.getElementById('detailSubtitle').textContent = '共'+KEY_CAT_KEYWORDS.length+'个重点类目大类，可点击表头排序';
+  selectedCity = '';
+  var hintEl = document.getElementById('specialtyHint');
+  if(hintEl) hintEl.style.display = 'none';
+
+  // 按 KEY_CAT_KEYWORDS 大类聚合
+  var allCities = Object.keys(INV_MAP);
+  var fp = getFilterProvince();
+  if(fp) allCities = allCities.filter(function(c){ return CITY_PROVINCE[c] === fp; });
+
+  // 构建 城市->类目->items 映射
+  var cityCatItems = {};
+  rawData.forEach(function(d){
+    if(!cityCatItems[d.city]) cityCatItems[d.city] = {};
+    if(!cityCatItems[d.city][d.category]) cityCatItems[d.city][d.category] = [];
+    cityCatItems[d.city][d.category].push(d);
+  });
+
+  var rows = KEY_CAT_KEYWORDS.map(function(keyword){
+    var soldCities = {}, availCities = {}, totalCities = {};
+    allCities.forEach(function(city){
+      var invCats = getInventoryForCity(city);
+      var matchedInvCats = invCats.filter(function(c){ return c.indexOf(keyword) >= 0; });
+      if(matchedInvCats.length === 0) return;
+      totalCities[city] = true;
+      var items = cityCatItems[city] || {};
+      var hasOccupied = matchedInvCats.some(function(cat){
+        return items[cat] && items[cat].some(function(it){ return isOccupiedBefore30(it); });
+      });
+      if(hasOccupied) soldCities[city] = true;
+      // 是否还有空余
+      var hasAvail = matchedInvCats.some(function(cat){
+        return !items[cat] || !items[cat].some(function(it){ return isOccupiedBefore30(it); });
+      });
+      if(hasAvail) availCities[city] = true;
+    });
+    var sold = Object.keys(soldCities).length;
+    var avail = Object.keys(availCities).length;
+    var total = Object.keys(totalCities).length;
+    var rate = total > 0 ? sold / total : 0;
+    return { keyword: keyword, sold: sold, avail: avail, total: total, rate: rate };
+  });
+
+  rows.sort(function(a, b){
+    var col = sortStateKey.col;
+    var dir = sortStateKey.dir === 'asc' ? 1 : -1;
+    if(col === 'keyword') return (a.keyword > b.keyword ? 1 : -1) * dir;
+    return (a[col] - b[col]) * dir;
+  });
+
+  function sortIcon(col){
+    if(sortStateKey.col !== col) return '<span style="color:#475569;">⇅</span>';
+    return sortStateKey.dir === 'asc' ? '<span style="color:#3b82f6;">↑</span>' : '<span style="color:#3b82f6;">↓</span>';
+  }
+
+  var html = '<table class="data-table"><thead><tr>';
+  html += '<th class="sortable" data-col="keyword" style="cursor:pointer;">重点类目 ' + sortIcon('keyword') + '</th>';
+  html += '<th class="sortable" data-col="sold" style="cursor:pointer;">已售城市 ' + sortIcon('sold') + '</th>';
+  html += '<th class="sortable" data-col="avail" style="cursor:pointer;">可售城市 ' + sortIcon('avail') + '</th>';
+  html += '<th class="sortable" data-col="total" style="cursor:pointer;">覆盖城市 ' + sortIcon('total') + '</th>';
+  html += '<th class="sortable" data-col="rate" style="cursor:pointer;">占量率 ' + sortIcon('rate') + '</th>';
+  html += '</tr></thead><tbody>';
+  rows.forEach(function(r){
+    var rateColor = r.rate <= 0 ? '#22c55e' : '#dc2626';
+    html += '<tr><td><span class="status-badge badge-key">'+r.keyword+'</span></td>';
+    html += '<td style="color:#dc2626;font-weight:500;">'+r.sold+'</td>';
+    html += '<td style="color:#22c55e;font-weight:500;">'+r.avail+'</td>';
+    html += '<td>'+r.total+'</td>';
+    html += '<td style="color:'+rateColor+';font-weight:600;">'+(r.rate*100).toFixed(1)+'%</td></tr>';
+  });
+  html += '</tbody></table>';
+  document.getElementById('detailContent').innerHTML = html;
+
+  document.querySelectorAll('#detailContent .sortable').forEach(function(th){
+    th.addEventListener('click', function(){
+      var col = this.getAttribute('data-col');
+      if(sortStateKey.col === col) sortStateKey.dir = sortStateKey.dir === 'asc' ? 'desc' : 'asc';
+      else { sortStateKey.col = col; sortStateKey.dir = (col === 'keyword' ? 'asc' : 'desc'); }
+      renderKeyCategoriesTable();
+    });
+  });
+}
+
+// ==================== 旅游热门筛选 ====================
+document.getElementById('btnTourism').addEventListener('click', function(){
+  tourismOnly = !tourismOnly;
+  this.classList.toggle('active', tourismOnly);
+  applyFilters();
+});
+
+// ==================== 占量状态筛选 ====================
+function updateOccupancyButtons(){
+  var b1 = document.getElementById('btnOccUnoccupied');
+  var b2 = document.getElementById('btnOccOccupied');
+  b1.classList.toggle('active-green', occupancyFilter === 'unoccupied');
+  b2.classList.toggle('active-red', occupancyFilter === 'occupied');
+}
+document.getElementById('btnOccUnoccupied').addEventListener('click', function(){
+  occupancyFilter = (occupancyFilter === 'unoccupied') ? 'all' : 'unoccupied';
+  updateOccupancyButtons();
+  applyFilters();
+});
+document.getElementById('btnOccOccupied').addEventListener('click', function(){
+  occupancyFilter = (occupancyFilter === 'occupied') ? 'all' : 'occupied';
+  updateOccupancyButtons();
+  applyFilters();
+});
+
+// ==================== 取消筛选 ====================
+document.getElementById('btnResetFilters').addEventListener('click', function(){
+  document.getElementById('ssProvince')._ss.setValue('');
+  document.getElementById('ssCity')._ss.setValue('');
+  document.getElementById('ssCategory')._ss.setValue('');
+  tourismOnly = false;
+  document.getElementById('btnTourism').classList.remove('active');
+  occupancyFilter = 'all';
+  updateOccupancyButtons();
+  selectedCity = '';
+  applyFilters();
+});
+
+// ==================== 关键词查询功能 ====================
+(function(){
+  var kwModal = document.getElementById('keywordModal');
+  var kwInput = document.getElementById('keywordSearchInput');
+  var kwResults = document.getElementById('keywordResults');
+  var btnOpen = document.getElementById('btnKeywordSearch');
+  var btnClose = document.getElementById('btnCloseKeyword');
+
+  btnOpen.addEventListener('click', function(){ kwModal.style.display='flex'; kwInput.focus(); });
+  btnClose.addEventListener('click', function(){ kwModal.style.display='none'; });
+  kwModal.addEventListener('click', function(e){ if(e.target===kwModal) kwModal.style.display='none'; });
+
+  kwInput.addEventListener('input', function(){
+    var q = this.value.trim().toLowerCase();
+    if(!q){ kwResults.innerHTML='<div style="color:#64748b;font-size:12px;text-align:center;padding:20px;">输入类目名称开始搜索</div>'; return; }
+    var html = '';
+    var matchCount = 0;
+    Object.keys(CAT_KEYWORDS).forEach(function(cat){
+      if(cat.toLowerCase().indexOf(q) >= 0){
+        matchCount++;
+        var kws = CAT_KEYWORDS[cat];
+        html += '<div style="margin-bottom:12px;padding:10px 12px;background:#0f1923;border:1px solid #334155;border-radius:6px;">';
+        html += '<div style="font-size:12px;font-weight:600;color:#3b82f6;margin-bottom:6px;">'+cat+'</div>';
+        html += '<div style="display:flex;flex-wrap:wrap;gap:4px;">';
+        kws.forEach(function(kw){
+          html += '<span style="padding:2px 8px;background:#1e293b;border:1px solid #475569;border-radius:4px;font-size:11px;color:#e2e8f0;">'+kw+'</span>';
+        });
+        html += '</div>';
+        html += '<div style="font-size:10px;color:#64748b;margin-top:4px;">共 '+kws.length+' 个关键词</div>';
+        html += '</div>';
+      }
+    });
+    if(matchCount === 0) html = '<div style="color:#64748b;font-size:12px;text-align:center;padding:20px;">未找到匹配的类目</div>';
+    else html = '<div style="font-size:10px;color:#94a3b8;margin-bottom:8px;">找到 '+matchCount+' 个匹配类目</div>' + html;
+    kwResults.innerHTML = html;
+  });
+})();
+
+
+// ==================== 日期计算器 ====================
+(function(){
+  var modal = document.getElementById('dateCalcModal');
+  var weekNames = ['星期日','星期一','星期二','星期三','星期四','星期五','星期六'];
+
+  function setToday(){
+    var t = new Date();
+    document.getElementById('dcYear').value = t.getFullYear();
+    document.getElementById('dcMonth').value = t.getMonth()+1;
+    document.getElementById('dcDay').value = t.getDate();
+  }
+
+  function calcDate(){
+    var y = parseInt(document.getElementById('dcYear').value);
+    var m = parseInt(document.getElementById('dcMonth').value)-1;
+    var d = parseInt(document.getElementById('dcDay').value);
+    var days = parseInt(document.getElementById('dcDays').value) || 0;
+    var dir = parseInt(document.getElementById('dcDir').value);
+    var base = new Date(y, m, d);
+    if(isNaN(base.getTime())){ document.getElementById('dcResult').textContent = '日期无效'; return; }
+    var result = new Date(base);
+    result.setDate(result.getDate() + days * dir);
+    var ry = result.getFullYear();
+    var rm = result.getMonth()+1;
+    var rd = result.getDate();
+    var wk = weekNames[result.getDay()];
+    document.getElementById('dcResult').innerHTML = '<strong>'+ry+'年'+rm+'月'+rd+'日 '+wk+'</strong><br><span style="font-size:11px;color:#94a3b8;">从'+y+'年'+(m+1)+'月'+d+'日'+(dir>0?'往后':'往前')+days+'天</span>';
+  }
+
+  document.getElementById('btnDateCalc').addEventListener('click', function(){
+    setToday();
+    document.getElementById('dcResult').innerHTML = '';
+    modal.style.display = 'flex';
+    calcDate();
+  });
+  document.getElementById('dateCalcClose').addEventListener('click', function(){ modal.style.display='none'; });
+  modal.addEventListener('click', function(e){ if(e.target===modal) modal.style.display='none'; });
+  document.getElementById('dcCalcBtn').addEventListener('click', calcDate);
+  document.querySelectorAll('.dc-quick').forEach(function(el){
+    el.addEventListener('click', function(){
+      document.getElementById('dcDays').value = this.getAttribute('data-days');
+      document.getElementById('dcDir').value = '1';
+      calcDate();
+    });
+  });
+  ['dcYear','dcMonth','dcDay','dcDays'].forEach(function(id){
+    document.getElementById(id).addEventListener('keydown', function(e){ if(e.key==='Enter') calcDate(); });
+  });
+})();
+
+</script>
+<script async src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+
+</body>
+</html>
