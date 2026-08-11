@@ -387,10 +387,7 @@ a { color:var(--accent2); text-decoration:none; }
             <option value="暂不跟进">暂不跟进</option>
           </select>
           <button class="btn btn-outline btn-sm" onclick="exportCommercial()">📥 导出</button>
-          <button class="btn btn-primary btn-sm" onclick="openCustomModal('commercial')">+ 添加</button>
-          <button class="btn btn-outline btn-sm" onclick="document.getElementById('commercialFileImport').click()">📁 导入</button>
-          <button class="btn btn-outline btn-sm" onclick="downloadTemplate('commercial')">📋 模板</button>
-          <input type="file" id="commercialFileImport" accept=".csv,.xlsx,.xls" style="display:none" onchange="importCommercialCSV(this)">
+          <button class="btn btn-primary btn-sm" onclick="openCustomModal('commercial')">+ 添加商机</button>
         </div>
         <div id="commercialTableWrap"></div>
       </div>
@@ -422,10 +419,7 @@ a { color:var(--accent2); text-decoration:none; }
             <option value="无效">无效</option>
           </select>
           <button class="btn btn-outline btn-sm" onclick="exportLeads()">📥 导出</button>
-          <button class="btn btn-primary btn-sm" onclick="openCustomModal('leads')">+ 添加</button>
-          <button class="btn btn-outline btn-sm" onclick="document.getElementById('leadsFileImport').click()">📁 导入</button>
-          <button class="btn btn-outline btn-sm" onclick="downloadTemplate('leads')">📋 模板</button>
-          <input type="file" id="leadsFileImport" accept=".csv,.xlsx,.xls" style="display:none" onchange="importLeadsCSV(this)">
+          <button class="btn btn-primary btn-sm" onclick="openCustomModal('leads')">+ 添加商机</button>
         </div>
         <div id="leadsTableWrap"></div>
       </div>
@@ -573,13 +567,17 @@ a { color:var(--accent2); text-decoration:none; }
 <div id="customModal" class="modal-overlay" onclick="if(event.target===this)closeCustomModal()">
   <div class="modal" style="max-width:520px">
     <div class="modal-header">
-      <h3 id="customModalTitle">添加商户</h3>
+      <h3 id="customModalTitle">添加商机</h3>
       <button class="modal-close" onclick="closeCustomModal()">✕</button>
     </div>
     <div class="modal-body">
       <div id="customFormBody"></div>
       <div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border);">
-        <button class="btn btn-outline btn-sm" onclick="triggerCustomFile()" style="width:100%;">📁 从文件批量导入（CSV / Excel）</button>
+        <div style="display:flex;gap:8px;">
+          <button class="btn btn-outline btn-sm" onclick="triggerCustomFile()" style="flex:1;">📁 批量导入</button>
+          <button class="btn btn-outline btn-sm" onclick="downloadTemplate(_customType)" style="flex:1;">📋 下载模板</button>
+        </div>
+        <div style="font-size:11px;color:var(--text3);margin-top:6px;text-align:center;">支持 CSV / Excel 格式，下载模板填写后上传</div>
         <input type="file" id="customFileInput" accept=".csv,.xlsx,.xls" style="display:none" onchange="handleCustomFileImport(this.files[0])">
       </div>
     </div>
@@ -3316,31 +3314,33 @@ var _customType = '';
 
 function openCustomModal(type) {
   _customType = type;
-  var cities = STATE.cities || [];
-  var cityOpts = '<option value="">选择城市</option>' + cities.map(function(c){return '<option>'+c+'</option>';}).join('');
+  // Build datalist for searchable city input (all China cities)
+  var cityDataList = '<datalist id="cityDataList">' +
+    ALL_CHINA_CITIES.map(function(c){return '<option value="'+c+'">';}).join('') +
+    '</datalist>';
   var html = '';
   if (type === 'commercial') {
-    $('customModalTitle').textContent = '添加商业化商户';
+    $('customModalTitle').textContent = '添加商机 - 商业化';
     html = '<div class="follow-form">' +
       '<div class="form-row"><div style="flex:1"><label>门店名称 *</label><input id="ce_storeName" placeholder="如：张亮麻辣烫"></div>' +
       '<div style="flex:1"><label>PID *</label><input id="ce_pid" placeholder="商户PID"></div></div>' +
-      '<div class="form-row"><div style="flex:1"><label>城市 *</label><select id="ce_city">' + cityOpts + '</select></div>' +
+      '<div class="form-row"><div style="flex:1"><label>城市 *</label><input id="ce_city" list="cityDataList" placeholder="搜索或输入城市"></div>' +
       '<div style="flex:1"><label>类目 *</label><input id="ce_cat" placeholder="如：快餐、火锅、茶饮"></div></div>' +
       '<div class="form-row"><div style="flex:1"><label>门店数</label><input id="ce_storeCount" type="number" value="1" min="1"></div>' +
       '<div style="flex:1"><label>联系人</label><input id="ce_contact" placeholder="老板姓名"></div></div>' +
       '<div><label>联系电话</label><input id="ce_phone" placeholder="手机号"></div>' +
-      '</div>';
+      '</div>' + cityDataList;
   } else {
-    $('customModalTitle').textContent = '添加开店Leads';
+    $('customModalTitle').textContent = '添加商机 - 开店';
     html = '<div class="follow-form">' +
       '<div class="form-row"><div style="flex:1"><label>POI名称 *</label><input id="ce_poiName" placeholder="门店名称"></div>' +
-      '<div style="flex:1"><label>城市 *</label><select id="ce_city">' + cityOpts + '</select></div></div>' +
+      '<div style="flex:1"><label>城市 *</label><input id="ce_city" list="cityDataList" placeholder="搜索或输入城市"></div></div>' +
       '<div class="form-row"><div style="flex:1"><label>类目 *</label><input id="ce_cat" placeholder="如：快餐、火锅、茶饮"></div>' +
       '<div style="flex:1"><label>联系人</label><input id="ce_contact" placeholder="老板姓名"></div></div>' +
       '<div class="form-row"><div style="flex:1"><label>联系电话</label><input id="ce_phone" placeholder="手机号"></div>' +
       '<div style="flex:1"></div></div>' +
       '<div><label>备注</label><textarea id="ce_notes" placeholder="补充信息..."></textarea></div>' +
-      '</div>';
+      '</div>' + cityDataList;
   }
   $('customFormBody').innerHTML = html;
   $('customModal').classList.add('active');
