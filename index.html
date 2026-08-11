@@ -1637,6 +1637,185 @@ function showPIDDetail(pid, autoFollow) {
   }
 }
 
+// ═══════════════════════════════════════════
+// 话术库 — 移植自盘户小助手（品类+画像双维度）
+// ═══════════════════════════════════════════
+var SCRIPT_LIBRARY = {
+  general: {
+    open: [
+      {label:'政策利好', text:'"老板你好，我是高德地图的XX。政策出来了，正常充值返点是5%，但现在可以送20%，预存6000送1200，广告金不过期，可以按效果慢慢消耗。"'},
+      {label:'回访服务', text:'"老板你好，我高德XX，之前跟您联系过/您去年在我们这签约入住过。我看您之前的XX已经到期了/需要升级了，想跟您对接一下。"'},
+      {label:'免费切入', text:'"老板您好，我们是高德地图的，可以帮您进行免费的线上引流/免费帮您升级团购页面/免费帮您优化门店信息，您看需要吗？"'},
+      {label:'季节节点', text:'"老板，马上旺季到了，高德这边有出行节活动，到时候选几款商品报名参加，就能享受平台红包补贴。想问一下您有没有线上推广计划？"'}
+    ],
+    close: [
+      {label:'充值返点', text:'"预存广告金不过期，按效果消耗。现在充值6000送1200（20%返点），相当于打8折。这个活动力度是最大的，后面不一定有。"'},
+      {label:'限时紧迫', text:'"这个政策到这个月底就截止了，而且一个城市一个类目只招一家，名额有限，不一定能抢到第二轮排期。"'},
+      {label:'低门槛试水', text:'"最少一天100的预算，一个月3000。不好使随时可以停，广告金不过期。先试一个月看看效果。"'}
+    ],
+    obj: [
+      {label:'预算有限', text:'"不用一步到位，最低日预算100起，先小额测试效果。广告金不过期，可以按照效果慢慢消耗，没有压力。"'},
+      {label:'之前没效果', text:'"现在高德跟以前不一样了，业务线扩大了好几千人，导航市场占到70-80%了。产品也升级了，OCPC按成交付费，ROI有保障。"'},
+      {label:'不需要', text:'"您隔壁XX店做了排名提升，搜索「附近美食」能优先展示。高德的用户是真的在路上要吃饭的人，到店转化率远高于其他平台。"'}
+    ]
+  },
+  '中餐': {
+    open: [
+      {label:'排名对比', text:'"老板，我帮你看了一下——你这条街搜「附近中餐」你排第几位？排前面的都做了广告。你的菜不比他们差，但线上展示输给他们了。"'},
+      {label:'团购升级', text:'"老板，咱们现在上的团购我看了一下，马上旺季了，有没有需要更新的？现在上面有几个品，我帮您看看怎么优化一下。"'}
+    ],
+    close: [
+      {label:'充值方案', text:'"预存1万送2000，预存6000送1200，看您选哪个档位。广告金不过期，按月消耗。赠送的部分有有效期，但广告金永远在。"'},
+      {label:'商务通续约', text:'"您之前的商务通已经到期了，现在显示蓝V。建议续上，配合广告效果更好。商务通+推广通组合，一个管展示一个管获客。"'}
+    ],
+    obj: [
+      {label:'竞品在做', text:'"就是因为竞品在做，你才更要做。你不做，客人就被他们接走了。做了之后你的菜比他们好吃，展示不输给他们，客人自然选你。"'}
+    ]
+  },
+  '烧烤': {
+    open: [
+      {label:'OCPC推荐', text:'"老板，我们高德出了一个OCPC产品，说白了就是顾客到店了才扣费，没到店不花钱。比你之前的CPC更精准，ROI更有保障。"'},
+      {label:'旺季备流量', text:'"老板，夏天是烧烤旺季，现在备流量正好。高德上搜「附近烧烤」的人越来越多，您做了推广的话，这些客人直接就导航过来了。"'}
+    ],
+    close: [
+      {label:'返点+旺季', text:'"现在充值有20%返点，加上旺季流量大，两个叠加效果最好。旺季不投，等淡季再投就晚了，ROI差好几倍。"'}
+    ],
+    obj: [
+      {label:'效果怎样', text:'"OCPC是到了才扣费，不白花钱。您这个品类在高德上搜索量很大，做了之后导航到店、电话预定都会有明显提升。先试一个月看数据。"'}
+    ]
+  },
+  '火锅': {
+    open: [
+      {label:'回访升级', text:'"老板您好，我高德XX，给您回访一下。您之前在高德做的XX/团购最近掉了，需要帮您重新弄一下/升级一下。"'},
+      {label:'新客价引导', text:'"老板，您在高德后台点「全部」，有一个「新客价」进去看有没有看到？平台活动里有个待确认的，我帮您设置一下。"'}
+    ],
+    close: [
+      {label:'旺季备流量', text:'"火锅旺季就是秋冬春三季，现在备流量正好。OCPC按到店付费，不白花钱。先试一个月看导航到店和电话预定的数据。"'}
+    ],
+    obj: [
+      {label:'冬天淡季', text:'"火锅旺季就是秋冬春三季，现在备流量正好。等天冷了再投就晚了，竞争会更激烈，成本也更高。"'}
+    ]
+  },
+  '小龙虾': {
+    open: [
+      {label:'免费引流', text:'"老板，我们可以帮您进行免费的线上引流，等您这边准备好了就给您推客人过来，您看需要吗？"'},
+      {label:'历史服务', text:'"老板，上次您说XX问题，我帮您问了/处理了。现在刚好旺季到了，咱们可以把广告续起来，现在也有活动。"'}
+    ],
+    close: [
+      {label:'旺季紧迫', text:'"现在刚好到了旺季，门店也营业了，可以把会员和广告续一下。像咱们两个店都是到期的，现在续正好赶上旺季流量。"'},
+      {label:'性价比', text:'"比去年多存1300，但给你返1000，就是多了2300。这是性价比最高的活动，我们认识这么多年了，给你按最低折扣。"'}
+    ],
+    obj: [
+      {label:'导航定位免费', text:'"所有的导航定位都是免费的，就怕您不小心被别人收了钱。好的老板说搞定位还花了几百块呢，这些我都可以免费帮您弄。"'}
+    ]
+  },
+  '水产海鲜': {
+    open: [
+      {label:'关键词排名', text:'"老板，有顾客在您门店周边搜索「海鲜」「家常菜」这种关键词，您的门店可以获得优先推送。就像隔壁XX一样做了排名提升。"'},
+      {label:'城市独家', text:'"高德针对美食开放了品牌指定广告位，一个城市一个类目只招一家，搜索关键词您的门店都能置顶第一位，时间段只招一个商家。"'}
+    ],
+    close: [
+      {label:'景区旺季', text:'"旺季4-10月游客多，搜索「附近海鲜」的人暴增。做了推广这些客人直接就导航过来了，游客客单价高，不挑价格。"'},
+      {label:'折扣锁定', text:'"指定广告位原价5000/月，3个月起合作。现在第二轮合作最低5折/75折，打完折1万多三个月。不一定能抢到排期。"'}
+    ],
+    obj: [
+      {label:'太贵了', text:'"按点击扣费，只有顾客点进来查看详情才扣费，光是看到不扣钱。日预算最低100，先看效果再决定加不加。"'}
+    ]
+  }
+};
+
+// L2画像话术模板（基于门店特征动态生成）
+var SCRIPT_TEMPLATES = {
+  wine_alley: {
+    label: '酒香巷子深',
+    open: function(d){ return '"老板，你家评分在同品类里排前列，但搜\'附近' + (d.category_l2||'美食') + '\'你排第几位？前面几家评分没你高，但他们做了推广。你的菜明明比他们好，线上展示却输了。"'; },
+    close: '"效果广告把你推到搜索前面，智能体把你的口碑搬到线上。以你的口碑和转化率，广告ROI至少比同行高50%。"',
+    obj: '"高德搜美食的人是已经出门了、真的要吃饭的人。你的口碑在这种场景下最有杀伤力。"'
+  },
+  facade_idle: {
+    label: '门面空转',
+    open: function(d){ return '"老板，每天有不少人在高德看到你，但点进来的不到几个。旁边类似的店曝光差不多，导航到店是你的2倍。差距在于他做了组合购。"'; },
+    close: '"智能体先把转化率提到同行均值，效果广告再把曝光翻倍。单装智能体赚存量，单投广告转化低。两个一起才是闭环。"',
+    obj: '"流量你有了，但门面没装好、排名也没推，两头都在漏。"'
+  },
+  tidal: {
+    label: '潮汐商户',
+    open: function(d){ return '"老板，你的旺季就这几个月，错过一天少赚一天。现在搜\'' + (d.category_l2||'美食') + '\'的人每天都在涨，你在高德还是裸奔状态。"'; },
+    close: '"旺季三个产品全上集中火力，淡季智能体不要停——99块一个月帮你自动接咨询、攒评价。淡季攒好口碑，下个旺季一开广告就是高转化。"',
+    obj: '"旺季的广告每一分钱回报都比淡季高3-5倍，必须集中火力。"'
+  },
+  besieged: {
+    label: '同品类竞争强',
+    open: function(d){ return '"老板，你这条街搜\'' + (d.category_l2||'美食') + '\'你排第几位？排前面的都做了广告。最近客人是不是少了？不是客人不来了，是被他们在手机上截走了。"'; },
+    close: '"周边同品类竞争激烈，你不做推广，客人就被别人接走了。你的菜不比他们差，展示不输给他们，客人自然选你。"',
+    obj: '"你现在不做，下个月可能又多一家竞品上线，到时候更难追。"'
+  },
+  deep_dive: {
+    label: '待深挖',
+    open: function(d){ return '"老板，你的店在高德上已经有人搜了，日均DPV ' + (d.dpv_30d||0) + '，说明周边确实有需求。但现在这些流量没转化，有点可惜。"'; },
+    close: '"智能体+效果广告组合购，把你已有的流量变成到店客流。你已经有基础了，加把劲效果比新店好很多。"',
+    obj: '"你的店不是没需求，是没把需求接住。组合购就是帮你把漏斗补上。"'
+  },
+  seedling: {
+    label: '静默蓄力',
+    open: '"老板，现在做生意光靠路过的人不够了，越来越多人吃饭前先搜手机。你在高德上目前只有一个名字和地址，相当于没装修的门面。"',
+    close: '"智能体签12个月1188块，月均99块，帮你把菜单、优惠、环境图都放上去，等于线上开了个24小时不打烊的门面。想先试试也可以99块月付起步。"',
+    obj: '"不用一步到位，先装个智能体把基础打好，有数据了再追加广告。"'
+  },
+  'default': {
+    label: '通用',
+    open: function(d){ return '"老板，我帮你看了一下数据——你的门店在' + (d.city||'') + (d.category_l2||'美食') + '品类里还有不少提升空间。"'; },
+    close: '"智能体帮你把线上门面做好，效果广告让搜附近美食的人先看到你。两个加一起效果最好。"',
+    obj: '"高德的用户是真的在路上要吃饭的人。"'
+  }
+};
+
+// 类目匹配：二级类目 → 话术品类
+function getCatScriptKey(cat) {
+  if (!cat) return null;
+  var keys = ['中餐','烧烤','火锅','小龙虾','水产海鲜'];
+  for (var i = 0; i < keys.length; i++) {
+    if (cat.indexOf(keys[i]) >= 0 || keys[i].indexOf(cat) >= 0) return keys[i];
+  }
+  var related = {'川菜':'中餐','粤菜':'中餐','湘菜':'中餐','江浙菜':'中餐','鲁菜':'中餐','徽菜':'中餐',
+    '海鲜':'水产海鲜','水产':'水产海鲜','烤肉':'烧烤','串串':'火锅','涮肉':'火锅','烤鱼':'烧烤'};
+  for (var k in related) {
+    if (cat.indexOf(k) >= 0) return related[k];
+  }
+  return null;
+}
+
+// 获取品类+通用合并话术
+function getScriptsForStore(d) {
+  var catKey = getCatScriptKey(d.category_l2);
+  var general = SCRIPT_LIBRARY.general;
+  var specific = catKey ? SCRIPT_LIBRARY[catKey] : null;
+  var openList = (specific ? specific.open : []).concat(general.open).slice(0, 4);
+  var closeList = (specific ? specific.close : []).concat(general.close).slice(0, 3);
+  var objList = (specific ? specific.obj : []).concat(general.obj).slice(0, 3);
+  return { open: openList, close: closeList, obj: objList, catName: catKey || '通用' };
+}
+
+// L2画像检测（基于CRM可用数据推断）
+function detectProfile(d) {
+  var dpv = d.dpv_30d || 0;
+  var stores = d.store_count || 1;
+  var cat = d.category_l2 || '';
+  // 季节性品类
+  var tidalCats = ['小龙虾','烧烤','火锅','涮肉','串串','水产海鲜','冰淇淋','冷饮'];
+  var isTidal = false;
+  for (var i = 0; i < tidalCats.length; i++) {
+    if (cat.indexOf(tidalCats[i]) >= 0) { isTidal = true; break; }
+  }
+  // 判断逻辑
+  if (dpv < 10 && stores <= 2) return 'seedling';          // 低DPV+少店 = 静默蓄力
+  if (dpv >= 50 && stores >= 3) return 'facade_idle';      // 高DPV+多店未转化 = 门面空转
+  if (isTidal) return 'tidal';                              // 季节性品类 = 潮汐商户
+  if (dpv >= 10 && dpv < 50) return 'deep_dive';           // 有基础DPV = 待深挖
+  if (dpv >= 50 && stores <= 2) return 'wine_alley';       // 高DPV+少店 = 酒香巷子深
+  return 'besieged';                                         // 默认 = 同品类竞争强
+}
+
 function renderRecommendations(d) {
   var dpv = d.dpv_30d || 0;
   var stores = d.store_count || 1;
@@ -1739,7 +1918,12 @@ function renderRecommendations(d) {
 
   html += '</div>';
 
-  // 推荐话术 - 用真实数据
+  // ── 话术区域：品类+画像双维度 ──
+  var scripts = getScriptsForStore(d);
+  var profileKey = detectProfile(d);
+  var profileTpl = SCRIPT_TEMPLATES[profileKey] || SCRIPT_TEMPLATES['default'];
+
+  // 案例数据行
   var _caseLine = '';
   var allCases = ['xg','znt','dz','zx','dj'].map(function(k){ return {key:k, d:caseMap[k].data, name:caseMap[k].name}; });
   var bestCase = null;
@@ -1751,17 +1935,51 @@ function renderRecommendations(d) {
     _caseLine = d.city + '同品类商户签约后DPV上升率超80%。';
   }
 
-  // 方案话术 - 根据实际可推产品生成
-  var scriptProducts = [];
-  if (caseMap.znt.data || true) scriptProducts.push('品牌智能体');
-  if (caseMap.xg.data || dpv >= 10) scriptProducts.push(dpv < 100 ? 'CPC小预算试投' : '获客宝按效果出价');
-  if (hasDzOpp && (caseMap.dz.data || dpv >= 100)) scriptProducts.push('顶展');
-
   html += '<div class="detail-section" style="margin-top:20px;"><h4>推荐话术</h4>';
-  html += '<div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);padding:14px;font-size:13px;line-height:1.8;">';
-  html += '<strong>开场：</strong>"' + (d.store_name||'您门店') + '目前日均DPV有' + d.dpv_30d + '，说明周边用户搜索需求很旺，但还没做商业化投放，相当于有客流没接住。"<br>';
-  html += '<strong>方案：</strong>"建议先用' + scriptProducts.join('，再配') + '，预算自控，不点不花钱。"' + (hasDzOpp ? '<br><strong>机会：</strong>"当前' + cat + '类目顶展/钻展词包未占量，可以先抢注。"' : '') + '<br>';
-  html += '<strong>案例：</strong>"' + _caseLine + '"';
+
+  // 画像标签
+  html += '<div style="margin-bottom:12px;"><span style="display:inline-block;padding:3px 10px;background:var(--accent2-bg,rgba(59,130,246,.08));color:var(--accent2,#3b82f6);border-radius:20px;font-size:12px;font-weight:500;">' + (profileTpl.label || '通用') + ' · ' + scripts.catName + '话术</span></div>';
+
+  html += '<div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);padding:14px;font-size:13px;line-height:1.9;">';
+
+  // 1. 画像开场（基于门店特征）
+  var profileOpen = typeof profileTpl.open === 'function' ? profileTpl.open(d) : profileTpl.open;
+  html += '<strong>画像开场：</strong>' + profileOpen + '<br><br>';
+
+  // 2. 品类开场（取前2条，带标签）
+  html += '<strong style="color:var(--accent2,#3b82f6);">品类开场：</strong><br>';
+  var openShow = scripts.open.slice(0, 2);
+  for (var oi = 0; oi < openShow.length; oi++) {
+    html += '<span style="display:inline-block;padding:1px 6px;background:var(--g100,#f3f4f6);border-radius:4px;font-size:11px;color:var(--text3,#9ca3af);margin-right:4px;">' + openShow[oi].label + '</span>' + openShow[oi].text + '<br>';
+  }
+
+  // 3. 促单话术
+  html += '<br><strong style="color:var(--green,#059669);">促单话术：</strong><br>';
+  // 画像促单
+  html += '<span style="display:inline-block;padding:1px 6px;background:var(--g100,#f3f4f6);border-radius:4px;font-size:11px;color:var(--text3,#9ca3af);margin-right:4px;">画像</span>' + profileTpl.close + '<br>';
+  // 品类促单（取前1条）
+  if (scripts.close.length > 0) {
+    html += '<span style="display:inline-block;padding:1px 6px;background:var(--g100,#f3f4f6);border-radius:4px;font-size:11px;color:var(--text3,#9ca3af);margin-right:4px;">' + scripts.close[0].label + '</span>' + scripts.close[0].text + '<br>';
+  }
+
+  // 4. 异议处理
+  html += '<br><strong style="color:var(--orange,#ea580c);">异议处理：</strong><br>';
+  // 画像异议
+  html += '<span style="display:inline-block;padding:1px 6px;background:var(--g100,#f3f4f6);border-radius:4px;font-size:11px;color:var(--text3,#9ca3af);margin-right:4px;">画像</span>' + profileTpl.obj + '<br>';
+  // 品类+通用异议（取前2条）
+  var objShow = scripts.obj.slice(0, 2);
+  for (var oj = 0; oj < objShow.length; oj++) {
+    html += '<span style="display:inline-block;padding:1px 6px;background:var(--g100,#f3f4f6);border-radius:4px;font-size:11px;color:var(--text3,#9ca3af);margin-right:4px;">' + objShow[oj].label + '</span>' + objShow[oj].text + '<br>';
+  }
+
+  // 5. 案例数据
+  html += '<br><strong>案例支撑：</strong>"' + _caseLine + '"';
+
+  // 6. 占量机会（条件性）
+  if (hasDzOpp) {
+    html += '<br><strong style="color:var(--red,#dc2626);">词包机会：</strong>"当前' + cat + '类目顶展/钻展词包未占量，建议尽快抢注，一个城市一个类目只招一家。"';
+  }
+
   html += '</div></div>';
 
   return html;
