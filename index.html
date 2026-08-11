@@ -1016,8 +1016,9 @@ function renderSigningAnalysis(data, cities) {
       var m = c.metrics;
       var dpv = m.dpv_pct || 0;
       var gmv = m.gmv_pct || 0;
-      // 过滤：只要正向、且不超过500%的记录
-      if (dpv <= 0 || gmv <= 0 || dpv > 500 || gmv > 500) return;
+      // 过滤：排除极端值和双负向记录，至少一个指标正向且不超过500%
+      if (dpv > 500 || gmv > 500) return;
+      if (dpv <= 0 && gmv <= 0) return;
       citySignedCount++;
       var cat = c.category || '其他';
       var prodKey = prodNameMap[c.product] || c.product;
@@ -1100,7 +1101,10 @@ function renderSigningAnalysis(data, cities) {
   var prodList = Object.entries(prodAgg).map(function(e) {
     return {key:e[0], name:e[1].name || prodNames[e[0]] || e[0], n:e[1].n, dp:e[1].dp, gp:e[1].gp};
   }).filter(function(p) {
-    return p.dp > 0 && p.gp > 0 && p.dp <= 500 && p.gp <= 500;
+    // 产品级别放宽：至少一个指标正向且不超过500%
+    var dpOk = p.dp > 0 && p.dp <= 500;
+    var gpOk = p.gp > 0 && p.gp <= 500;
+    return (dpOk || gpOk) && p.dp >= 0 && p.gp >= 0;
   }).sort(function(a,b){return b.n - a.n;});
 
   var html = '<h3 style="font-size:15px;font-weight:600;margin-bottom:4px;">历史签约效果分析</h3>';
