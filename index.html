@@ -288,16 +288,7 @@ a { color:var(--accent2); text-decoration:none; }
   <div class="city-box">
     <h2>选择作业城市</h2>
     <p class="sub">选择你要做工的城市（可多选）</p>
-    <div style="display:flex;gap:10px;margin-bottom:14px;">
-      <input id="citySearch" placeholder="搜索城市名..." oninput="filterCityGrid()" style="flex:1;padding:8px 12px;border:1px solid var(--border);border-radius:var(--radius);background:var(--bg);color:var(--text1);font-size:14px;">
-      <button id="cityToggleBtn" class="btn btn-outline btn-sm" onclick="toggleCityView()" style="white-space:nowrap;">查看全部城市</button>
-    </div>
-    <div style="margin-bottom:10px;font-size:12px;color:var(--text3);">
-      <span id="citySelectInfo"></span>
-      <a href="javascript:void(0)" onclick="selectAllVisible()" style="color:var(--accent);margin-left:12px;">全选当前</a>
-      <a href="javascript:void(0)" onclick="clearAllCities()" style="color:var(--red);margin-left:12px;">清空</a>
-    </div>
-    <div id="cityGrid" class="city-grid" style="max-height:55vh;overflow-y:auto;"></div>
+    <div id="cityGrid" class="city-grid"></div>
     <div class="city-confirm">
       <button class="btn btn-primary" onclick="confirmCities()" style="width:100%">确认选择</button>
     </div>
@@ -876,106 +867,20 @@ function doLogout() {
 /* =============================================
    CITY SELECT
    ============================================= */
-var _cityViewAll = false;
-
 function showCitySelect() {
   $('cityPage').style.display = 'flex';
-  _cityViewAll = false;
-  $('cityToggleBtn').textContent = '查看全部城市';
-  $('citySearch').value = '';
-  renderCityGrid();
-}
-
-function renderCityGrid() {
   var grid = $('cityGrid');
   grid.innerHTML = '';
-  var myCities = STATE.user.cities || [];
-  var q = ($('citySearch').value || '').trim();
-  var selectedSet = {};
-  document.querySelectorAll('#cityGrid .city-chip.selected').forEach(function(c){ selectedSet[c.textContent] = true; });
-  // Also include STATE.cities for first render
-  STATE.cities.forEach(function(c){ selectedSet[c] = true; });
-
-  if (!_cityViewAll) {
-    // Show only assigned cities
-    var cities = myCities.filter(function(c){ return !q || c.indexOf(q) >= 0; });
-    if (cities.length === 0 && !q) {
-      grid.innerHTML = '<div style="color:var(--text3);font-size:14px;padding:20px;">暂无分配城市，点击"查看全部城市"选择</div>';
-    } else {
-      cities.forEach(function(city){
-        var chip = document.createElement('div');
-        chip.className = 'city-chip' + (selectedSet[city] ? ' selected' : '');
-        chip.textContent = city;
-        chip.onclick = function(){ chip.classList.toggle('selected'); updateCityInfo(); };
-        grid.appendChild(chip);
-      });
-    }
-  } else {
-    // Show all cities with "my city" markers
-    var allFiltered = ALL_CHINA_CITIES.filter(function(c){ return !q || c.indexOf(q) >= 0; });
-    var mySet = {};
-    myCities.forEach(function(c){ mySet[c] = true; });
-
-    // My cities first
-    var myFiltered = allFiltered.filter(function(c){ return mySet[c]; });
-    if (myFiltered.length > 0) {
-      var label = document.createElement('div');
-      label.style.cssText = 'grid-column:1/-1;font-size:12px;color:var(--text3);margin-top:4px;';
-      label.textContent = '★ 我的城市（' + myFiltered.length + '）';
-      grid.appendChild(label);
-      myFiltered.forEach(function(city){
-        var chip = document.createElement('div');
-        chip.className = 'city-chip' + (selectedSet[city] ? ' selected' : '');
-        chip.style.cssText = selectedSet[city] ? '' : 'border-color:var(--accent);';
-        chip.textContent = city;
-        chip.onclick = function(){ chip.classList.toggle('selected'); updateCityInfo(); };
-        grid.appendChild(chip);
-      });
-    }
-
-    // Other cities
-    var others = allFiltered.filter(function(c){ return !mySet[c]; });
-    if (others.length > 0) {
-      var label2 = document.createElement('div');
-      label2.style.cssText = 'grid-column:1/-1;font-size:12px;color:var(--text3);margin-top:12px;border-top:1px solid var(--border);padding-top:12px;';
-      label2.textContent = '全部城市（' + others.length + '）';
-      grid.appendChild(label2);
-      others.forEach(function(city){
-        var chip = document.createElement('div');
-        chip.className = 'city-chip' + (selectedSet[city] ? ' selected' : '');
-        chip.textContent = city;
-        chip.onclick = function(){ chip.classList.toggle('selected'); updateCityInfo(); };
-        grid.appendChild(chip);
-      });
-    }
-  }
-  updateCityInfo();
-}
-
-function updateCityInfo() {
-  var count = document.querySelectorAll('#cityGrid .city-chip.selected').length;
-  $('citySelectInfo').textContent = '已选择 ' + count + ' 个城市';
-}
-
-function filterCityGrid() {
-  // Preserve current selections before re-rendering
-  renderCityGrid();
-}
-
-function toggleCityView() {
-  _cityViewAll = !_cityViewAll;
-  $('cityToggleBtn').textContent = _cityViewAll ? '只看我的城市' : '查看全部城市';
-  renderCityGrid();
-}
-
-function selectAllVisible() {
-  document.querySelectorAll('#cityGrid .city-chip:not(.selected)').forEach(function(c){ c.classList.add('selected'); });
-  updateCityInfo();
-}
-
-function clearAllCities() {
-  document.querySelectorAll('#cityGrid .city-chip.selected').forEach(function(c){ c.classList.remove('selected'); });
-  updateCityInfo();
+  var cities = STATE.user.cities || [];
+  cities.forEach(function(city) {
+    var chip = document.createElement('div');
+    chip.className = 'city-chip' + (STATE.cities.indexOf(city) >= 0 ? ' selected' : '');
+    chip.textContent = city;
+    chip.onclick = function() {
+      chip.classList.toggle('selected');
+    };
+    grid.appendChild(chip);
+  });
 }
 
 function confirmCities() {
