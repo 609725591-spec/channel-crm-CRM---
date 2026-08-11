@@ -1787,7 +1787,7 @@ var PRODUCT_SCRIPTS = {
   dz: {
     name: '顶展',
     open: function(d){ return '"老板，高德针对' + (d.category_l2||'美食') + '开放了品牌广告位，一个城市一个类目只招一家，搜索关键词你的门店置顶第一位。"'; },
-    close: '"这个政策到月底截止，而且一个城市一个类目只招一家，名额有限。当前' + (d.category_l2||'') + '词包还没被占，建议尽快抢注。"',
+    close: function(d){ return '"这个政策到月底截止，而且一个城市一个类目只招一家，名额有限。当前' + (d.category_l2||'') + '词包还没被占，建议尽快抢注。"'; },
     obj: '"指定广告位按点击扣费，只有顾客点进来查看详情才扣费，光是看到不扣钱。日预算最低100，先看效果再决定。"'
   },
   zx: {
@@ -1800,7 +1800,7 @@ var PRODUCT_SCRIPTS = {
     name: '导结',
     open: function(d){ return '"老板，用户导航到目的地之后，结束页会展示附近美食推荐。你的门店可以出现在这个位置，拦截到达目的地的客流。"'; },
     close: '"导航结束页是天然的消费决策场景，用户刚到目的地正准备找地方吃饭。展示你的门店信息+优惠，直接转化。"',
-    obj: '"这个位置竞争不大，目前' + (d.category_l2||'美食') + '品类在导航结束页的覆盖还不高，先占位先受益。"'
+    obj: function(d){ return '"这个位置竞争不大，目前' + (d.category_l2||'美食') + '品类在导航结束页的覆盖还不高，先占位先受益。"'; }
   },
   pz: {
     name: '品牌智能体品专版',
@@ -1993,13 +1993,15 @@ function renderRecommendations(d) {
     var ps = PRODUCT_SCRIPTS[po.key];
     if (!ps) continue;
     var pOpen = typeof ps.open === 'function' ? ps.open(d) : ps.open;
+    var pClose = typeof ps.close === 'function' ? ps.close(d) : ps.close;
+    var pObj = typeof ps.obj === 'function' ? ps.obj(d) : ps.obj;
     var color = prodColors[po.key] || '#3b82f6';
 
     html += '<div style="background:var(--bg);border:1px solid var(--border);border-left:3px solid ' + color + ';border-radius:var(--radius);padding:14px;font-size:13px;line-height:1.9;margin-bottom:8px;">';
     html += '<strong style="color:' + color + ';">' + ps.name + '</strong><br>';
     html += '<span style="color:var(--text3,#9ca3af);font-size:11px;">开场</span> ' + pOpen + '<br>';
-    html += '<span style="color:var(--text3,#9ca3af);font-size:11px;">促单</span> ' + ps.close + '<br>';
-    html += '<span style="color:var(--text3,#9ca3af);font-size:11px;">异议</span> ' + ps.obj;
+    html += '<span style="color:var(--text3,#9ca3af);font-size:11px;">促单</span> ' + pClose + '<br>';
+    html += '<span style="color:var(--text3,#9ca3af);font-size:11px;">异议</span> ' + pObj;
 
     // 追加真实案例数据
     var cd = caseMap[po.key === 'pz' ? 'znt' : po.key];
