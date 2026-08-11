@@ -255,6 +255,15 @@ a { color:var(--accent2); text-decoration:none; }
 .emp-combo .emp-option { padding:8px 12px; cursor:pointer; font-size:13px; color:var(--text1); }
 .emp-combo .emp-option:hover { background:var(--blue); color:#fff; }
 .emp-combo .emp-empty { padding:8px 12px; color:var(--text3); font-size:13px; }
+.search-select { position:relative; display:inline-block; vertical-align:middle; }
+.search-select-input { border:1px solid var(--border); border-radius:var(--radius); padding:6px 24px 6px 10px; font-size:13px; background:var(--card-bg); color:var(--text1); cursor:pointer; outline:none; }
+.search-select-input:focus { border-color:var(--blue); }
+.search-select-arrow { position:absolute; right:8px; top:50%; transform:translateY(-50%); font-size:10px; color:var(--text3); pointer-events:none; }
+.search-select-dropdown { position:absolute; top:100%; left:0; min-width:100%; max-height:220px; overflow-y:auto; background:var(--card-bg); border:1px solid var(--border); border-radius:var(--radius); z-index:200; display:none; box-shadow:0 4px 12px rgba(0,0,0,.12); }
+.search-select-dropdown.open { display:block; }
+.search-select-item { padding:6px 10px; cursor:pointer; font-size:13px; color:var(--text1); white-space:nowrap; }
+.search-select-item:hover, .search-select-item.active { background:var(--blue); color:#fff; }
+.search-select-item.selected { font-weight:600; }
 </style>
 </head>
 <body>
@@ -347,8 +356,12 @@ a { color:var(--accent2); text-decoration:none; }
             <option value="B1">B1-高DPV非TOP10</option>
             <option value="B2">B2-中DPV+高GMV</option>
           </select>
-          <input id="cfCatSearch" placeholder="搜索类目" oninput="filterCatOptions('cfCatSearch','cfCategory')" style="width:90px;">
-          <select id="cfCategory" onchange="filterCommercial()">
+          <div class="search-select" id="cfCategoryWrap">
+            <input class="search-select-input" id="cfCategoryInput" placeholder="全部类目" autocomplete="off" style="width:120px;">
+            <span class="search-select-arrow">▾</span>
+            <div class="search-select-dropdown" id="cfCategoryDD"></div>
+          </div>
+          <select id="cfCategory" onchange="filterCommercial()" style="display:none;">
             <option value="">全部类目</option>
           </select>
           <select id="cfStatus" onchange="filterCommercial()">
@@ -371,8 +384,12 @@ a { color:var(--accent2); text-decoration:none; }
         <div id="leadsStats" class="stats-row"></div>
         <div class="filter-bar" id="leadsFilters">
           <input id="lfSearch" placeholder="搜索POI名称/ID" oninput="filterLeads()">
-          <input id="lfCatSearch" placeholder="搜索类目" oninput="filterCatOptions('lfCatSearch','lfCategory')" style="width:90px;">
-          <select id="lfCategory" onchange="filterLeads()">
+          <div class="search-select" id="lfCategoryWrap">
+            <input class="search-select-input" id="lfCategoryInput" placeholder="全部类目" autocomplete="off" style="width:120px;">
+            <span class="search-select-arrow">▾</span>
+            <div class="search-select-dropdown" id="lfCategoryDD"></div>
+          </div>
+          <select id="lfCategory" onchange="filterLeads()" style="display:none;">
             <option value="">全部类目</option>
           </select>
           <select id="lfPriority" onchange="filterLeads()">
@@ -953,6 +970,8 @@ async function loadData() {
   // Populate category filters
   populateCategoryFilter('cfCategory', STATE.commercialData, 'category_l2');
   populateCategoryFilter('lfCategory', STATE.leadsData, 'category_l2');
+  initSearchSelect('cfCategory', 'cfCategoryInput', 'cfCategoryDD');
+  initSearchSelect('lfCategory', 'lfCategoryInput', 'lfCategoryDD');
 }
 
 function populateCategoryFilter(selectId, data, field) {
@@ -970,21 +989,58 @@ function populateCategoryFilter(selectId, data, field) {
   });
 }
 
-function filterCatOptions(inputId, selectId) {
-  var q = ($(inputId).value || '').toLowerCase();
-  var sel = $(selectId);
-  var prev = sel.value;
-  while (sel.options.length > 1) sel.remove(1);
-  var cats = sel._allCats || [];
-  cats.forEach(function(cat) {
-    if (q && cat.toLowerCase().indexOf(q) < 0) return;
-    var opt = document.createElement('option');
-    opt.value = cat;
-    opt.textContent = cat;
-    sel.appendChild(opt);
+function initSearchSelect(selectId, inputId, ddId) {
+  var sel = $(selectId), inp = $(inputId), dd = $(ddId);
+  var allItems = sel._allCats || [];
+  var selected = '';
+
+  function render(q) {
+    q = (q || '').toLowerCase();
+    var html = '<div class="search-select-item' + (!selected ? ' selected' : '') + '" data-val="">全部类目</div>';
+    allItems.forEach(function(cat) {
+      if (q && cat.toLowerCase().indexOf(q) < 0) return;
+      var cls = cat === selected ? ' selected' : '';
+      html += '<div class="search-select-item' + cls + '" data-val="' + cat + '">' + cat + '</div>';
+    });
+    dd.innerHTML = html;
+  }
+
+  function open() { render(inp.value); dd.classList.add('open'); }
+  function close() { dd.classList.remove('open'); inp.value = selected || ''; inp.blur(); }
+  function select(val) {
+    selected = val;
+    sel.value = val;
+    inp.value = val || '';
+    inp.placeholder = val || '全部类目';
+    close();
+    sel.dispatchEvent(new Event('change'));
+  }
+
+  inp.addEventListener('focus', open);
+  inp.addEventListener('input', function() { open(); });
+  inp.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') { close(); inp.value = selected || ''; }
+    if (e.key === 'Enter') {
+      var first = dd.querySelector('.search-select-item');
+      if (first) select(first.getAttribute('data-val'));
+      e.preventDefault();
+    }
   });
-  // Restore selection if still in list
-  sel.value = prev;
+  dd.addEventListener('mousedown', function(e) {
+    e.preventDefault();
+    var item = e.target.closest('.search-select-item');
+    if (item) select(item.getAttribute('data-val'));
+  });
+  inp.addEventListener('blur', function() {
+    setTimeout(function() {
+      if (!dd.contains(document.activeElement)) {
+        dd.classList.remove('open');
+        inp.value = selected || '';
+      }
+    }, 150);
+  });
+
+  render('');
 }
 
 /* =============================================
