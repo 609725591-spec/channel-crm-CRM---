@@ -352,6 +352,9 @@ a { color:var(--accent2); text-decoration:none; }
       <div class="nav-item" data-page="admin" onclick="navigate('admin')" id="navAdmin" style="display:none">
         <span class="nav-icon">⚙️</span>管理后台
       </div>
+      <div class="nav-item" data-page="mgmt" onclick="navigate('mgmt')" id="navMgmt" style="display:none">
+        <span class="nav-icon">📈</span>管理驾驶舱
+      </div>
     </nav>
     <div id="sidebarBackdrop" class="sidebar-backdrop" onclick="toggleSidebar()"></div>
 
@@ -516,6 +519,24 @@ a { color:var(--accent2); text-decoration:none; }
         </div>
       </div>
 
+      <!-- ===== PAGE: 管理驾驶舱 ===== -->
+      <div id="page-mgmt" class="page">
+        <h2 class="page-title">管理驾驶舱 · 做工渗透分析</h2>
+        <p class="page-desc" id="mgmtDesc">全渠道作业进度与渗透率总览</p>
+        <div class="tab-bar" id="mgmtDimTabs" style="margin-bottom:0;">
+          <button class="tab-btn active" onclick="switchMgmtDim(this,'region')">大区</button>
+          <button class="tab-btn" onclick="switchMgmtDim(this,'channel')">渠道经理</button>
+          <button class="tab-btn" onclick="switchMgmtDim(this,'provider')">服务商</button>
+        </div>
+        <div class="tab-bar" id="mgmtTypeTabs" style="margin-bottom:16px;border-top:1px solid var(--border);padding-top:10px;">
+          <button class="tab-btn active" onclick="switchMgmtTab(this,'commercial')" style="font-size:12px;">🏪 商业化做工</button>
+          <button class="tab-btn" onclick="switchMgmtTab(this,'leads')" style="font-size:12px;">📋 开店做工</button>
+        </div>
+        <div id="mgmtStats" class="stats-row" style="margin-bottom:16px;"></div>
+        <div id="mgmtSummary" style="margin-bottom:20px;"></div>
+        <div id="mgmtDetail"></div>
+      </div>
+
     </main>
   </div>
 </div>
@@ -620,6 +641,7 @@ var CONFIG = {
   supabaseKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZ0c2x2cGZ4anJmbHV0b3JmcnlxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIxOTkzMjEsImV4cCI6MjA5Nzc3NTMyMX0.SeW0gTgIAYEDCZawSU65XNbp--L3CJ3jw7XntymKzdQ',
   demoCode: 'DEMO2026',
   adminCode: 'ADMIN2026',
+  mgmtCode: 'gaode2026',
   pageSize: 20,
   statusMachine: {
     commercial: ['待跟进','跟进中','有意向','已签约','暂不跟进'],
@@ -686,6 +708,9 @@ var STATE = {
   signedCases: [],   // signed merchant cases from crm_cases table (with before/after metrics)
   myPool: [],        // current employee's work pool items
   myPoolTab: 'commercial', // current tab in my pool page
+  mgmtDimension: 'region', // management dashboard: region|channel|provider
+  mgmtTab: 'commercial',   // management dashboard: commercial|leads
+  mgmtData: null,          // management dashboard aggregated data
   charts: {}         // chart instances
 };
 
@@ -835,6 +860,28 @@ async function doLogin() {
     onLoginSuccess();
     return;
   }
+  // Management dashboard
+  if (code === CONFIG.mgmtCode) {
+    STATE.user = {
+      provider_id: 'MGMT',
+      provider_name: '管理驾驶舱',
+      role: '管理层',
+      is_admin: false,
+      is_mgmt: true,
+      cities: []
+    };
+    $('loginPage').style.display = 'none';
+    localStorage.setItem('crm_session', JSON.stringify({ user: STATE.user, code: code, ts: Date.now() }));
+    logUsage('mgmt_login');
+    $('appShell').classList.add('active');
+    $('navMgmt').style.display = 'flex';
+    $('headerUser').textContent = '管理驾驶舱';
+    $('headerCity').textContent = '全国 ▾';
+    STATE.currentPage = 'mgmt';
+    generateMgmtDemoData();
+    navigate('mgmt');
+    return;
+  }
 
   // Supabase lookup
   if (sb) {
@@ -897,11 +944,13 @@ function doLogout() {
   STATE.user = null;
   STATE.cities = [];
   STATE.currentEmployee = '';
+  STATE.mgmtData = null;
   localStorage.removeItem('crm_session');
   $('appShell').classList.remove('active');
   $('cityPage').style.display = 'none';
   $('empPrompt').style.display = 'none';
   if ($('headerEmpCombo')) $('headerEmpCombo').style.display = 'none';
+  if ($('navMgmt')) $('navMgmt').style.display = 'none';
   $('loginPage').style.display = 'flex';
   $('loginCode').value = '';
   $('loginError').textContent = '';
@@ -978,6 +1027,7 @@ function navigate(page) {
     case 'jobs': renderJobs(); break;
     case 'occupancy': renderOccupancy(); break;
     case 'admin': renderAdmin(); break;
+    case 'mgmt': renderMgmtDashboard(); break;
   }
 }
 
@@ -3291,6 +3341,328 @@ function uploadData(type, file) {
 }
 
 /* =============================================
+   MANAGEMENT DASHBOARD (管理驾驶舱)
+   ============================================= */
+var MGMT_ORG = [
+  { region: '华东大区', channels: [
+    { name: '张三', providers: [
+      { id: 'SP_HZ_01', name: '杭州星辰', cities: ['杭州','宁波','温州'], employees: ['李明','王芳','赵强','周洁'] },
+      { id: 'SP_SH_01', name: '上海锐达', cities: ['上海'], employees: ['陈浩','林燕','吴磊'] }
+    ]},
+    { name: '刘洋', providers: [
+      { id: 'SP_NJ_01', name: '南京创联', cities: ['南京','苏州','无锡'], employees: ['孙鹏','马丽','黄伟'] },
+      { id: 'SP_NB_01', name: '宁波鼎盛', cities: ['宁波','绍兴'], employees: ['郑涛','韩雪'] }
+    ]}
+  ]},
+  { region: '华南大区', channels: [
+    { name: '王磊', providers: [
+      { id: 'SP_SZ_01', name: '深圳领航', cities: ['深圳','东莞'], employees: ['朱亮','何敏','曹阳'] },
+      { id: 'SP_GZ_01', name: '广州汇通', cities: ['广州','佛山'], employees: ['谢军','许婷'] }
+    ]},
+    { name: '陈静', providers: [
+      { id: 'SP_XM_01', name: '厦门云帆', cities: ['厦门','福州','泉州'], employees: ['邓超','冯琳','蒋涛'] },
+      { id: 'SP_HK_01', name: '海口椰风', cities: ['海口','三亚'], employees: ['彭杰','萧红'] }
+    ]}
+  ]},
+  { region: '华北大区', channels: [
+    { name: '李强', providers: [
+      { id: 'SP_BJ_01', name: '北京恒信', cities: ['北京'], employees: ['张伟','刘洋','王丽','赵磊'] },
+      { id: 'SP_TJ_01', name: '天津智远', cities: ['天津','石家庄'], employees: ['孙悦','周明'] }
+    ]},
+    { name: '赵敏', providers: [
+      { id: 'SP_JN_01', name: '济南博远', cities: ['济南','青岛'], employees: ['吴刚','钱莉','冯浩'] },
+      { id: 'SP_DLF', name: '大连鑫源', cities: ['大连','沈阳'], employees: ['韩飞','杨洋'] }
+    ]}
+  ]},
+  { region: '华中大区', channels: [
+    { name: '刘芳', providers: [
+      { id: 'SP_WH_01', name: '武汉锐行', cities: ['武汉','长沙'], employees: ['田甜','罗刚','邓丽'] },
+      { id: 'SP_ZZ_01', name: '郑州中原', cities: ['郑州','洛阳'], employees: ['贺磊','沈静'] }
+    ]}
+  ]},
+  { region: '西部大区', channels: [
+    { name: '陈伟', providers: [
+      { id: 'SP_CD_01', name: '成都蜀道', cities: ['成都','重庆'], employees: ['方圆','袁野','秦明'] },
+      { id: 'SP_XA_01', name: '西安长安', cities: ['西安'], employees: ['宋楠','唐磊'] }
+    ]}
+  ]}
+];
+
+var MGMT_CATS = ['美食','丽人','休闲娱乐','亲子','教培','运动健身','宠物','医疗','汽车服务','家政'];
+var MGMT_CAT_WEIGHTS = [20,15,12,10,10,8,7,7,6,5]; // relative weight for random pick
+
+function mgmtPickCat() {
+  var total = MGMT_CAT_WEIGHTS.reduce(function(a,b){return a+b;},0);
+  var r = Math.random() * total, acc = 0;
+  for (var i = 0; i < MGMT_CATS.length; i++) {
+    acc += MGMT_CAT_WEIGHTS[i];
+    if (r < acc) return MGMT_CATS[i];
+  }
+  return MGMT_CATS[0];
+}
+
+function generateMgmtDemoData() {
+  var allCommercial = [], allLeads = [], allFollowUps = [], allProviders = [];
+  var today = new Date();
+
+  MGMT_ORG.forEach(function(rg) {
+    rg.channels.forEach(function(ch) {
+      ch.providers.forEach(function(sp) {
+        allProviders.push({
+          provider_id: sp.id, provider_name: sp.name,
+          region: rg.region, channel_manager: ch.name,
+          cities: sp.cities, employees: sp.employees
+        });
+
+        // Generate commercial PIDs (40-80 per provider)
+        var pidCount = 40 + Math.floor(Math.random() * 40);
+        for (var i = 0; i < pidCount; i++) {
+          var city = sp.cities[i % sp.cities.length];
+          var cat = mgmtPickCat();
+          var tierR = Math.random();
+          var tier = tierR < 0.15 ? 'A1' : (tierR < 0.35 ? 'A2' : (tierR < 0.65 ? 'B1' : 'B2'));
+          var signedAgent = Math.random() < 0.18;
+          var signedEff = !signedAgent && Math.random() < 0.12;
+          var signedBrand = !signedAgent && !signedEff && Math.random() < 0.06;
+          allCommercial.push({
+            pid: sp.id + '_P' + String(i+1).padStart(4,'0'),
+            store_name: (city + cat + '旗舰店' + (i+1)),
+            city: city, category_l2: cat, tier: tier,
+            dpv_30d: Math.floor(50 + Math.random() * 500),
+            store_count: 1 + Math.floor(Math.random() * 5),
+            is_signed_agent: signedAgent, is_signed_eff: signedEff, is_signed_brand: signedBrand,
+            provider_id: sp.id, region: rg.region, channel_manager: ch.name
+          });
+        }
+
+        // Generate leads (30-60 per provider)
+        var leadCount = 30 + Math.floor(Math.random() * 30);
+        for (var j = 0; j < leadCount; j++) {
+          var lcity = sp.cities[j % sp.cities.length];
+          var lcat = mgmtPickCat();
+          var highPri = Math.random() < 0.3;
+          allLeads.push({
+            poi_id: sp.id + '_L' + String(j+1).padStart(4,'0'),
+            poi_name: (lcity + lcat + '新店' + (j+1)),
+            city: lcity, category_l2: lcat,
+            dpv_30d: Math.floor(20 + Math.random() * 300),
+            is_high_priority: highPri,
+            brand_type: Math.random() < 0.5 ? '连锁' : '单店',
+            smoke_level: ['高','中','低'][Math.floor(Math.random()*3)],
+            provider_id: sp.id, region: rg.region, channel_manager: ch.name
+          });
+        }
+
+        // Generate follow-ups (varying coverage)
+        var fuRate = 0.25 + Math.random() * 0.45; // 25%-70% coverage
+        var commPids = allCommercial.filter(function(d){return d.provider_id === sp.id;});
+        var spLeads = allLeads.filter(function(d){return d.provider_id === sp.id;});
+        var statuses = CONFIG.statusMachine.commercial;
+        var leadStatuses = CONFIG.statusMachine.leads;
+
+        commPids.forEach(function(d) {
+          if (Math.random() < fuRate) {
+            var daysAgo = Math.floor(Math.random() * 30);
+            var dt = new Date(today); dt.setDate(dt.getDate() - daysAgo);
+            var statusIdx = Math.random() < 0.35 ? 0 : (Math.random() < 0.6 ? 1 : (Math.random() < 0.8 ? 2 : (Math.random() < 0.9 ? 3 : 4)));
+            var emp = sp.employees[Math.floor(Math.random() * sp.employees.length)];
+            allFollowUps.push({
+              target_type: 'pid', target_id: d.pid,
+              provider_id: sp.id, employee_name: emp,
+              status: statuses[statusIdx],
+              created_at: dt.toISOString()
+            });
+          }
+        });
+        spLeads.forEach(function(d) {
+          if (Math.random() < fuRate * 0.8) {
+            var daysAgo2 = Math.floor(Math.random() * 30);
+            var dt2 = new Date(today); dt2.setDate(dt2.getDate() - daysAgo2);
+            var lstatusIdx = Math.random() < 0.3 ? 0 : (Math.random() < 0.55 ? 1 : (Math.random() < 0.75 ? 2 : 3));
+            var emp2 = sp.employees[Math.floor(Math.random() * sp.employees.length)];
+            allFollowUps.push({
+              target_type: 'lead', target_id: d.poi_id,
+              provider_id: sp.id, employee_name: emp2,
+              status: leadStatuses[lstatusIdx],
+              created_at: dt2.toISOString()
+            });
+          }
+        });
+      });
+    });
+  });
+
+  STATE.mgmtData = {
+    providers: allProviders,
+    commercial: allCommercial,
+    leads: allLeads,
+    followUps: allFollowUps
+  };
+  console.log('Mgmt demo data:', allProviders.length, 'providers,', allCommercial.length, 'PIDs,', allLeads.length, 'leads,', allFollowUps.length, 'follow-ups');
+}
+
+function computeMgmtStats(data, type) {
+  // data = {providers, commercial, leads, followUps}
+  // type = 'commercial' or 'leads'
+  var items = type === 'commercial' ? data.commercial : data.leads;
+  var idField = type === 'commercial' ? 'pid' : 'poi_id';
+  var fuType = type === 'commercial' ? 'pid' : 'lead';
+  var signedField = type === 'commercial' ? function(d){return d.is_signed_agent||d.is_signed_eff||d.is_signed_brand;} : function(d){return false;};
+  var highPriField = type === 'commercial' ? function(d){return d.tier==='A1'||d.tier==='A2';} : function(d){return d.is_high_priority;};
+
+  // Build follow-up set
+  var fuSet = {};
+  var fuStatusCount = {};
+  data.followUps.forEach(function(fu) {
+    if (fu.target_type === fuType) {
+      fuSet[fu.target_id] = fu;
+      fuStatusCount[fu.status] = (fuStatusCount[fu.status] || 0) + 1;
+    }
+  });
+
+  // Aggregate by provider
+  var byProvider = {};
+  items.forEach(function(d) {
+    var pid = d.provider_id;
+    if (!byProvider[pid]) byProvider[pid] = { total: 0, followed: 0, signed: 0, highPri: 0, highPriFollowed: 0 };
+    byProvider[pid].total++;
+    if (fuSet[d[idField]]) byProvider[pid].followed++;
+    if (signedField(d)) byProvider[pid].signed++;
+    if (highPriField(d)) {
+      byProvider[pid].highPri++;
+      if (fuSet[d[idField]]) byProvider[pid].highPriFollowed++;
+    }
+  });
+
+  // Map to provider info
+  data.providers.forEach(function(sp) {
+    if (!byProvider[sp.provider_id]) byProvider[sp.provider_id] = { total:0, followed:0, signed:0, highPri:0, highPriFollowed:0 };
+    byProvider[sp.provider_id].provider_name = sp.provider_name;
+    byProvider[sp.provider_id].region = sp.region;
+    byProvider[sp.provider_id].channel_manager = sp.channel_manager;
+    byProvider[sp.provider_id].provider_id = sp.provider_id;
+  });
+
+  return { byProvider: byProvider, fuStatusCount: fuStatusCount, fuSet: fuSet };
+}
+
+function pct(a, b) { return b > 0 ? (a / b * 100).toFixed(1) + '%' : '0%'; }
+
+function renderMgmtDashboard() {
+  if (!STATE.mgmtData) generateMgmtDemoData();
+  var data = STATE.mgmtData;
+  var tab = STATE.mgmtTab;
+  var dim = STATE.mgmtDimension;
+  var stats = computeMgmtStats(data, tab);
+  var bp = stats.byProvider;
+
+  // Aggregate by dimension
+  var groups = {};
+  Object.keys(bp).forEach(function(pid) {
+    var d = bp[pid];
+    var key = dim === 'region' ? d.region : (dim === 'channel' ? d.channel_manager : d.provider_name);
+    if (!groups[key]) groups[key] = { name: key, total:0, followed:0, signed:0, highPri:0, highPriFollowed:0, providers: new Set() };
+    groups[key].total += d.total;
+    groups[key].followed += d.followed;
+    groups[key].signed += d.signed;
+    groups[key].highPri += d.highPri;
+    groups[key].highPriFollowed += d.highPriFollowed;
+    groups[key].providers.add(pid);
+  });
+
+  var groupArr = Object.keys(groups).map(function(k){ return groups[k]; });
+  groupArr.sort(function(a,b){ return b.total - a.total; });
+
+  // National totals
+  var natTotal = 0, natFollowed = 0, natSigned = 0, natHighPri = 0, natHighPriFollowed = 0, natProviders = 0;
+  Object.keys(bp).forEach(function(pid) {
+    var d = bp[pid];
+    natTotal += d.total; natFollowed += d.followed; natSigned += d.signed;
+    natHighPri += d.highPri; natHighPriFollowed += d.highPriFollowed; natProviders++;
+  });
+
+  var typeLabel = tab === 'commercial' ? '商业化' : '开店';
+  var signLabel = tab === 'commercial' ? '签约转化率' : '开店转化率';
+  $('mgmtDesc').textContent = '全渠道' + typeLabel + '作业进度 · ' + (dim === 'region' ? '按大区' : (dim === 'channel' ? '按渠道经理' : '按服务商'));
+
+  // Stats cards
+  $('mgmtStats').innerHTML =
+    '<div class="stat-card"><div class="label">' + typeLabel + '池总量</div><div class="value blue">' + natTotal + '</div><div class="sub">' + natProviders + '家服务商</div></div>' +
+    '<div class="stat-card"><div class="label">已跟进</div><div class="value amber">' + natFollowed + '</div><div class="sub">跟进率 ' + pct(natFollowed, natTotal) + '</div></div>' +
+    '<div class="stat-card"><div class="label">高优池</div><div class="value purple">' + natHighPri + '</div><div class="sub">高优跟进率 ' + pct(natHighPriFollowed, natHighPri) + '</div></div>' +
+    '<div class="stat-card"><div class="label">' + signLabel + '</div><div class="value green">' + pct(natSigned, natTotal) + '</div><div class="sub">已转化 ' + natSigned + '</div></div>';
+
+  // Summary table
+  var colLabel = dim === 'region' ? '大区' : (dim === 'channel' ? '渠道经理' : '服务商');
+  var html = '<div class="data-table-wrap"><table class="data-table"><thead><tr>' +
+    '<th>' + colLabel + '</th><th class="num">池总量</th><th class="num">已跟进</th><th class="num">跟进率</th>' +
+    '<th class="num">高优</th><th class="num">高优跟进率</th>' +
+    (tab === 'commercial' ? '<th class="num">已签约</th><th class="num">签约率</th>' : '<th class="num">已开店</th><th class="num">开店率</th>') +
+    '</tr></thead><tbody>';
+
+  // National row
+  html += '<tr style="font-weight:600;background:rgba(59,130,246,.06);">' +
+    '<td>🇨🇳 全国汇总</td><td class="num">' + natTotal + '</td><td class="num">' + natFollowed + '</td><td class="num"><strong>' + pct(natFollowed, natTotal) + '</strong></td>' +
+    '<td class="num">' + natHighPri + '</td><td class="num">' + pct(natHighPriFollowed, natHighPri) + '</td>' +
+    '<td class="num">' + natSigned + '</td><td class="num"><strong>' + pct(natSigned, natTotal) + '</strong></td></tr>';
+
+  groupArr.forEach(function(g) {
+    var rate = pct(g.followed, g.total);
+    var hpRate = pct(g.highPriFollowed, g.highPri);
+    var signRate = pct(g.signed, g.total);
+    var icon = dim === 'region' ? '🌍' : (dim === 'channel' ? '👤' : '🏢');
+
+    // Color coding for follow rate
+    var rateNum = g.total > 0 ? (g.followed / g.total * 100) : 0;
+    var rateColor = rateNum >= 50 ? 'var(--green)' : (rateNum >= 30 ? 'var(--amber)' : 'var(--red)');
+
+    html += '<tr>' +
+      '<td>' + icon + ' ' + g.name + (dim === 'provider' ? '' : ' <span style="font-size:11px;color:var(--text3);">(' + g.providers.size + '家)</span>') + '</td>' +
+      '<td class="num">' + g.total + '</td>' +
+      '<td class="num">' + g.followed + '</td>' +
+      '<td class="num" style="color:' + rateColor + ';font-weight:600;">' + rate + '</td>' +
+      '<td class="num">' + g.highPri + '</td>' +
+      '<td class="num">' + hpRate + '</td>' +
+      '<td class="num">' + g.signed + '</td>' +
+      '<td class="num" style="font-weight:600;">' + signRate + '</td>' +
+      '</tr>';
+  });
+
+  html += '</tbody></table></div>';
+
+  // Follow-up status distribution
+  var fuHtml = '<div style="margin-top:16px;padding:16px;background:var(--card);border-radius:12px;border:1px solid var(--border);">' +
+    '<h4 style="margin:0 0 12px;font-size:14px;">跟进状态分布</h4><div style="display:flex;gap:8px;flex-wrap:wrap;">';
+  var sc = stats.fuStatusCount;
+  var totalFu = 0;
+  Object.keys(sc).forEach(function(s){ totalFu += sc[s]; });
+  Object.keys(sc).forEach(function(s) {
+    var p = totalFu > 0 ? (sc[s] / totalFu * 100).toFixed(1) : 0;
+    fuHtml += '<div style="flex:1;min-width:80px;text-align:center;padding:8px;border-radius:8px;background:var(--bg);">' +
+      '<div style="font-size:18px;font-weight:700;color:var(--text1);">' + sc[s] + '</div>' +
+      '<div style="font-size:11px;color:var(--text3);">' + s + ' (' + p + '%)</div></div>';
+  });
+  fuHtml += '</div></div>';
+
+  $('mgmtSummary').innerHTML = html;
+  $('mgmtDetail').innerHTML = fuHtml;
+}
+
+function switchMgmtDim(btn, dim) {
+  STATE.mgmtDimension = dim;
+  document.querySelectorAll('#mgmtDimTabs .tab-btn').forEach(function(b){b.classList.remove('active');});
+  btn.classList.add('active');
+  renderMgmtDashboard();
+}
+
+function switchMgmtTab(btn, tab) {
+  STATE.mgmtTab = tab;
+  document.querySelectorAll('#mgmtTypeTabs .tab-btn').forEach(function(b){b.classList.remove('active');});
+  btn.classList.add('active');
+  renderMgmtDashboard();
+}
+
+/* =============================================
    EXPORT
    ============================================= */
 function exportCommercial() {
@@ -4096,6 +4468,18 @@ document.addEventListener('keydown', function(e) {
     if (session.user && session.user.provider_id) {
       STATE.user = session.user;
       $('loginCode').value = session.code || '';
+      // Management session — skip normal flow
+      if (session.user.is_mgmt) {
+        $('loginPage').style.display = 'none';
+        $('appShell').classList.add('active');
+        $('navMgmt').style.display = 'flex';
+        $('headerUser').textContent = '管理驾驶舱';
+        $('headerCity').textContent = '全国 ▾';
+        STATE.currentPage = 'mgmt';
+        generateMgmtDemoData();
+        navigate('mgmt');
+        return;
+      }
       onLoginSuccess();
     }
   } catch(e) {
