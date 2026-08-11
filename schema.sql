@@ -217,20 +217,14 @@ CREATE TABLE IF NOT EXISTS crm_cases (
 -- ============================================
 
 ALTER TABLE crm_follow_ups ENABLE ROW LEVEL SECURITY;
-ALTER TABLE crm_usage_logs ENABLE ROW LEVEL SECURITY;
+ALTER TABLE crm_usage_logs DISABLE ROW LEVEL SECURITY;
 
 -- 跟进记录：服务商只能看自己的
 DROP POLICY IF EXISTS crm_followups_isolation ON crm_follow_ups;
 CREATE POLICY crm_followups_isolation ON crm_follow_ups
   FOR ALL USING (provider_id = current_setting('app.current_provider_id', true));
 
--- 使用日志：服务商只能看自己的
-DROP POLICY IF EXISTS crm_usage_isolation ON crm_usage_logs;
-CREATE POLICY crm_usage_isolation ON crm_usage_logs
-  FOR ALL USING (provider_id = current_setting('app.current_provider_id', true));
-DROP POLICY IF EXISTS crm_usage_insert ON crm_usage_logs;
-CREATE POLICY crm_usage_insert ON crm_usage_logs
-  FOR INSERT WITH CHECK (true);
+-- 使用日志已关闭RLS，无需策略
 
 -- ============================================
 -- 管理员函数：批量导入数据
