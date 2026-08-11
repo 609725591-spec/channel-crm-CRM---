@@ -295,6 +295,17 @@ a { color:var(--accent2); text-decoration:none; }
   </div>
 </div>
 
+<!-- ===== EMPLOYEE IDENTITY PROMPT (first login) ===== -->
+<div id="empPrompt" class="city-wrap" style="display:none">
+  <div class="city-box" style="max-width:420px;">
+    <h2>选择你的身份</h2>
+    <p class="sub">选择你的名字或输入新名字，用于标识做工池和跟进记录</p>
+    <input id="empPromptInput" class="login-input" style="margin-bottom:14px;" placeholder="搜索或输入你的名字" autocomplete="off" oninput="filterEmpPrompt()">
+    <div id="empPromptList" style="max-height:240px;overflow-y:auto;margin-bottom:16px;"></div>
+    <button class="btn btn-primary" onclick="confirmEmpIdentity()" style="width:100%">确认</button>
+  </div>
+</div>
+
 <!-- ===== APP SHELL ===== -->
 <div id="appShell" class="app-shell">
   <!-- Header -->
@@ -305,6 +316,11 @@ a { color:var(--accent2); text-decoration:none; }
       <span id="headerCity" class="city-tag" onclick="showCitySelect()" title="切换城市">全部城市 ▾</span>
     </div>
     <div class="right">
+      <div class="emp-combo" id="headerEmpCombo" style="display:none;">
+        <input id="headerEmpInput" placeholder="选择身份" autocomplete="off" style="width:90px;padding:4px 8px;border:1px solid var(--border);border-radius:var(--radius);background:var(--bg);color:var(--text1);font-size:12px;cursor:pointer;" onfocus="showEmpDropdown()" oninput="filterEmpDropdown()">
+        <span style="font-size:10px;color:var(--text3);margin-left:2px;">▾</span>
+        <div class="emp-dropdown" id="headerEmpDD"></div>
+      </div>
       <span id="headerUser" class="user-info"></span>
       <button class="logout-btn" onclick="doLogout()">退出</button>
     </div>
@@ -321,6 +337,9 @@ a { color:var(--accent2); text-decoration:none; }
       </div>
       <div class="nav-item" data-page="leads" onclick="navigate('leads')">
         <span class="nav-icon">📋</span>开店做工
+      </div>
+      <div class="nav-item" data-page="mypool" onclick="navigate('mypool')">
+        <span class="nav-icon">🎯</span>我的做工
       </div>
       <div class="nav-divider"></div>
       <div class="nav-item" data-page="jobs" onclick="navigate('jobs')">
@@ -413,6 +432,18 @@ a { color:var(--accent2); text-decoration:none; }
           <button class="btn btn-primary btn-sm" onclick="openCustomModal('leads')">+ 添加商机</button>
         </div>
         <div id="leadsTableWrap"></div>
+      </div>
+
+      <!-- ===== PAGE: 我的做工 ===== -->
+      <div id="page-mypool" class="page">
+        <h2 class="page-title">我的做工</h2>
+        <p class="page-desc" id="myPoolDesc">你的个人做工池</p>
+        <div id="myPoolStats" class="stats-row"></div>
+        <div class="tab-bar" id="myPoolTabs">
+          <button class="tab-btn active" onclick="switchPoolTab(this,'commercial')">商业化</button>
+          <button class="tab-btn" onclick="switchPoolTab(this,'leads')">开店</button>
+        </div>
+        <div id="myPoolTableWrap"></div>
       </div>
 
       <!-- ===== PAGE: 作业分析 ===== -->
@@ -641,6 +672,7 @@ var STATE = {
   user: null,        // {provider_id, provider_name, region, role, cities, is_admin}
   cities: [],        // selected cities
   currentPage: 'analysis',
+  currentEmployee: '', // current employee name (做工池 identity)
   commercialData: [],
   commercialFiltered: [],
   commercialPage: 1,
@@ -652,6 +684,8 @@ var STATE = {
   occupancy: [],     // occupancy data for current cities
   allSignedPids: [], // all signed PIDs across all providers (for same-city cases)
   signedCases: [],   // signed merchant cases from crm_cases table (with before/after metrics)
+  myPool: [],        // current employee's work pool items
+  myPoolTab: 'commercial', // current tab in my pool page
   charts: {}         // chart instances
 };
 
@@ -842,6 +876,13 @@ function onLoginSuccess() {
   // Log usage
   logUsage('login');
 
+  // Check employee identity — prompt if not saved
+  if (!checkEmployeeIdentity()) {
+    showEmpPromptPage();
+    return;
+  }
+  showHeaderEmpCombo();
+
   // Check if cities already selected (from localStorage)
   var saved = localStorage.getItem('crm_cities_' + STATE.user.provider_id);
   if (saved) {
@@ -855,9 +896,12 @@ function onLoginSuccess() {
 function doLogout() {
   STATE.user = null;
   STATE.cities = [];
+  STATE.currentEmployee = '';
   localStorage.removeItem('crm_session');
   $('appShell').classList.remove('active');
   $('cityPage').style.display = 'none';
+  $('empPrompt').style.display = 'none';
+  if ($('headerEmpCombo')) $('headerEmpCombo').style.display = 'none';
   $('loginPage').style.display = 'flex';
   $('loginCode').value = '';
   $('loginError').textContent = '';
@@ -930,6 +974,7 @@ function navigate(page) {
     case 'analysis': renderAnalysis(); break;
     case 'commercial': renderCommercial(); break;
     case 'leads': renderLeads(); break;
+    case 'mypool': renderMyPool(); break;
     case 'jobs': renderJobs(); break;
     case 'occupancy': renderOccupancy(); break;
     case 'admin': renderAdmin(); break;
@@ -1056,6 +1101,9 @@ async function loadData() {
     STATE.occupancy = [];
     STATE.signedCases = [];
   }
+
+  // Load personal work pool
+  await loadMyPool();
 
   // Populate category filters
   populateCategoryFilter('cfCategory', STATE.commercialData, 'category_l2');
@@ -1596,11 +1644,15 @@ function renderCommercialTable() {
   var dpvArrow = sort.field==='dpv_30d' ? (sort.dir==='desc'?' ▼':' ▲') : ' ⇅';
   var storeArrow = sort.field==='store_count' ? (sort.dir==='desc'?' ▼':' ▲') : ' ⇅';
 
+  // Build pool lookup set
+  var poolSet = {};
+  STATE.myPool.forEach(function(p){ if(p.target_type==='pid') poolSet[p.target_id] = p.id; });
+
   var html = '<div class="data-table-wrap" style="max-height:calc(100vh - 340px);overflow-y:auto;"><table class="data-table">' +
-    '<thead><tr><th>门店名</th><th>PID</th><th>城市</th><th>类目</th><th>分层</th><th class="num" style="cursor:pointer;user-select:none;" onclick="sortCommercial(\'dpv_30d\')">日均DPV' + dpvArrow + '</th><th class="num" style="cursor:pointer;user-select:none;" onclick="sortCommercial(\'store_count\')">门店数' + storeArrow + '</th><th>签约</th><th>状态</th><th>操作</th></tr></thead><tbody>';
+    '<thead><tr><th style="width:30px;text-align:center;"><input type="checkbox" onchange="toggleAllPoolCheck(this,\'comm\')"></th><th>门店名</th><th>PID</th><th>城市</th><th>类目</th><th>分层</th><th class="num" style="cursor:pointer;user-select:none;" onclick="sortCommercial(\'dpv_30d\')">日均DPV' + dpvArrow + '</th><th class="num" style="cursor:pointer;user-select:none;" onclick="sortCommercial(\'store_count\')">门店数' + storeArrow + '</th><th>签约</th><th>状态</th><th>操作</th></tr></thead><tbody>';
 
   if (pageData.length === 0) {
-    html += '<tr><td colspan="10" style="text-align:center;padding:30px;color:var(--text3);">暂无数据</td></tr>';
+    html += '<tr><td colspan="11" style="text-align:center;padding:30px;color:var(--text3);">暂无数据</td></tr>';
   } else {
     pageData.forEach(function(d) {
       var signed = [];
@@ -1617,8 +1669,17 @@ function renderCommercialTable() {
       }
 
       var fuStatus = getFollowUpStatus('pid', d.pid);
+      var inPool = poolSet[d.pid];
+      var poolBtn = inPool
+        ? '<span class="badge badge-green" style="font-size:10px;cursor:pointer;" onclick="removeFromPool(\'' + inPool + '\')">✓已在池</span>'
+        : '<button class="btn btn-sm btn-outline" style="font-size:10px;color:var(--accent);border-color:var(--accent);" onclick="addToPool(\'pid\',\'' + d.pid + '\')">+ 做工池</button>';
+
+      var actionBtn = d._custom
+        ? '<button class="btn btn-sm btn-outline" style="color:var(--red);border-color:var(--red);" onclick="deleteCustomPID(' + d.id + ')">删除</button>'
+        : '<button class="btn btn-sm btn-outline" onclick="showPIDDetail(\'' + d.pid + '\',true)">跟进</button>';
 
       html += '<tr>' +
+        '<td style="text-align:center;"><input type="checkbox" class="pool-check" data-type="pid" data-id="' + d.pid + '"></td>' +
         '<td class="clickable" onclick="showPIDDetail(\'' + d.pid + '\')"><strong>' + (d.store_name||'-') + '</strong></td>' +
         '<td style="font-size:12px;color:var(--text3);">' + d.pid + '</td>' +
         '<td>' + d.city + '</td>' +
@@ -1628,19 +1689,28 @@ function renderCommercialTable() {
         '<td class="num">' + (d.store_count||1) + '</td>' +
         '<td style="font-size:12px;">' + signedStr + '</td>' +
         '<td>' + statusBadge(fuStatus) + '</td>' +
-        '<td>' + (d._custom
-          ? '<button class="btn btn-sm btn-outline" style="color:var(--red);border-color:var(--red);" onclick="deleteCustomPID(' + d.id + ')">删除</button>'
-          : '<button class="btn btn-sm btn-outline" onclick="showPIDDetail(\'' + d.pid + '\',true)">跟进</button>') + '</td>' +
+        '<td style="white-space:nowrap;">' + poolBtn + ' ' + actionBtn + '</td>' +
         '</tr>';
     });
   }
 
   html += '</tbody></table></div>';
 
+  // Batch pool action bar
+  html += '<div id="commBatchBar" style="display:none;background:var(--card);border-top:1px solid var(--border);padding:10px 16px;align-items:center;gap:12px;z-index:10;">' +
+    '<span id="commBatchCount" style="font-size:13px;color:var(--text2);">已选0项</span>' +
+    '<button class="btn btn-sm btn-primary" onclick="batchAddPool(\'pid\')">批量加入做工池</button>' +
+    '<button class="btn btn-sm btn-outline" onclick="clearPoolChecks(\'comm\')">取消选择</button></div>';
+
   // Pagination
   html += renderPagination(data.length, STATE.commercialPage, totalPages, 'setCommercialPage');
 
   $('commercialTableWrap').innerHTML = html;
+
+  // Attach checkbox listeners
+  document.querySelectorAll('#commercialTableWrap .pool-check').forEach(function(cb) {
+    cb.addEventListener('change', function(){ updatePoolBatchBar('comm'); });
+  });
 }
 
 function setCommercialPage(p) { STATE.commercialPage = p; renderCommercialTable(); }
@@ -1706,16 +1776,30 @@ function renderLeadsTable() {
 
   var dpvArrow = sort.dir === 'desc' ? ' ▼' : ' ▲';
 
+  // Build pool lookup set
+  var poolSet = {};
+  STATE.myPool.forEach(function(p){ if(p.target_type==='lead') poolSet[p.target_id] = p.id; });
+
   var html = '<div class="data-table-wrap" style="max-height:calc(100vh - 340px);overflow-y:auto;"><table class="data-table">' +
-    '<thead><tr><th>POI名称</th><th>城市</th><th>类目</th><th class="num" style="cursor:pointer;user-select:none;" onclick="sortLeads(\'dpv_30d\')">近30天日均DPV' + dpvArrow + '</th><th>品牌类型</th><th>烟火档位</th><th>高优</th><th>状态</th><th>操作</th></tr></thead><tbody>';
+    '<thead><tr><th style="width:30px;text-align:center;"><input type="checkbox" onchange="toggleAllPoolCheck(this,\'lead\')"></th><th>POI名称</th><th>城市</th><th>类目</th><th class="num" style="cursor:pointer;user-select:none;" onclick="sortLeads(\'dpv_30d\')">近30天日均DPV' + dpvArrow + '</th><th>品牌类型</th><th>烟火档位</th><th>高优</th><th>状态</th><th>操作</th></tr></thead><tbody>';
 
   if (pageData.length === 0) {
-    html += '<tr><td colspan="9" style="text-align:center;padding:30px;color:var(--text3);">暂无数据</td></tr>';
+    html += '<tr><td colspan="10" style="text-align:center;padding:30px;color:var(--text3);">暂无数据</td></tr>';
   } else {
     pageData.forEach(function(d) {
       var fuStatus = getFollowUpStatus('lead', d.poi_id);
       var customBadge = d._custom ? ' <span class="badge badge-custom">自录入</span>' : '';
+      var inPool = poolSet[d.poi_id];
+      var poolBtn = inPool
+        ? '<span class="badge badge-green" style="font-size:10px;cursor:pointer;" onclick="removeFromPool(\'' + inPool + '\')">✓已在池</span>'
+        : '<button class="btn btn-sm btn-outline" style="font-size:10px;color:var(--accent);border-color:var(--accent);" onclick="addToPool(\'lead\',\'' + d.poi_id + '\')">+ 做工池</button>';
+
+      var actionBtn = d._custom
+        ? '<button class="btn btn-sm btn-outline" style="color:var(--red);border-color:var(--red);" onclick="deleteCustomLead(' + d.id + ')">删除</button>'
+        : '<button class="btn btn-sm btn-outline" onclick="showLeadDetail(\'' + d.poi_id + '\',true)">跟进</button>';
+
       html += '<tr>' +
+        '<td style="text-align:center;"><input type="checkbox" class="pool-check" data-type="lead" data-id="' + d.poi_id + '"></td>' +
         '<td class="clickable" onclick="showLeadDetail(\'' + d.poi_id + '\')"><strong>' + (d.poi_name||'-') + '</strong>' + customBadge + '</td>' +
         '<td>' + d.city + '</td>' +
         '<td>' + (d.category_l2||'-') + '</td>' +
@@ -1724,17 +1808,27 @@ function renderLeadsTable() {
         '<td>' + (d.smoke_level||'-') + '</td>' +
         '<td>' + (d._custom ? '<span class="badge badge-gray">-</span>' : (d.is_high_priority ? '<span class="badge badge-green">高优</span>' : '<span class="badge badge-gray">-</span>')) + '</td>' +
         '<td>' + statusBadge(fuStatus) + '</td>' +
-        '<td>' + (d._custom
-          ? '<button class="btn btn-sm btn-outline" style="color:var(--red);border-color:var(--red);" onclick="deleteCustomLead(' + d.id + ')">删除</button>'
-          : '<button class="btn btn-sm btn-outline" onclick="showLeadDetail(\'' + d.poi_id + '\',true)">跟进</button>') + '</td>' +
+        '<td style="white-space:nowrap;">' + poolBtn + ' ' + actionBtn + '</td>' +
         '</tr>';
     });
   }
 
   html += '</tbody></table></div>';
+
+  // Batch pool action bar
+  html += '<div id="leadBatchBar" style="display:none;background:var(--card);border-top:1px solid var(--border);padding:10px 16px;align-items:center;gap:12px;z-index:10;">' +
+    '<span id="leadBatchCount" style="font-size:13px;color:var(--text2);">已选0项</span>' +
+    '<button class="btn btn-sm btn-primary" onclick="batchAddPool(\'lead\')">批量加入做工池</button>' +
+    '<button class="btn btn-sm btn-outline" onclick="clearPoolChecks(\'lead\')">取消选择</button></div>';
+
   html += renderPagination(data.length, STATE.leadsPage, totalPages, 'setLeadsPage');
 
   $('leadsTableWrap').innerHTML = html;
+
+  // Attach checkbox listeners
+  document.querySelectorAll('#leadsTableWrap .pool-check').forEach(function(cb) {
+    cb.addEventListener('change', function(){ updatePoolBatchBar('lead'); });
+  });
 }
 
 function setLeadsPage(p) { STATE.leadsPage = p; renderLeadsTable(); }
@@ -2930,6 +3024,7 @@ async function saveFollowUp() {
   if (fuEmpEl && fuEmpEl.value) empName = fuEmpEl.value;
   else if (pidEmpEl && pidEmpEl.value) empName = pidEmpEl.value;
   else if (leadEmpEl && leadEmpEl.value) empName = leadEmpEl.value;
+  if (!empName && STATE.currentEmployee) empName = STATE.currentEmployee;
   if (!empName) empName = STATE.user.provider_name;
 
   var record = {
@@ -3513,6 +3608,395 @@ async function handleCustomFileImport(file) {
     else { filterLeads(); renderLeads(); }
     alert('成功导入 ' + records.length + ' 条数据');
   } catch(e) { alert('导入失败：' + e.message); }
+}
+
+/* =============================================
+   EMPLOYEE IDENTITY (做工池身份)
+   ============================================= */
+function checkEmployeeIdentity() {
+  if (!STATE.user || STATE.user.is_admin) return true; // skip for admin
+  var saved = localStorage.getItem('crm_emp_' + STATE.user.provider_id);
+  if (saved) {
+    STATE.currentEmployee = saved;
+    showHeaderEmpCombo();
+    return true;
+  }
+  return false; // need to prompt
+}
+
+async function showEmpPromptPage() {
+  $('empPrompt').style.display = 'flex';
+  $('empPromptInput').value = '';
+  // Load employees if not yet loaded (happens before loadData)
+  if ((!STATE.employees || STATE.employees.length === 0) && sb && STATE.user && STATE.user.provider_id !== 'SP_DEMO_001') {
+    try {
+      var empRes = await fetchAll(sb.from('crm_employees').select('name,role,is_boss')
+        .eq('provider_id', STATE.user.provider_id).order('is_boss', {ascending: false}));
+      if (empRes.data) {
+        STATE.employees = empRes.data.map(function(e) { return e.name; });
+      }
+    } catch(e) { console.warn('Load employees for prompt failed:', e); }
+  }
+  renderEmpPromptList('');
+}
+
+function renderEmpPromptList(q) {
+  var list = $('empPromptList');
+  var emps = STATE.employees.filter(function(n){
+    return !q || n.toLowerCase().indexOf(q.toLowerCase()) >= 0;
+  });
+  var html = '';
+  emps.forEach(function(name) {
+    html += '<div style="padding:10px 14px;cursor:pointer;border-bottom:1px solid var(--border);font-size:14px;color:var(--text1);transition:background var(--transition);" ' +
+      'onmouseover="this.style.background=\'var(--accent)\'" onmouseout="this.style.background=\'transparent\'" ' +
+      'onclick="pickEmpIdentity(\'' + name.replace(/'/g,"\\'") + '\')">' + name + '</div>';
+  });
+  if (emps.length === 0 && q) {
+    html += '<div style="padding:14px;text-align:center;color:var(--text3);font-size:13px;">未找到匹配员工</div>';
+  }
+  list.innerHTML = html;
+}
+
+function filterEmpPrompt() {
+  renderEmpPromptList($('empPromptInput').value.trim());
+}
+
+function pickEmpIdentity(name) {
+  $('empPromptInput').value = name;
+}
+
+function confirmEmpIdentity() {
+  var name = $('empPromptInput').value.trim();
+  if (!name) { alert('请选择或输入你的名字'); return; }
+  STATE.currentEmployee = name;
+  localStorage.setItem('crm_emp_' + STATE.user.provider_id, name);
+  $('empPrompt').style.display = 'none';
+  showHeaderEmpCombo();
+  logAction('switch_identity', 'employee', name, '登录选择身份');
+  // Proceed to city select or app
+  var saved = localStorage.getItem('crm_cities_' + STATE.user.provider_id);
+  if (saved) {
+    STATE.cities = JSON.parse(saved);
+    showApp();
+  } else {
+    showCitySelect();
+  }
+}
+
+function showHeaderEmpCombo() {
+  $('headerEmpCombo').style.display = 'flex';
+  $('headerEmpInput').value = STATE.currentEmployee;
+}
+
+function showEmpDropdown() {
+  var dd = $('headerEmpDD');
+  var emps = STATE.employees.slice();
+  // Add current if not in list
+  if (STATE.currentEmployee && emps.indexOf(STATE.currentEmployee) < 0) {
+    emps.unshift(STATE.currentEmployee);
+  }
+  var html = '';
+  emps.forEach(function(name) {
+    var active = name === STATE.currentEmployee ? ' style="background:var(--accent);color:#fff;"' : '';
+    html += '<div class="emp-option"' + active + ' onmousedown="switchEmpIdentity(\'' + name.replace(/'/g,"\\'") + '\')">' + name + '</div>';
+  });
+  if (emps.length === 0) {
+    html = '<div class="emp-empty">暂无员工，请输入名字</div>';
+  }
+  dd.innerHTML = html;
+  dd.classList.add('show');
+}
+
+function filterEmpDropdown() {
+  var q = $('headerEmpInput').value.trim().toLowerCase();
+  var dd = $('headerEmpDD');
+  var emps = STATE.employees.filter(function(n){
+    return !q || n.toLowerCase().indexOf(q) >= 0;
+  });
+  var html = '';
+  emps.forEach(function(name) {
+    html += '<div class="emp-option" onmousedown="switchEmpIdentity(\'' + name.replace(/'/g,"\\'") + '\')">' + name + '</div>';
+  });
+  if (emps.length === 0 && q) {
+    html = '<div class="emp-option" onmousedown="switchEmpIdentity(\'' + q.replace(/'/g,"\\'") + '\')">使用「' + $('headerEmpInput').value.trim() + '」</div>';
+  }
+  dd.innerHTML = html;
+  dd.classList.add('show');
+}
+
+function switchEmpIdentity(name) {
+  if (!name) name = $('headerEmpInput').value.trim();
+  if (!name) return;
+  STATE.currentEmployee = name;
+  localStorage.setItem('crm_emp_' + STATE.user.provider_id, name);
+  $('headerEmpInput').value = name;
+  $('headerEmpDD').classList.remove('show');
+  logAction('switch_identity', null, null, name);
+  // Reload pool data and re-render current page
+  loadMyPool().then(function(){
+    if (STATE.currentPage === 'mypool') renderMyPool();
+    else if (STATE.currentPage === 'commercial') renderCommercialTable();
+    else if (STATE.currentPage === 'leads') renderLeadsTable();
+  });
+}
+
+// Close dropdown on outside click
+document.addEventListener('click', function(e) {
+  var combo = $('headerEmpCombo');
+  if (combo && !combo.contains(e.target)) {
+    var dd = $('headerEmpDD');
+    if (dd) dd.classList.remove('show');
+    // Restore current value if user typed something else
+    if ($('headerEmpInput')) $('headerEmpInput').value = STATE.currentEmployee;
+  }
+});
+
+/* =============================================
+   WORK POOL (做工池)
+   ============================================= */
+async function loadMyPool() {
+  if (!sb || !STATE.currentEmployee) { STATE.myPool = []; return; }
+  try {
+    var res = await fetchAll(sb.from('crm_work_pool').select('*')
+      .eq('provider_id', STATE.user.provider_id)
+      .eq('employee_name', STATE.currentEmployee));
+    STATE.myPool = res.data || [];
+  } catch(e) { console.warn('Load my pool failed:', e); STATE.myPool = []; }
+}
+
+function renderMyPool() {
+  var emp = STATE.currentEmployee || '未选择';
+  $('myPoolDesc').textContent = emp + ' 的个人做工池';
+
+  var pool = STATE.myPool;
+  var commPool = pool.filter(function(p){return p.target_type==='pid';});
+  var leadPool = pool.filter(function(p){return p.target_type==='lead';});
+  var todayStr = new Date().toISOString().substring(0,10);
+  var todayPending = pool.filter(function(p){return p.next_action && p.next_action <= todayStr;}).length;
+
+  // Count signed in pool
+  var poolTargetIds = {};
+  pool.forEach(function(p){ poolTargetIds[p.target_type + '_' + p.target_id] = true; });
+  var signedInPool = 0;
+  STATE.commercialData.forEach(function(d){
+    if (poolTargetIds['pid_' + d.pid] && (d.is_signed_agent || d.is_signed_eff || d.is_signed_brand)) signedInPool++;
+  });
+
+  $('myPoolStats').innerHTML =
+    '<div class="stat-card"><div class="label">池子总量</div><div class="value blue">' + pool.length + '</div><div class="sub">商业化' + commPool.length + ' + 开店' + leadPool.length + '</div></div>' +
+    '<div class="stat-card"><div class="label">今日待跟进</div><div class="value amber">' + todayPending + '</div></div>' +
+    '<div class="stat-card"><div class="label">已签约转化</div><div class="value green">' + signedInPool + '</div></div>';
+
+  // Render table based on current tab
+  var tab = STATE.myPoolTab;
+  var items = tab === 'commercial' ? commPool : leadPool;
+  var allData = tab === 'commercial' ? STATE.commercialData : STATE.leadsData;
+  var idField = tab === 'commercial' ? 'pid' : 'poi_id';
+
+  // Build a lookup from allData
+  var dataMap = {};
+  allData.forEach(function(d){ dataMap[d[idField]] = d; });
+
+  // Sort: priority (高>中>低) then by next_action
+  var priorityOrder = {'高':0,'中':1,'低':2};
+  items = items.slice().sort(function(a,b){
+    var pa = priorityOrder[a.priority] !== undefined ? priorityOrder[a.priority] : 1;
+    var pb = priorityOrder[b.priority] !== undefined ? priorityOrder[b.priority] : 1;
+    if (pa !== pb) return pa - pb;
+    if (a.next_action && b.next_action) return a.next_action < b.next_action ? -1 : 1;
+    if (a.next_action) return -1;
+    if (b.next_action) return 1;
+    return 0;
+  });
+
+  var html = '<div class="data-table-wrap" style="max-height:calc(100vh - 380px);overflow-y:auto;"><table class="data-table"><thead><tr>';
+  if (tab === 'commercial') {
+    html += '<th>门店名</th><th>城市</th><th>类目</th><th>优先级</th><th>跟进状态</th><th>下次跟进</th><th>操作</th>';
+  } else {
+    html += '<th>POI名称</th><th>城市</th><th>类目</th><th>优先级</th><th>跟进状态</th><th>下次跟进</th><th>操作</th>';
+  }
+  html += '</tr></thead><tbody>';
+
+  if (items.length === 0) {
+    html += '<tr><td colspan="7" style="text-align:center;padding:40px;color:var(--text3);">' +
+      '<div style="font-size:15px;margin-bottom:8px;">🎯</div>' +
+      '<div>做工池为空，去「' + (tab==='commercial'?'商业化做工':'开店做工') + '」页面添加商户到你的做工池</div></td></tr>';
+  } else {
+    items.forEach(function(p) {
+      var d = dataMap[p.target_id] || {};
+      var name = tab === 'commercial' ? (d.store_name||'-') : (d.poi_name||'-');
+      var city = d.city || '-';
+      var cat = d.category_l2 || '-';
+      var fuStatus = getFollowUpStatus(p.target_type, p.target_id);
+
+      var priColor = p.priority==='高' ? 'red' : (p.priority==='低' ? 'gray' : 'blue');
+      var priBadge = '<span class="badge badge-' + priColor + '" style="cursor:pointer;" onclick="cyclePoolPriority(' + p.id + ',\'' + p.priority + '\')">' + (p.priority||'中') + '</span>';
+
+      var nextAction = p.next_action || '-';
+      if (p.next_action && p.next_action <= todayStr) {
+        nextAction = '<span style="color:var(--red);font-weight:600;">' + p.next_action + '</span>';
+      }
+
+      var clickFn = tab === 'commercial' ? "showPIDDetail('" + p.target_id + "')" : "showLeadDetail('" + p.target_id + "')";
+      var followFn = tab === 'commercial' ? "showPIDDetail('" + p.target_id + "',true)" : "showLeadDetail('" + p.target_id + "',true)";
+
+      html += '<tr>' +
+        '<td class="clickable" onclick="' + clickFn + '"><strong>' + name + '</strong></td>' +
+        '<td>' + city + '</td>' +
+        '<td>' + cat + '</td>' +
+        '<td>' + priBadge + '</td>' +
+        '<td>' + statusBadge(fuStatus) + '</td>' +
+        '<td>' + nextAction + '</td>' +
+        '<td><button class="btn btn-sm btn-outline" onclick="' + followFn + '" style="margin-right:4px;">跟进</button>' +
+        '<button class="btn btn-sm btn-outline" style="color:var(--red);border-color:var(--red);" onclick="removeFromPool(' + p.id + ')">移出</button></td>' +
+        '</tr>';
+    });
+  }
+  html += '</tbody></table></div>';
+  $('myPoolTableWrap').innerHTML = html;
+}
+
+function switchPoolTab(btn, tab) {
+  STATE.myPoolTab = tab;
+  document.querySelectorAll('#myPoolTabs .tab-btn').forEach(function(b){b.classList.remove('active');});
+  btn.classList.add('active');
+  renderMyPool();
+}
+
+async function addToPool(targetType, targetId) {
+  if (!STATE.currentEmployee) { alert('请先选择你的身份（右上角）'); return; }
+  // Check if already in pool
+  var exists = STATE.myPool.some(function(p){return p.target_type===targetType && p.target_id===targetId;});
+  if (exists) { alert('已在你的做工池中'); return; }
+  var record = {
+    provider_id: STATE.user.provider_id,
+    employee_name: STATE.currentEmployee,
+    target_type: targetType,
+    target_id: targetId,
+    priority: '中',
+    source: '认领'
+  };
+  try {
+    if (sb) {
+      var res = await sb.from('crm_work_pool').insert(record).select().single();
+      if (res.data) { STATE.myPool.push(res.data); }
+    } else {
+      record.id = Date.now();
+      STATE.myPool.push(record);
+    }
+    logAction('pool_add', targetType, targetId, null);
+    if (STATE.currentPage === 'mypool') renderMyPool();
+    else if (STATE.currentPage === 'commercial') renderCommercialTable();
+    else if (STATE.currentPage === 'leads') renderLeadsTable();
+    alert('已加入做工池');
+  } catch(e) { alert('添加失败：' + e.message); }
+}
+
+async function addBatchToPool(targetType, ids) {
+  if (!STATE.currentEmployee) { alert('请先选择你的身份（右上角）'); return; }
+  var newIds = ids.filter(function(id){
+    return !STATE.myPool.some(function(p){return p.target_type===targetType && p.target_id===id;});
+  });
+  if (newIds.length === 0) { alert('所选商户均已在做工池中'); return; }
+  var records = newIds.map(function(id){
+    return { provider_id: STATE.user.provider_id, employee_name: STATE.currentEmployee, target_type: targetType, target_id: id, priority: '中', source: '认领' };
+  });
+  try {
+    if (sb) {
+      var res = await sb.from('crm_work_pool').insert(records).select();
+      if (res.data) { res.data.forEach(function(d){ STATE.myPool.push(d); }); }
+    } else {
+      records.forEach(function(r){ r.id = Date.now() + Math.random(); STATE.myPool.push(r); });
+    }
+    logAction('pool_batch_add', targetType, null, newIds.length + '条');
+    if (STATE.currentPage === 'mypool') renderMyPool();
+    else if (STATE.currentPage === 'commercial') renderCommercialTable();
+    else if (STATE.currentPage === 'leads') renderLeadsTable();
+    alert('已将 ' + newIds.length + ' 个商户加入做工池');
+  } catch(e) { alert('批量添加失败：' + e.message); }
+}
+
+async function removeFromPool(poolId) {
+  if (!confirm('确定移出做工池？')) return;
+  try {
+    if (sb) await sb.from('crm_work_pool').delete().eq('id', poolId);
+    STATE.myPool = STATE.myPool.filter(function(p){ return p.id !== poolId; });
+    logAction('pool_remove', null, null, 'id:' + poolId);
+    if (STATE.currentPage === 'mypool') renderMyPool();
+    else if (STATE.currentPage === 'commercial') renderCommercialTable();
+    else if (STATE.currentPage === 'leads') renderLeadsTable();
+  } catch(e) { alert('移出失败：' + e.message); }
+}
+
+async function cyclePoolPriority(poolId, current) {
+  var next = current === '高' ? '中' : (current === '中' ? '低' : '高');
+  try {
+    if (sb) await sb.from('crm_work_pool').update({priority: next}).eq('id', poolId);
+    STATE.myPool.forEach(function(p){ if (p.id === poolId) p.priority = next; });
+    renderMyPool();
+  } catch(e) { console.warn('Update priority failed:', e); }
+}
+
+// Batch pool checkbox helpers
+function toggleAllPoolCheck(masterCb, prefix) {
+  var wrap = prefix === 'comm' ? 'commercialTableWrap' : 'leadsTableWrap';
+  document.querySelectorAll('#' + wrap + ' .pool-check').forEach(function(cb) {
+    cb.checked = masterCb.checked;
+  });
+  updatePoolBatchBar(prefix);
+}
+
+function updatePoolBatchBar(prefix) {
+  var wrap = prefix === 'comm' ? 'commercialTableWrap' : 'leadsTableWrap';
+  var barId = prefix === 'comm' ? 'commBatchBar' : 'leadBatchBar';
+  var countId = prefix === 'comm' ? 'commBatchCount' : 'leadBatchCount';
+  var checked = document.querySelectorAll('#' + wrap + ' .pool-check:checked');
+  var bar = $(barId);
+  if (!bar) return;
+  if (checked.length > 0) {
+    bar.style.display = 'flex';
+    $(countId).textContent = '已选' + checked.length + '项';
+  } else {
+    bar.style.display = 'none';
+  }
+}
+
+async function batchAddPool(targetType) {
+  var wrap = targetType === 'pid' ? 'commercialTableWrap' : 'leadsTableWrap';
+  var checks = document.querySelectorAll('#' + wrap + ' .pool-check:checked');
+  var ids = [];
+  checks.forEach(function(cb) { ids.push(cb.dataset.id); });
+  if (ids.length === 0) return;
+  await addBatchToPool(targetType, ids);
+  // Clear checks
+  checks.forEach(function(cb) { cb.checked = false; });
+  var prefix = targetType === 'pid' ? 'comm' : 'lead';
+  updatePoolBatchBar(prefix);
+}
+
+function clearPoolChecks(prefix) {
+  var wrap = prefix === 'comm' ? 'commercialTableWrap' : 'leadsTableWrap';
+  document.querySelectorAll('#' + wrap + ' .pool-check').forEach(function(cb) {
+    cb.checked = false;
+  });
+  updatePoolBatchBar(prefix);
+}
+
+/* =============================================
+   ACTION LOGGING (操作日志)
+   ============================================= */
+async function logAction(action, targetType, targetId, detail) {
+  if (!sb || !STATE.user) return;
+  try {
+    await sb.from('crm_action_logs').insert({
+      provider_id: STATE.user.provider_id,
+      employee_name: STATE.currentEmployee || STATE.user.provider_name,
+      action: action,
+      target_type: targetType,
+      target_id: targetId,
+      detail: detail
+    });
+  } catch(e) { /* silent */ }
 }
 
 /* =============================================
