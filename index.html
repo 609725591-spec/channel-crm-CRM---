@@ -1770,6 +1770,46 @@ var SCRIPT_TEMPLATES = {
   }
 };
 
+// 按产品组织的话术库
+var PRODUCT_SCRIPTS = {
+  znt: {
+    name: '品牌智能体',
+    open: function(d){ return '"老板，现在吃饭的人先搜手机，你在高德上目前信息不完整。智能体签12个月1188块，月均99，帮你把菜单、优惠、环境图都放上去，等于线上开了个24小时不打烊的门面。"'; },
+    close: '"智能体帮你AI自动回复咨询、推招牌菜、智能应答，相当于请了个不要工资的前台。99块一个月，不好使随时可以停。"',
+    obj: '"不用一步到位，先装个智能体把基础打好。你隔壁XX店装了之后，搜索排名直接提升，导航到店多了不少。"'
+  },
+  xg: {
+    name: '效果广告',
+    open: function(d){ var dpv = d.dpv_30d || 0; return dpv < 50 ? '"老板，你日均DPV ' + dpv + '，说明周边有人搜但曝光不够。CPC按点击付费，日预算100起，不点不花钱，先小额测试效果。"' : '"老板，你日均DPV有' + dpv + '，需求很旺但没做投放，相当于有客流没接住。OCPC按到店付费，到了才扣费，ROI有保障。"'; },
+    close: '"预存广告金不过期，按效果消耗。现在充值6000送1200（20%返点），相当于打8折。最少一天100的预算，不好使随时停。"',
+    obj: '"现在高德跟以前不一样了，产品升级了OCPC按成交付费，到了才扣费不白花钱。你' + '这个品类在高德上搜索量很大，做了之后导航到店会有明显提升。先试一个月看数据。"'
+  },
+  dz: {
+    name: '顶展',
+    open: function(d){ return '"老板，高德针对' + (d.category_l2||'美食') + '开放了品牌广告位，一个城市一个类目只招一家，搜索关键词你的门店置顶第一位。"'; },
+    close: '"这个政策到月底截止，而且一个城市一个类目只招一家，名额有限。当前' + (d.category_l2||'') + '词包还没被占，建议尽快抢注。"',
+    obj: '"指定广告位按点击扣费，只有顾客点进来查看详情才扣费，光是看到不扣钱。日预算最低100，先看效果再决定。"'
+  },
+  zx: {
+    name: '钻展',
+    open: function(d){ return '"老板，高德推荐流场景有个精准曝光位，用户刷附近美食的时候你的门店会优先推荐。适合' + (d.category_l2||'美食') + '品类扩大品牌影响力。"'; },
+    close: '"钻展+智能体组合效果最好，钻展负责曝光拉新，智能体负责接住转化。两个加一起形成闭环。"',
+    obj: '"按曝光计费，千次曝光成本很低。配合智能体的品牌专区，用户看到广告点进来，看到的是有菜品图、有优惠、有AI推荐的完整门面。"'
+  },
+  dj: {
+    name: '导结',
+    open: function(d){ return '"老板，用户导航到目的地之后，结束页会展示附近美食推荐。你的门店可以出现在这个位置，拦截到达目的地的客流。"'; },
+    close: '"导航结束页是天然的消费决策场景，用户刚到目的地正准备找地方吃饭。展示你的门店信息+优惠，直接转化。"',
+    obj: '"这个位置竞争不大，目前' + (d.category_l2||'美食') + '品类在导航结束页的覆盖还不高，先占位先受益。"'
+  },
+  pz: {
+    name: '品牌智能体品专版',
+    open: function(d){ return '"老板，你有商标注册证的话，可以升级品牌智能体品专版。品牌搜品专卡片+图面气泡广告，用户在地图上直接看到你的品牌标识。"'; },
+    close: '"¥1999/年/POI起，品牌智能体+mini品专打包。品牌化展示比普通门店强很多，用户一看就是正规品牌。"',
+    obj: '"品专版需要商标注册证，不是所有店都能做。你有商标的话这是个差异化优势，别人想做还做不了。"'
+  }
+};
+
 // 类目匹配：二级类目 → 话术品类
 function getCatScriptKey(cat) {
   if (!cat) return null;
@@ -1918,60 +1958,59 @@ function renderRecommendations(d) {
 
   html += '</div>';
 
-  // ── 话术区域：品类+画像双维度 ──
+  // ── 话术区域：按产品组织 ──
   var scripts = getScriptsForStore(d);
   var profileKey = detectProfile(d);
   var profileTpl = SCRIPT_TEMPLATES[profileKey] || SCRIPT_TEMPLATES['default'];
-
-  // 案例数据行
-  var _caseLine = '';
-  var allCases = ['xg','znt','dz','zx','dj'].map(function(k){ return {key:k, d:caseMap[k].data, name:caseMap[k].name}; });
-  var bestCase = null;
-  allCases.forEach(function(ac) { if (ac.d && ac.d.dp > 0 && (!bestCase || ac.d.n > bestCase.d.n)) bestCase = ac; });
-  if (bestCase) {
-    _caseLine = region + cat + '商户签约' + bestCase.name + '后，日均DPV平均提升' + bestCase.d.dp + '%' +
-      (bestCase.d.gp > 0 ? '，GMV提升' + bestCase.d.gp + '%' : '') + '（' + bestCase.d.n + '户真实数据）。';
-  } else {
-    _caseLine = d.city + '同品类商户签约后DPV上升率超80%。';
-  }
+  var profileOpen = typeof profileTpl.open === 'function' ? profileTpl.open(d) : profileTpl.open;
 
   html += '<div class="detail-section" style="margin-top:20px;"><h4>推荐话术</h4>';
 
-  html += '<div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);padding:14px;font-size:13px;line-height:1.9;">';
-
-  // 1. 开场（画像开场 + 品类/通用开场，合并展示）
-  var profileOpen = typeof profileTpl.open === 'function' ? profileTpl.open(d) : profileTpl.open;
-  html += '<strong style="color:var(--accent2,#3b82f6);">开场：</strong><br>';
+  // 通用开场（画像+品类融合）
+  html += '<div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);padding:14px;font-size:13px;line-height:1.9;margin-bottom:12px;">';
+  html += '<strong style="color:var(--accent2,#3b82f6);">通用开场：</strong><br>';
   html += profileOpen + '<br>';
-  var openShow = scripts.open.slice(0, 2);
+  var openShow = scripts.open.slice(0, 1);
   for (var oi = 0; oi < openShow.length; oi++) {
     html += openShow[oi].text + '<br>';
   }
+  html += '</div>';
 
-  // 2. 促单话术
-  html += '<br><strong style="color:var(--green,#059669);">促单：</strong><br>';
-  html += profileTpl.close + '<br>';
-  if (scripts.close.length > 0) {
-    html += scripts.close[0].text + '<br>';
+  // 按产品输出话术块
+  var productOrder = [
+    {key:'znt', show: true},
+    {key:'xg', show: dpv >= 10 || caseMap.xg.data},
+    {key:'dz', show: hasDzOpp && (dpv >= 100 || caseMap.dz.data)},
+    {key:'zx', show: hasDzOpp && (dpv >= 200 || caseMap.zx.data)},
+    {key:'dj', show: !!caseMap.dj.data},
+    {key:'pz', show: stores >= 1 && stores <= 9 && !d.is_signed_brand}
+  ];
+  var prodColors = {znt:'#3b82f6',xg:'#059669',dz:'#ea580c',zx:'#7c3aed',dj:'#0d9488',pz:'#db2777'};
+
+  for (var pi = 0; pi < productOrder.length; pi++) {
+    var po = productOrder[pi];
+    if (!po.show) continue;
+    var ps = PRODUCT_SCRIPTS[po.key];
+    if (!ps) continue;
+    var pOpen = typeof ps.open === 'function' ? ps.open(d) : ps.open;
+    var color = prodColors[po.key] || '#3b82f6';
+
+    html += '<div style="background:var(--bg);border:1px solid var(--border);border-left:3px solid ' + color + ';border-radius:var(--radius);padding:14px;font-size:13px;line-height:1.9;margin-bottom:8px;">';
+    html += '<strong style="color:' + color + ';">' + ps.name + '</strong><br>';
+    html += '<span style="color:var(--text3,#9ca3af);font-size:11px;">开场</span> ' + pOpen + '<br>';
+    html += '<span style="color:var(--text3,#9ca3af);font-size:11px;">促单</span> ' + ps.close + '<br>';
+    html += '<span style="color:var(--text3,#9ca3af);font-size:11px;">异议</span> ' + ps.obj;
+
+    // 追加真实案例数据
+    var cd = caseMap[po.key === 'pz' ? 'znt' : po.key];
+    if (cd && cd.data && cd.data.dp > 0) {
+      html += '<br><span style="color:var(--text3,#9ca3af);font-size:11px;">案例</span> "' + region + cat + cd.data.n + '户签约后DPV +' + cd.data.dp + '%' + (cd.data.gp > 0 ? '、GMV +' + cd.data.gp + '%' : '') + '。"';
+    }
+
+    html += '</div>';
   }
 
-  // 3. 异议处理
-  html += '<br><strong style="color:var(--orange,#ea580c);">异议处理：</strong><br>';
-  html += profileTpl.obj + '<br>';
-  var objShow = scripts.obj.slice(0, 2);
-  for (var oj = 0; oj < objShow.length; oj++) {
-    html += objShow[oj].text + '<br>';
-  }
-
-  // 4. 案例数据
-  html += '<br><strong>案例：</strong>"' + _caseLine + '"';
-
-  // 5. 占量机会（条件性）
-  if (hasDzOpp) {
-    html += '<br><strong style="color:var(--red,#dc2626);">机会：</strong>"当前' + cat + '类目顶展/钻展词包未占量，建议尽快抢注，一个城市一个类目只招一家。"';
-  }
-
-  html += '</div></div>';
+  html += '</div>';
 
   return html;
 }
