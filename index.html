@@ -371,6 +371,7 @@ a { color:var(--accent2); text-decoration:none; }
         <div id="leadsStats" class="stats-row"></div>
         <div class="filter-bar" id="leadsFilters">
           <input id="lfSearch" placeholder="搜索POI名称/ID" oninput="filterLeads()">
+          <input id="lfCatSearch" placeholder="搜索类目" oninput="filterCatOptions('lfCatSearch','lfCategory')" style="width:90px;">
           <select id="lfCategory" onchange="filterLeads()">
             <option value="">全部类目</option>
           </select>
