@@ -1273,7 +1273,6 @@ function renderSigningAnalysis(data, cities) {
     var avgGp = Math.round(catList.reduce(function(s,c){return s+c.gp;},0)/catList.length);
     // Find categories with both high DPV and GMV growth
     var dualHigh = catList.filter(function(c){return c.dp >= 50 && c.gp >= 50;});
-    var lowGmvCats = catList.filter(function(c){return c.dp > 30 && c.gp < 20 && c.gp >= 0;});
 
     html += '<div style="margin-bottom:24px;padding:20px 24px;background:linear-gradient(135deg,rgba(99,102,241,0.08),rgba(16,185,129,0.08));border:1px solid rgba(99,102,241,0.2);border-radius:12px;">';
     html += '<div style="font-size:16px;font-weight:700;color:var(--text1);margin-bottom:14px;">' + scope + '签约效果洞察</div>';
@@ -1286,9 +1285,6 @@ function renderSigningAnalysis(data, cities) {
       html += '<div style="margin-bottom:8px;"><span style="color:var(--green);font-weight:700;">4.</span> 「<strong>' + dualHigh.map(function(c){return c.cat;}).join('」「') + '</strong>」等' + dualHigh.length + '个类目DPV与GMV双双大幅提升，属于"流量-营收"联动效果最佳的品类，推荐优先拓展。</div>';
     }
     html += '<div style="margin-bottom:8px;"><span style="color:var(--accent2);font-weight:700;">' + (dualHigh.length > 0 ? '5' : '4') + '.</span> 产品层面，「<strong>' + topProd.name + '</strong>」签约量最多（' + topProd.n + '户），DPV拉动最强的是「<strong>' + bestDpProd.name + '</strong>」（+' + bestDpProd.dp + '%），GMV转化最好的是「<strong>' + bestGpProd.name + '</strong>」（+' + bestGpProd.gp + '%）。建议组合搭配推荐。</div>';
-    if (lowGmvCats.length > 0) {
-      html += '<div><span style="color:var(--amber);font-weight:700;">' + (dualHigh.length > 0 ? '6' : '5') + '.</span> 注意：「' + lowGmvCats.map(function(c){return c.cat;}).join('」「') + '」类目DPV提升明显但GMV增幅偏低，建议结合商户运营能力评估后再推荐签约。</div>';
-    }
     html += '</div></div>';
   }
 
