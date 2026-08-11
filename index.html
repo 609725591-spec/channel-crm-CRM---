@@ -2929,9 +2929,8 @@ function checkOccupancy(city, category) {
    ============================================= */
 function renderOccupancy() {
   var frame = $('occupancyFrame');
-  if (frame._loaded) return; // 已加载过，不重复设置
-  var baseUrl = 'https://609725591-spec.github.io/channel-crm-CRM---/brand-ad-map.html';
-  // 传递当前城市筛选
+  if (frame._loaded) return;
+  var baseUrl = 'brand-ad-map.html';
   var params = [];
   if (STATE.cities && STATE.cities.length) params.push('city=' + encodeURIComponent(STATE.cities.join(',')));
   frame.src = baseUrl + (params.length ? '?' + params.join('&') : '');
