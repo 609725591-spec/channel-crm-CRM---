@@ -1384,14 +1384,12 @@ function renderCommercial() {
   var data = STATE.commercialFiltered;
   var total = data.length;
   var a1 = data.filter(function(d){return d.tier==='A1';}).length;
-  var highDPV = data.filter(function(d){return d.dpv_30d >= 200;}).length;
-  var highPri = data.filter(function(d){return d.high_priority_cat;}).length;
+  var a2 = data.filter(function(d){return d.tier==='A2';}).length;
 
   $('commercialStats').innerHTML =
     '<div class="stat-card"><div class="label">未签约PID</div><div class="value blue">' + fmt(total) + '</div><div class="sub">待商业化做工</div></div>' +
     '<div class="stat-card"><div class="label">A1头部</div><div class="value">' + fmt(a1) + '</div><div class="sub">占比' + (total?(a1/total*100).toFixed(1):0) + '%</div></div>' +
-    '<div class="stat-card"><div class="label">高DPV(200+)</div><div class="value amber">' + fmt(highDPV) + '</div><div class="sub">重点做工</div></div>' +
-    '<div class="stat-card"><div class="label">高优类目</div><div class="value green">' + fmt(highPri) + '</div><div class="sub">占比' + (total?(highPri/total*100).toFixed(1):0) + '%</div></div>';
+    '<div class="stat-card"><div class="label">A2头部</div><div class="value">' + fmt(a2) + '</div><div class="sub">占比' + (total?(a2/total*100).toFixed(1):0) + '%</div></div>';
 }
 
 function filterCommercial() {
