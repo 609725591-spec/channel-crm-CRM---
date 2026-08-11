@@ -3418,13 +3418,15 @@ async function loadMgmtData() {
       };
     });
 
-    // Batch: 2 queries per provider (A1+A2 PIDs + high-priority leads), 30 providers per batch
+    // Batch: 2 queries per provider (all PIDs + high-priority leads), 30 providers per batch
     var BATCH = 30;
     for (var i = 0; i < providers.length; i += BATCH) {
       var batch = providers.slice(i, i + BATCH);
       var promises = [];
       batch.forEach(function(p) {
-        promises.push(sb.from('crm_pids').select('pid',{count:'exact',head:true}).eq('provider_id',p.provider_id).in('tier',['A1','A2']));
+        // Q0: 商业化做工底池 = 全量分层PID (A1+A2+B1+B2)
+        promises.push(sb.from('crm_pids').select('pid',{count:'exact',head:true}).eq('provider_id',p.provider_id));
+        // Q1: 开店做工底池 = 城市高优POI
         promises.push(sb.from('crm_leads').select('poi_id',{count:'exact',head:true}).eq('provider_id',p.provider_id).eq('is_high_priority',true));
       });
       var results = await Promise.all(promises);
@@ -3438,8 +3440,8 @@ async function loadMgmtData() {
 
     // National aggregates
     var natRes = await Promise.all([
-      sb.from('crm_pids').select('pid',{count:'exact',head:true}).in('tier',['A1','A2']).or('is_signed_agent.eq.true,is_signed_eff.eq.true,is_signed_brand.eq.true'),
-      sb.from('crm_pids').select('pid',{count:'exact',head:true}).in('tier',['A1','A2']),
+      sb.from('crm_pids').select('pid',{count:'exact',head:true}).or('is_signed_agent.eq.true,is_signed_eff.eq.true,is_signed_brand.eq.true'),
+      sb.from('crm_pids').select('pid',{count:'exact',head:true}),
       sb.from('crm_leads').select('poi_id',{count:'exact',head:true}).eq('is_high_priority',true)
     ]);
 
@@ -3448,7 +3450,7 @@ async function loadMgmtData() {
       nationalPidSigned: natRes[0].count||0, nationalPidHighPri: natRes[1].count||0, nationalLeadHighPri: natRes[2].count||0
     };
     var tP=0,tL=0; Object.keys(byProvider).forEach(function(k){ tP+=byProvider[k].pid_total; tL+=byProvider[k].lead_total; });
-    console.log('Mgmt real data:', providers.length, 'providers,', tP, 'A1A2 PIDs,', tL, '高优leads');
+    console.log('Mgmt real data:', providers.length, 'providers,', tP, '全量PIDs,', tL, '高优leads');
     renderMgmtDashboard();
   } catch(e) {
     console.warn('Mgmt load failed:', e.message);
@@ -3546,8 +3548,8 @@ function renderMgmtDashboard() {
   });
   var natSigned = tab === 'commercial' ? (data.nationalPidSigned||0) : 0;
 
-  var typeLabel = tab === 'commercial' ? '商业化(A1/A2)' : '开店(高优)';
-  var poolLabel = tab === 'commercial' ? 'A1/A2做工池' : '高优做工池';
+  var typeLabel = tab === 'commercial' ? '商业化做工' : '开店做工';
+  var poolLabel = tab === 'commercial' ? '商业化做工池' : '高优做工池';
   var signLabel = tab === 'commercial' ? '签约转化率' : '开店转化率';
   $('mgmtDesc').textContent = '全渠道' + typeLabel + '作业进度 · ' + (dim === 'region' ? '按大区' : (dim === 'channel' ? '按渠道经理' : '按服务商'));
 
