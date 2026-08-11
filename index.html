@@ -3418,27 +3418,25 @@ async function loadMgmtData() {
       };
     });
 
-    var BATCH = 20;
+    // Batch: 2 queries per provider (A1+A2 PIDs + high-priority leads), 30 providers per batch
+    var BATCH = 30;
     for (var i = 0; i < providers.length; i += BATCH) {
       var batch = providers.slice(i, i + BATCH);
       var promises = [];
       batch.forEach(function(p) {
-        // Q0: 商业化做工底池 = A1+A2 PIDs
         promises.push(sb.from('crm_pids').select('pid',{count:'exact',head:true}).eq('provider_id',p.provider_id).in('tier',['A1','A2']));
-        // Q1: A1+A2中已签约
-        promises.push(sb.from('crm_pids').select('pid',{count:'exact',head:true}).eq('provider_id',p.provider_id).in('tier',['A1','A2']).or('is_signed_agent.eq.true,is_signed_eff.eq.true,is_signed_brand.eq.true'));
-        // Q2: 开店做工底池 = 城市高优POI
         promises.push(sb.from('crm_leads').select('poi_id',{count:'exact',head:true}).eq('provider_id',p.provider_id).eq('is_high_priority',true));
       });
       var results = await Promise.all(promises);
       batch.forEach(function(p, j) {
         var b = byProvider[p.provider_id];
-        b.pid_total = results[j*3].count || 0;
-        b.pid_signed = results[j*3+1].count || 0;
-        b.lead_total = results[j*3+2].count || 0;
+        b.pid_total = results[j*2].count || 0;
+        b.lead_total = results[j*2+1].count || 0;
       });
+      console.log('Mgmt loading:', Math.min(i+BATCH, providers.length) + '/' + providers.length);
     }
 
+    // National aggregates
     var natRes = await Promise.all([
       sb.from('crm_pids').select('pid',{count:'exact',head:true}).in('tier',['A1','A2']).or('is_signed_agent.eq.true,is_signed_eff.eq.true,is_signed_brand.eq.true'),
       sb.from('crm_pids').select('pid',{count:'exact',head:true}).in('tier',['A1','A2']),
@@ -3451,6 +3449,7 @@ async function loadMgmtData() {
     };
     var tP=0,tL=0; Object.keys(byProvider).forEach(function(k){ tP+=byProvider[k].pid_total; tL+=byProvider[k].lead_total; });
     console.log('Mgmt real data:', providers.length, 'providers,', tP, 'A1A2 PIDs,', tL, '高优leads');
+    renderMgmtDashboard();
   } catch(e) {
     console.warn('Mgmt load failed:', e.message);
     generateMgmtDemoData();
@@ -3540,12 +3539,12 @@ function renderMgmtDashboard() {
   groupArr.sort(function(a,b){ return b.total - a.total; });
 
   // National totals
-  var natTotal = 0, natFollowed = 0, natSigned = 0, natHighPri = 0, natHighPriFollowed = 0, natProviders = 0;
+  var natTotal = 0, natFollowed = 0, natProviders = 0;
   Object.keys(bp).forEach(function(pid) {
     var d = bp[pid];
-    natTotal += d.total; natFollowed += d.followed; natSigned += d.signed;
-    natHighPri += d.highPri; natHighPriFollowed += d.highPriFollowed; natProviders++;
+    natTotal += d.total; natFollowed += d.followed; natProviders++;
   });
+  var natSigned = tab === 'commercial' ? (data.nationalPidSigned||0) : 0;
 
   var typeLabel = tab === 'commercial' ? '商业化(A1/A2)' : '开店(高优)';
   var poolLabel = tab === 'commercial' ? 'A1/A2做工池' : '高优做工池';
@@ -3564,18 +3563,15 @@ function renderMgmtDashboard() {
   var html = '<div class="data-table-wrap"><table class="data-table"><thead><tr>' +
     '<th>' + colLabel + '</th><th class="num">池总量</th><th class="num">已跟进</th><th class="num">跟进率</th>' +
     '<th class="num">待跟进</th>' +
-    (tab === 'commercial' ? '<th class="num">已签约</th><th class="num">签约率</th>' : '<th class="num">已开店</th><th class="num">开店率</th>') +
     '</tr></thead><tbody>';
 
   // National row
   html += '<tr style="font-weight:600;background:rgba(59,130,246,.06);">' +
     '<td>🇨🇳 全国汇总</td><td class="num">' + natTotal + '</td><td class="num">' + natFollowed + '</td><td class="num"><strong>' + pct(natFollowed, natTotal) + '</strong></td>' +
-    '<td class="num">' + (natTotal - natFollowed) + '</td>' +
-    '<td class="num">' + natSigned + '</td><td class="num"><strong>' + pct(natSigned, natTotal) + '</strong></td></tr>';
+    '<td class="num">' + (natTotal - natFollowed) + '</td></tr>';
 
   groupArr.forEach(function(g) {
     var rate = pct(g.followed, g.total);
-    var signRate = pct(g.signed, g.total);
     var icon = dim === 'region' ? '🌍' : (dim === 'channel' ? '👤' : '🏢');
     var pending = g.total - g.followed;
 
@@ -3589,8 +3585,6 @@ function renderMgmtDashboard() {
       '<td class="num">' + g.followed + '</td>' +
       '<td class="num" style="color:' + rateColor + ';font-weight:600;">' + rate + '</td>' +
       '<td class="num">' + pending + '</td>' +
-      '<td class="num">' + g.signed + '</td>' +
-      '<td class="num" style="font-weight:600;">' + signRate + '</td>' +
       '</tr>';
   });
 
