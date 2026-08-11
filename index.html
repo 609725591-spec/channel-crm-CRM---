@@ -994,9 +994,10 @@ function renderAnalysis() {
       else if (prod === '智能体' || prod === '品牌智能体' || prod === '品牌智能体品专版') signedZnt++;
     });
   }
-  var totalSigned = Object.keys(signedPids).length;
-  var pendingPIDs = totalPIDs - totalSigned;
-  if (pendingPIDs < 0) pendingPIDs = totalPIDs;
+  // 待签约 = 当前服务商PID列表中未签约的数量
+  var providerSigned = 0;
+  data.forEach(function(d) { if (d.pid && signedPids[d.pid]) providerSigned++; });
+  var pendingPIDs = totalPIDs - providerSigned;
 
   $('analysisStats').innerHTML =
     '<div class="stat-card"><div class="label">待签约PID</div><div class="value blue">' + fmt(pendingPIDs) + '</div><div class="sub">覆盖 ' + cities.length + ' 个城市</div></div>' +
