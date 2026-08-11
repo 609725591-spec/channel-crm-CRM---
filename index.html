@@ -1605,12 +1605,20 @@ function filterLeads() {
 
 function renderLeadsTable() {
   var data = STATE.leadsFiltered;
+  var sort = STATE.leadsSort || {field:'dpv_30d', dir:'desc'};
+  data = data.slice().sort(function(a,b) {
+    var va = a.dpv_30d || 0, vb = b.dpv_30d || 0;
+    return sort.dir === 'desc' ? vb - va : va - vb;
+  });
+
   var start = (STATE.leadsPage - 1) * CONFIG.pageSize;
   var pageData = data.slice(start, start + CONFIG.pageSize);
   var totalPages = Math.ceil(data.length / CONFIG.pageSize);
 
+  var dpvArrow = sort.dir === 'desc' ? ' ▼' : ' ▲';
+
   var html = '<div class="data-table-wrap" style="max-height:calc(100vh - 340px);overflow-y:auto;"><table class="data-table">' +
-    '<thead><tr><th>POI名称</th><th>城市</th><th>类目</th><th class="num">DPV</th><th>品牌类型</th><th>烟火档位</th><th>高优</th><th>状态</th><th>操作</th></tr></thead><tbody>';
+    '<thead><tr><th>POI名称</th><th>城市</th><th>类目</th><th class="num" style="cursor:pointer;user-select:none;" onclick="sortLeads(\'dpv_30d\')">近30天日均DPV' + dpvArrow + '</th><th>品牌类型</th><th>烟火档位</th><th>高优</th><th>状态</th><th>操作</th></tr></thead><tbody>';
 
   if (pageData.length === 0) {
     html += '<tr><td colspan="9" style="text-align:center;padding:30px;color:var(--text3);">暂无数据</td></tr>';
@@ -1638,6 +1646,14 @@ function renderLeadsTable() {
 }
 
 function setLeadsPage(p) { STATE.leadsPage = p; renderLeadsTable(); }
+
+function sortLeads(field) {
+  var s = STATE.leadsSort || {field:'dpv_30d', dir:'desc'};
+  s.dir = s.dir === 'desc' ? 'asc' : 'desc';
+  STATE.leadsSort = s;
+  STATE.leadsPage = 1;
+  renderLeadsTable();
+}
 
 /* =============================================
    PAGINATION HELPER
