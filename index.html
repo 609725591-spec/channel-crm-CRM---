@@ -3052,6 +3052,32 @@ async function saveFollowUp() {
     } catch(e) { console.warn('Save follow-up to Supabase failed:', e); }
   }
 
+  // Auto-add to follow-up person's work pool (silent, no alert)
+  try {
+    var alreadyInPool = STATE.myPool.some(function(p){
+      return p.target_type === record.target_type && p.target_id === record.target_id && p.employee_name === empName;
+    });
+    if (!alreadyInPool) {
+      var poolRecord = {
+        provider_id: STATE.user.provider_id,
+        employee_name: empName,
+        target_type: record.target_type,
+        target_id: record.target_id,
+        priority: '中',
+        source: '跟进自动加入'
+      };
+      if (sb && STATE.user.provider_id !== 'SP_DEMO_001') {
+        var poolRes = await sb.from('crm_work_pool').insert(poolRecord).select().single();
+        if (poolRes.data && empName === STATE.currentEmployee) {
+          STATE.myPool.push(poolRes.data);
+        }
+      } else if (empName === STATE.currentEmployee) {
+        poolRecord.id = Date.now();
+        STATE.myPool.push(poolRecord);
+      }
+    }
+  } catch(e) { console.warn('Auto-add to pool failed:', e); }
+
   closeFollowModal();
   logUsage('follow_up');
 
