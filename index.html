@@ -3810,6 +3810,7 @@ function renderMyPool() {
   });
 
   var html = '<div class="data-table-wrap" style="max-height:calc(100vh - 380px);overflow-y:auto;"><table class="data-table"><thead><tr>';
+  html += '<th style="width:30px;text-align:center;"><input type="checkbox" onchange="toggleAllPoolCheck(this,\'pool\')"></th>';
   if (tab === 'commercial') {
     html += '<th>门店名</th><th>城市</th><th>类目</th><th>优先级</th><th>跟进状态</th><th>下次跟进</th><th>操作</th>';
   } else {
@@ -3818,7 +3819,7 @@ function renderMyPool() {
   html += '</tr></thead><tbody>';
 
   if (items.length === 0) {
-    html += '<tr><td colspan="7" style="text-align:center;padding:40px;color:var(--text3);">' +
+    html += '<tr><td colspan="8" style="text-align:center;padding:40px;color:var(--text3);">' +
       '<div style="font-size:15px;margin-bottom:8px;">🎯</div>' +
       '<div>做工池为空，去「' + (tab==='commercial'?'商业化做工':'开店做工') + '」页面添加商户到你的做工池</div></td></tr>';
   } else {
@@ -3841,19 +3842,32 @@ function renderMyPool() {
       var followFn = tab === 'commercial' ? "showPIDDetail('" + p.target_id + "',true)" : "showLeadDetail('" + p.target_id + "',true)";
 
       html += '<tr>' +
+        '<td style="text-align:center;"><input type="checkbox" class="pool-check" data-pool-id="' + p.id + '"></td>' +
         '<td class="clickable" onclick="' + clickFn + '"><strong>' + name + '</strong></td>' +
         '<td>' + city + '</td>' +
         '<td>' + cat + '</td>' +
         '<td>' + priBadge + '</td>' +
         '<td>' + statusBadge(fuStatus) + '</td>' +
         '<td>' + nextAction + '</td>' +
-        '<td><button class="btn btn-sm btn-outline" onclick="' + followFn + '" style="margin-right:4px;">跟进</button>' +
+        '<td style="white-space:nowrap;"><button class="btn btn-sm btn-outline" onclick="' + followFn + '" style="margin-right:4px;">跟进</button>' +
         '<button class="btn btn-sm btn-outline" style="color:var(--red);border-color:var(--red);" onclick="removeFromPool(' + p.id + ')">移出</button></td>' +
         '</tr>';
     });
   }
   html += '</tbody></table></div>';
+
+  // Batch remove action bar
+  html += '<div id="poolBatchBar" style="display:none;background:var(--card);border-top:1px solid var(--border);padding:10px 16px;align-items:center;gap:12px;z-index:10;">' +
+    '<span id="poolBatchCount" style="font-size:13px;color:var(--text2);">已选0项</span>' +
+    '<button class="btn btn-sm btn-outline" style="color:var(--red);border-color:var(--red);" onclick="batchRemoveFromPool()">批量移出</button>' +
+    '<button class="btn btn-sm btn-outline" onclick="clearPoolChecks(\'pool\')">取消选择</button></div>';
+
   $('myPoolTableWrap').innerHTML = html;
+
+  // Attach checkbox listeners
+  document.querySelectorAll('#myPoolTableWrap .pool-check').forEach(function(cb) {
+    cb.addEventListener('change', function(){ updatePoolBatchBar('pool'); });
+  });
 }
 
 function switchPoolTab(btn, tab) {
@@ -3939,7 +3953,7 @@ async function cyclePoolPriority(poolId, current) {
 
 // Batch pool checkbox helpers
 function toggleAllPoolCheck(masterCb, prefix) {
-  var wrap = prefix === 'comm' ? 'commercialTableWrap' : 'leadsTableWrap';
+  var wrap = prefix === 'comm' ? 'commercialTableWrap' : (prefix === 'lead' ? 'leadsTableWrap' : 'myPoolTableWrap');
   document.querySelectorAll('#' + wrap + ' .pool-check').forEach(function(cb) {
     cb.checked = masterCb.checked;
   });
@@ -3947,9 +3961,9 @@ function toggleAllPoolCheck(masterCb, prefix) {
 }
 
 function updatePoolBatchBar(prefix) {
-  var wrap = prefix === 'comm' ? 'commercialTableWrap' : 'leadsTableWrap';
-  var barId = prefix === 'comm' ? 'commBatchBar' : 'leadBatchBar';
-  var countId = prefix === 'comm' ? 'commBatchCount' : 'leadBatchCount';
+  var wrap = prefix === 'comm' ? 'commercialTableWrap' : (prefix === 'lead' ? 'leadsTableWrap' : 'myPoolTableWrap');
+  var barId = prefix === 'comm' ? 'commBatchBar' : (prefix === 'lead' ? 'leadBatchBar' : 'poolBatchBar');
+  var countId = prefix === 'comm' ? 'commBatchCount' : (prefix === 'lead' ? 'leadBatchCount' : 'poolBatchCount');
   var checked = document.querySelectorAll('#' + wrap + ' .pool-check:checked');
   var bar = $(barId);
   if (!bar) return;
@@ -3974,8 +3988,27 @@ async function batchAddPool(targetType) {
   updatePoolBatchBar(prefix);
 }
 
+async function batchRemoveFromPool() {
+  var checks = document.querySelectorAll('#myPoolTableWrap .pool-check:checked');
+  if (checks.length === 0) return;
+  if (!confirm('确定移出选中的 ' + checks.length + ' 个商户？')) return;
+  var poolIds = [];
+  checks.forEach(function(cb) { poolIds.push(cb.dataset.poolId); });
+  var removedCount = 0;
+  for (var i = 0; i < poolIds.length; i++) {
+    try {
+      if (sb) await sb.from('crm_work_pool').delete().eq('id', poolIds[i]);
+      STATE.myPool = STATE.myPool.filter(function(p){ return p.id !== poolIds[i]; });
+      removedCount++;
+    } catch(e) { console.warn('Remove pool item failed:', e); }
+  }
+  logAction('pool_batch_remove', null, null, removedCount + '条');
+  renderMyPool();
+  if (removedCount > 0) alert('已移出 ' + removedCount + ' 个商户');
+}
+
 function clearPoolChecks(prefix) {
-  var wrap = prefix === 'comm' ? 'commercialTableWrap' : 'leadsTableWrap';
+  var wrap = prefix === 'comm' ? 'commercialTableWrap' : (prefix === 'lead' ? 'leadsTableWrap' : 'myPoolTableWrap');
   document.querySelectorAll('#' + wrap + ' .pool-check').forEach(function(cb) {
     cb.checked = false;
   });
