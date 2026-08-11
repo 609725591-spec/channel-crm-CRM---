@@ -978,20 +978,31 @@ function renderAnalysis() {
 
   // === Section 1: KPI Stats ===
   var totalPIDs = data.length;
-  var signedAgent = data.filter(function(d){return d.is_signed_agent;}).length;
-  var signedEff = data.filter(function(d){return d.is_signed_eff;}).length;
-  var signedBrand = data.filter(function(d){return d.is_signed_brand;}).length;
-  var signedAny = data.filter(function(d){return d.is_signed_agent||d.is_signed_eff||d.is_signed_brand;}).length;
-  var avgDPV = totalPIDs ? Math.round(data.reduce(function(s,d){return s+(d.dpv_30d||0);},0)/totalPIDs) : 0;
-  var highPriCount = data.filter(function(d){return d.high_priority_cat;}).length;
-  var penRate = totalPIDs ? (signedAny/totalPIDs*100).toFixed(1) : 0;
+  var city = cities[0] || '';
+
+  // Count signed PIDs per product from crm_cases (city-level)
+  var signedPg = 0, signedXg = 0, signedZnt = 0;
+  var signedPids = {};
+  if (STATE.signedCases && STATE.signedCases.length > 0) {
+    STATE.signedCases.forEach(function(c) {
+      if (c.city !== city || !c.metrics) return;
+      var pid = c.metrics.pid;
+      if (pid) signedPids[pid] = true;
+      var prod = c.product || '';
+      if (prod === '品广' || prod === '品牌广告') signedPg++;
+      else if (prod === '效果广告') signedXg++;
+      else if (prod === '智能体' || prod === '品牌智能体' || prod === '品牌智能体品专版') signedZnt++;
+    });
+  }
+  var totalSigned = Object.keys(signedPids).length;
+  var pendingPIDs = totalPIDs - totalSigned;
+  if (pendingPIDs < 0) pendingPIDs = totalPIDs;
 
   $('analysisStats').innerHTML =
-    '<div class="stat-card"><div class="label">在约PID数</div><div class="value blue">' + fmt(totalPIDs) + '</div><div class="sub">覆盖 ' + cities.length + ' 个城市</div></div>' +
-    '<div class="stat-card"><div class="label">已签约</div><div class="value green">' + fmt(signedAny) + '</div><div class="sub">渗透率 ' + penRate + '%</div></div>' +
-    '<div class="stat-card"><div class="label">智能体</div><div class="value">' + fmt(signedAgent) + '</div><div class="sub">签约PID</div></div>' +
-    '<div class="stat-card"><div class="label">效果广告</div><div class="value">' + fmt(signedEff) + '</div><div class="sub">签约PID</div></div>' +
-    '<div class="stat-card"><div class="label">高优类目</div><div class="value amber">' + fmt(highPriCount) + '</div><div class="sub">占比 ' + (totalPIDs?(highPriCount/totalPIDs*100).toFixed(1):0) + '%</div></div>';
+    '<div class="stat-card"><div class="label">待签约PID</div><div class="value blue">' + fmt(pendingPIDs) + '</div><div class="sub">覆盖 ' + cities.length + ' 个城市</div></div>' +
+    '<div class="stat-card"><div class="label">已签约品广</div><div class="value green">' + fmt(signedPg) + '</div><div class="sub">签约PID</div></div>' +
+    '<div class="stat-card"><div class="label">已签约效广</div><div class="value green">' + fmt(signedXg) + '</div><div class="sub">签约PID</div></div>' +
+    '<div class="stat-card"><div class="label">已签约智能体</div><div class="value green">' + fmt(signedZnt) + '</div><div class="sub">签约PID</div></div>';
 
   // === Section 2: Historical Signing Analysis (by product × category) ===
   renderSigningAnalysis(data, cities);
