@@ -496,6 +496,7 @@ a { color:var(--accent2); text-decoration:none; }
               <option>钻展</option>
               <option>导结</option>
               <option>品牌智能体品专版</option>
+              <option>品专</option>
             </select>
           </div>
         </div>
@@ -2123,7 +2124,6 @@ function renderCases(d) {
       html += '<div style="font-size:14px;font-weight:600;">' + city + ' · ' + (c.category || cat) + ' · ' + masked + '</div>';
       html += '<div style="margin-top:4px;">';
       html += '<span class="badge badge-blue" style="font-size:10px;margin-right:4px;">' + c.product + '</span>';
-      if (m.channel) html += '<span class="badge" style="font-size:10px;background:var(--bg2);color:var(--text3);margin-right:4px;">' + m.channel + '</span>';
       html += '</div>';
       html += '</div>';
       html += '<div style="display:flex;gap:12px;text-align:center;flex-shrink:0;">';
