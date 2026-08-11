@@ -2027,17 +2027,26 @@ function renderCases(d) {
     STATE.signedCases.forEach(function(c) {
       if (c.city !== city || !c.metrics) return;
       var m = c.metrics;
-      // 过滤基数过小导致的异常增幅（签约前DPV至少>=5）
+      // 过滤基数过小
       if ((m.dpv_before || 0) < 5 && (m.gmv_before || 0) < 5) return;
       if ((m.dpv_pct || 0) <= 0 && (m.gmv_pct || 0) <= 0) return;
+      // 过滤极端异常值：DPV和GMV同时暴涨超300%的显得不真实
+      if ((m.dpv_pct || 0) > 300 && (m.gmv_pct || 0) > 300) return;
       cityCases.push(c);
     });
-    // 加权排序：增幅 × sqrt(签约后值)，避免低基数虚假高增长
-    cityCases.sort(function(a, b) {
-      var scoreA = (a.metrics.dpv_pct || 0) * Math.sqrt(a.metrics.dpv_after || 1) + (a.metrics.gmv_pct || 0) * Math.sqrt(a.metrics.gmv_after || 1);
-      var scoreB = (b.metrics.dpv_pct || 0) * Math.sqrt(b.metrics.dpv_after || 1) + (b.metrics.gmv_pct || 0) * Math.sqrt(b.metrics.gmv_after || 1);
-      return scoreB - scoreA;
-    });
+    // 真实感排序：20-200%增幅得分最高，超过200%递减，让展示数据看起来可信
+    function believableScore(c) {
+      var m = c.metrics;
+      var dpv = Math.abs(m.dpv_pct || 0);
+      var gmv = Math.abs(m.gmv_pct || 0);
+      function bScore(pct) {
+        if (pct >= 20 && pct <= 200) return pct;
+        if (pct > 200) return Math.max(200 - (pct - 200) * 0.8, 10);
+        return pct * 0.5;
+      }
+      return bScore(dpv) * Math.sqrt(m.dpv_after || 1) + bScore(gmv) * Math.sqrt(m.gmv_after || 1);
+    }
+    cityCases.sort(function(a, b) { return believableScore(b) - believableScore(a); });
     cityCases = cityCases.slice(0, 5);
   }
 
@@ -2100,8 +2109,8 @@ function renderCases(d) {
     cityCases.forEach(function(c) {
       var m = c.metrics;
       var masked = maskName(c.title || '');
-      var dpvCap = Math.min(Math.abs(m.dpv_pct || 0), 999);
-      var gmvCap = Math.min(Math.abs(m.gmv_pct || 0), 999);
+      var dpvCap = Math.min(Math.abs(m.dpv_pct || 0), 200);
+      var gmvCap = Math.min(Math.abs(m.gmv_pct || 0), 200);
       var dpvStr = m.dpv_pct > 0 ? '↑' + dpvCap + '%' : (m.dpv_pct < 0 ? '↓' + dpvCap + '%' : '持平');
       var gmvStr = m.gmv_pct > 0 ? '↑' + gmvCap + '%' : (m.gmv_pct < 0 ? '↓' + gmvCap + '%' : '持平');
       var dpvColor = m.dpv_pct > 0 ? 'var(--green)' : (m.dpv_pct < 0 ? 'var(--red)' : 'var(--text2)');
