@@ -1002,67 +1002,140 @@ function renderSigningAnalysis(data, cities) {
   var region = getRegion(cities[0] || '');
   var city = cities[0] || '';
 
-  // Check city-level signing volume first, fall back to region if too few
-  var citySignedCount = 0;
-  data.forEach(function(d) {
-    if (d.is_signed_agent || d.is_signed_eff || d.is_signed_brand) citySignedCount++;
-  });
-  var useCity = citySignedCount >= 3;
-  var scope = useCity ? city : region;
-  var scopeNote = useCity ? '' : '（该城市签约量不足，展示' + region + '汇总数据）';
+  // === Build city-level data from STATE.signedCases (real crm_cases data) ===
+  var cityCatAgg = {};
+  var cityProdAgg = {};
+  var prodNames = {xg:'效果广告', znt:'品牌智能体', dz:'顶展', zx:'钻展', dj:'导结'};
+  var prodNameMap = {};
+  Object.keys(prodNames).forEach(function(k) { prodNameMap[prodNames[k]] = k; });
 
-  // Aggregate across all products per category
-  var catAgg = {};
-  ['xg','znt','dz','zx','dj'].forEach(function(pt) {
-    var pool = REAL_CASES[pt];
-    if (!pool || !pool[region]) return;
-    Object.keys(pool[region]).forEach(function(cat) {
-      var d = pool[region][cat];
-      if (!catAgg[cat]) catAgg[cat] = {n:0, db:0, da:0, gb:0, ga:0};
-      catAgg[cat].n += d.n;
-      catAgg[cat].db += d.db * d.n;
-      catAgg[cat].da += d.da * d.n;
-      catAgg[cat].gb += d.gb * d.n;
-      catAgg[cat].ga += d.ga * d.n;
+  var citySignedCount = 0;
+  if (STATE.signedCases && STATE.signedCases.length > 0) {
+    STATE.signedCases.forEach(function(c) {
+      if (c.city !== city || !c.metrics) return;
+      var m = c.metrics;
+      if ((m.dpv_pct || 0) <= 0 && (m.gmv_pct || 0) <= 0) return;
+      citySignedCount++;
+      var cat = c.category || '其他';
+      var prodKey = prodNameMap[c.product] || c.product;
+      if (!cityCatAgg[cat]) cityCatAgg[cat] = {n:0, dpvSum:0, gmvSum:0, dpvCnt:0, gmvCnt:0};
+      cityCatAgg[cat].n++;
+      if (m.dpv_pct != null) { cityCatAgg[cat].dpvSum += (m.dpv_pct || 0); cityCatAgg[cat].dpvCnt++; }
+      if (m.gmv_pct != null) { cityCatAgg[cat].gmvSum += (m.gmv_pct || 0); cityCatAgg[cat].gmvCnt++; }
+      if (!cityProdAgg[prodKey]) cityProdAgg[prodKey] = {n:0, dpvSum:0, gmvSum:0, dpvCnt:0, gmvCnt:0, name: c.product};
+      cityProdAgg[prodKey].n++;
+      if (m.dpv_pct != null) { cityProdAgg[prodKey].dpvSum += (m.dpv_pct || 0); cityProdAgg[prodKey].dpvCnt++; }
+      if (m.gmv_pct != null) { cityProdAgg[prodKey].gmvSum += (m.gmv_pct || 0); cityProdAgg[prodKey].gmvCnt++; }
     });
-  });
+  }
+
+  // Use city data if enough, otherwise fall back to REAL_CASES region data
+  var useCity = citySignedCount >= 5;
+  var scope = useCity ? city : region;
+  var scopeNote = useCity ? '' : '（该城市签约样本不足，展示' + region + '大区汇总数据）';
+
+  var catAgg, prodAgg;
+  if (useCity) {
+    catAgg = {};
+    Object.keys(cityCatAgg).forEach(function(cat) {
+      var a = cityCatAgg[cat];
+      catAgg[cat] = {n:a.n, dp: a.dpvCnt>0 ? Math.round(a.dpvSum/a.dpvCnt) : 0, gp: a.gmvCnt>0 ? Math.round(a.gmvSum/a.gmvCnt) : 0};
+    });
+    prodAgg = {};
+    Object.keys(cityProdAgg).forEach(function(pt) {
+      var a = cityProdAgg[pt];
+      prodAgg[pt] = {n:a.n, dp: a.dpvCnt>0 ? Math.round(a.dpvSum/a.dpvCnt) : 0, gp: a.gmvCnt>0 ? Math.round(a.gmvSum/a.gmvCnt) : 0, name: a.name || prodNames[pt] || pt};
+    });
+  } else {
+    // Fall back to REAL_CASES region data
+    catAgg = {};
+    ['xg','znt','dz','zx','dj'].forEach(function(pt) {
+      var pool = REAL_CASES[pt];
+      if (!pool || !pool[region]) return;
+      Object.keys(pool[region]).forEach(function(cat) {
+        var d = pool[region][cat];
+        if (!catAgg[cat]) catAgg[cat] = {n:0, db:0, da:0, gb:0, ga:0};
+        catAgg[cat].n += d.n;
+        catAgg[cat].db += d.db * d.n;
+        catAgg[cat].da += d.da * d.n;
+        catAgg[cat].gb += d.gb * d.n;
+        catAgg[cat].ga += d.ga * d.n;
+      });
+    });
+    Object.keys(catAgg).forEach(function(cat) {
+      var a = catAgg[cat];
+      catAgg[cat] = {n:a.n, dp: a.db>0 ? Math.round((a.da-a.db)/a.db*100) : 0, gp: a.gb>0 ? Math.round((a.ga-a.gb)/a.gb*100) : 0};
+    });
+    prodAgg = {};
+    ['xg','znt','dz','zx','dj'].forEach(function(pt) {
+      var pool = REAL_CASES[pt];
+      if (!pool || !pool[region]) return;
+      prodAgg[pt] = {n:0, db:0, da:0, gb:0, ga:0};
+      Object.keys(pool[region]).forEach(function(cat) {
+        var d = pool[region][cat];
+        prodAgg[pt].n += d.n;
+        prodAgg[pt].db += d.db * d.n;
+        prodAgg[pt].da += d.da * d.n;
+        prodAgg[pt].gb += d.gb * d.n;
+        prodAgg[pt].ga += d.ga * d.n;
+      });
+    });
+    Object.keys(prodAgg).forEach(function(pt) {
+      var a = prodAgg[pt];
+      prodAgg[pt] = {n:a.n, dp: a.db>0 ? Math.round((a.da-a.db)/a.db*100) : 0, gp: a.gb>0 ? Math.round((a.ga-a.gb)/a.gb*100) : 0, name: prodNames[pt]};
+    });
+  }
+
   var catList = Object.entries(catAgg).map(function(e) {
-    var c = e[0], a = e[1];
-    return {cat:c, n:a.n, dp: a.db>0 ? Math.round((a.da - a.db)/a.db*100) : 0, gp: a.gb>0 ? Math.round((a.ga - a.gb)/a.gb*100) : 0};
+    return {cat:e[0], n:e[1].n, dp:e[1].dp, gp:e[1].gp};
   }).sort(function(a,b){return b.n - a.n;});
   var top8 = catList.slice(0, 8);
 
-  // Aggregate across all categories per product
-  var prodAgg = {};
-  var prodNames = {xg:'效果广告', znt:'品牌智能体', dz:'顶展', zx:'钻展', dj:'导结'};
-  ['xg','znt','dz','zx','dj'].forEach(function(pt) {
-    var pool = REAL_CASES[pt];
-    if (!pool || !pool[region]) return;
-    prodAgg[pt] = {n:0, db:0, da:0, gb:0, ga:0};
-    Object.keys(pool[region]).forEach(function(cat) {
-      var d = pool[region][cat];
-      prodAgg[pt].n += d.n;
-      prodAgg[pt].db += d.db * d.n;
-      prodAgg[pt].da += d.da * d.n;
-      prodAgg[pt].gb += d.gb * d.n;
-      prodAgg[pt].ga += d.ga * d.n;
-    });
-  });
   var prodList = Object.entries(prodAgg).map(function(e) {
-    var pt = e[0], a = e[1];
-    return {key:pt, name:prodNames[pt], n:a.n, dp: a.db>0 ? Math.round((a.da - a.db)/a.db*100) : 0, gp: a.gb>0 ? Math.round((a.ga - a.gb)/a.gb*100) : 0};
+    return {key:e[0], name:e[1].name || prodNames[e[0]] || e[0], n:e[1].n, dp:e[1].dp, gp:e[1].gp};
   }).sort(function(a,b){return b.n - a.n;});
 
   var html = '<h3 style="font-size:15px;font-weight:600;margin-bottom:4px;">历史签约效果分析</h3>';
-  html += '<p style="font-size:12px;color:var(--text3);margin-bottom:20px;">数据来源：5-7月直渠电新签广告主 · 范围：' + scope + scopeNote + '</p>';
+  html += '<p style="font-size:12px;color:var(--text3);margin-bottom:16px;">数据来源：5-7月直渠电新签广告主 · 范围：' + scope + scopeNote + '</p>';
 
-  // === Module 1: Top 8 categories ===
+  // === ANALYSIS BLOCK (above tables, prominent) ===
+  if (top8.length > 0 && prodList.length > 0) {
+    var topCat = top8[0];
+    var bestDpCat = top8.reduce(function(a,b){return a.dp>b.dp?a:b;});
+    var bestGpCat = top8.reduce(function(a,b){return a.gp>b.gp?a:b;});
+    var topProd = prodList[0];
+    var bestDpProd = prodList.reduce(function(a,b){return a.dp>b.dp?a:b;});
+    var bestGpProd = prodList.reduce(function(a,b){return a.gp>b.gp?a:b;});
+    var avgDp = Math.round(catList.reduce(function(s,c){return s+c.dp;},0)/catList.length);
+    var avgGp = Math.round(catList.reduce(function(s,c){return s+c.gp;},0)/catList.length);
+    // Find categories with both high DPV and GMV growth
+    var dualHigh = catList.filter(function(c){return c.dp >= 50 && c.gp >= 50;});
+    var lowGmvCats = catList.filter(function(c){return c.dp > 30 && c.gp < 20 && c.gp >= 0;});
+
+    html += '<div style="margin-bottom:24px;padding:20px 24px;background:linear-gradient(135deg,rgba(99,102,241,0.08),rgba(16,185,129,0.08));border:1px solid rgba(99,102,241,0.2);border-radius:12px;">';
+    html += '<div style="font-size:16px;font-weight:700;color:var(--text1);margin-bottom:14px;">' + scope + '签约效果洞察</div>';
+
+    html += '<div style="font-size:14px;line-height:2;color:var(--text1);">';
+    html += '<div style="margin-bottom:8px;"><span style="color:var(--accent);font-weight:700;">1.</span> ' + scope + '签约量最大的类目是「<strong>' + topCat.cat + '</strong>」（' + topCat.n + '户），说明该品类商户商业化意愿最强，是当前最成熟的签约品类。</div>';
+    html += '<div style="margin-bottom:8px;"><span style="color:var(--accent);font-weight:700;">2.</span> DPV提升最显著的是「<strong>' + bestDpCat.cat + '</strong>」（+' + bestDpCat.dp + '%），签约后门店曝光增长最为明显，适合作为效果广告的主推案例。</div>';
+    html += '<div style="margin-bottom:8px;"><span style="color:var(--accent);font-weight:700;">3.</span> GMV提升最突出的是「<strong>' + bestGpCat.cat + '</strong>」（+' + bestGpCat.gp + '%），该品类签约后实际营收转化效果最好，可用于说服看重ROI的商户。</div>';
+    if (dualHigh.length > 0) {
+      html += '<div style="margin-bottom:8px;"><span style="color:var(--green);font-weight:700;">4.</span> 「<strong>' + dualHigh.map(function(c){return c.cat;}).join('」「') + '</strong>」等' + dualHigh.length + '个类目DPV与GMV双双大幅提升，属于"流量-营收"联动效果最佳的品类，推荐优先拓展。</div>';
+    }
+    html += '<div style="margin-bottom:8px;"><span style="color:var(--accent2);font-weight:700;">' + (dualHigh.length > 0 ? '5' : '4') + '.</span> 产品层面，「<strong>' + topProd.name + '</strong>」签约量最多（' + topProd.n + '户），DPV拉动最强的是「<strong>' + bestDpProd.name + '</strong>」（+' + bestDpProd.dp + '%），GMV转化最好的是「<strong>' + bestGpProd.name + '</strong>」（+' + bestGpProd.gp + '%）。建议组合搭配推荐。</div>';
+    if (lowGmvCats.length > 0) {
+      html += '<div><span style="color:var(--amber);font-weight:700;">' + (dualHigh.length > 0 ? '6' : '5') + '.</span> 注意：「' + lowGmvCats.map(function(c){return c.cat;}).join('」「') + '」类目DPV提升明显但GMV增幅偏低，建议结合商户运营能力评估后再推荐签约。</div>';
+    }
+    html += '</div></div>';
+  }
+
+  // === Module 1: Top 8 categories (no signing count column) ===
   html += '<div style="margin-bottom:28px;">';
   html += '<h4 style="font-size:14px;font-weight:600;margin-bottom:12px;color:var(--accent);">签约Top 8类目（跨产品汇总）</h4>';
 
   if (top8.length > 0) {
     html += '<div class="data-table-wrap"><table class="data-table"><thead><tr>';
-    html += '<th>类目</th><th class="num">签约单数</th><th class="num">DPV提升</th><th class="num">GMV提升</th>';
+    html += '<th>类目</th><th class="num">DPV提升</th><th class="num">GMV提升</th>';
     html += '</tr></thead><tbody>';
     top8.forEach(function(c) {
       var dpColor = c.dp > 0 ? 'var(--green)' : 'var(--red)';
@@ -1070,33 +1143,22 @@ function renderSigningAnalysis(data, cities) {
       var dpText = c.dp > 0 ? '+' + c.dp + '%' : (c.dp < 0 ? c.dp + '%' : '持平');
       var gpText = c.gp > 0 ? '+' + c.gp + '%' : (c.gp < 0 ? c.gp + '%' : '持平');
       html += '<tr><td><strong>' + c.cat + '</strong></td>';
-      html += '<td class="num">' + c.n + '单</td>';
       html += '<td class="num" style="color:' + dpColor + ';font-weight:600;">' + dpText + '</td>';
       html += '<td class="num" style="color:' + gpColor + ';font-weight:600;">' + gpText + '</td></tr>';
     });
     html += '</tbody></table></div>';
-
-    // 3 sentences of category analysis
-    var topCat = top8[0];
-    var bestDpCat = top8.reduce(function(a,b){return a.dp>b.dp?a:b;});
-    var bestGpCat = top8.reduce(function(a,b){return a.gp>b.gp?a:b;});
-    html += '<div style="margin-top:10px;padding:12px 14px;background:var(--bg);border-left:3px solid var(--accent);border-radius:0 6px 6px 0;font-size:13px;line-height:1.8;color:var(--text2);">';
-    html += scope + '签约量最大的类目是「' + topCat.cat + '」（' + topCat.n + '单），说明该品类商户商业化意愿最强。';
-    html += 'DPV提升最显著的是「' + bestDpCat.cat + '」（+' + bestDpCat.dp + '%），签约后门店曝光增长最为明显。';
-    html += 'GMV提升最突出的是「' + bestGpCat.cat + '」（+' + bestGpCat.gp + '%），说明该品类签约后实际营收转化效果最好。';
-    html += '</div>';
   } else {
     html += '<p style="color:var(--text3);text-align:center;padding:20px;">暂无该区域历史签约数据</p>';
   }
   html += '</div>';
 
-  // === Module 2: Product-level ===
+  // === Module 2: Product-level (no signing count column) ===
   html += '<div>';
   html += '<h4 style="font-size:14px;font-weight:600;margin-bottom:12px;color:var(--accent2);">签约产品效果（跨类目汇总）</h4>';
 
   if (prodList.length > 0) {
     html += '<div class="data-table-wrap"><table class="data-table"><thead><tr>';
-    html += '<th>产品</th><th class="num">签约单数</th><th class="num">DPV提升</th><th class="num">GMV提升</th>';
+    html += '<th>产品</th><th class="num">DPV提升</th><th class="num">GMV提升</th>';
     html += '</tr></thead><tbody>';
     prodList.forEach(function(p) {
       var dpColor = p.dp > 0 ? 'var(--green)' : 'var(--red)';
@@ -1104,21 +1166,10 @@ function renderSigningAnalysis(data, cities) {
       var dpText = p.dp > 0 ? '+' + p.dp + '%' : (p.dp < 0 ? p.dp + '%' : '持平');
       var gpText = p.gp > 0 ? '+' + p.gp + '%' : (p.gp < 0 ? p.gp + '%' : '持平');
       html += '<tr><td><strong>' + p.name + '</strong></td>';
-      html += '<td class="num">' + p.n + '单</td>';
       html += '<td class="num" style="color:' + dpColor + ';font-weight:600;">' + dpText + '</td>';
       html += '<td class="num" style="color:' + gpColor + ';font-weight:600;">' + gpText + '</td></tr>';
     });
     html += '</tbody></table></div>';
-
-    // 3 sentences of product analysis
-    var topProd = prodList[0];
-    var bestDpProd = prodList.reduce(function(a,b){return a.dp>b.dp?a:b;});
-    var bestGpProd = prodList.reduce(function(a,b){return a.gp>b.gp?a:b;});
-    html += '<div style="margin-top:10px;padding:12px 14px;background:var(--bg);border-left:3px solid var(--accent2);border-radius:0 6px 6px 0;font-size:13px;line-height:1.8;color:var(--text2);">';
-    html += scope + '签约量最多的产品是「' + topProd.name + '」（' + topProd.n + '单），是当前最主流的投放选择。';
-    html += 'DPV提升最显著的是「' + bestDpProd.name + '」（+' + bestDpProd.dp + '%），说明该产品对门店曝光拉动最直接。';
-    html += 'GMV提升最突出的是「' + bestGpProd.name + '」（+' + bestGpProd.gp + '%），签约后营收转化效果最好。';
-    html += '</div>';
   } else {
     html += '<p style="color:var(--text3);text-align:center;padding:20px;">暂无该区域产品签约数据</p>';
   }
