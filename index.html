@@ -1937,47 +1937,38 @@ function renderRecommendations(d) {
 
   html += '<div class="detail-section" style="margin-top:20px;"><h4>推荐话术</h4>';
 
-  // 画像标签
-  html += '<div style="margin-bottom:12px;"><span style="display:inline-block;padding:3px 10px;background:var(--accent2-bg,rgba(59,130,246,.08));color:var(--accent2,#3b82f6);border-radius:20px;font-size:12px;font-weight:500;">' + (profileTpl.label || '通用') + ' · ' + scripts.catName + '话术</span></div>';
-
   html += '<div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);padding:14px;font-size:13px;line-height:1.9;">';
 
-  // 1. 画像开场（基于门店特征）
+  // 1. 开场（画像开场 + 品类/通用开场，合并展示）
   var profileOpen = typeof profileTpl.open === 'function' ? profileTpl.open(d) : profileTpl.open;
-  html += '<strong>画像开场：</strong>' + profileOpen + '<br><br>';
-
-  // 2. 品类开场（取前2条，带标签）
-  html += '<strong style="color:var(--accent2,#3b82f6);">品类开场：</strong><br>';
+  html += '<strong style="color:var(--accent2,#3b82f6);">开场：</strong><br>';
+  html += profileOpen + '<br>';
   var openShow = scripts.open.slice(0, 2);
   for (var oi = 0; oi < openShow.length; oi++) {
-    html += '<span style="display:inline-block;padding:1px 6px;background:var(--g100,#f3f4f6);border-radius:4px;font-size:11px;color:var(--text3,#9ca3af);margin-right:4px;">' + openShow[oi].label + '</span>' + openShow[oi].text + '<br>';
+    html += openShow[oi].text + '<br>';
   }
 
-  // 3. 促单话术
-  html += '<br><strong style="color:var(--green,#059669);">促单话术：</strong><br>';
-  // 画像促单
-  html += '<span style="display:inline-block;padding:1px 6px;background:var(--g100,#f3f4f6);border-radius:4px;font-size:11px;color:var(--text3,#9ca3af);margin-right:4px;">画像</span>' + profileTpl.close + '<br>';
-  // 品类促单（取前1条）
+  // 2. 促单话术
+  html += '<br><strong style="color:var(--green,#059669);">促单：</strong><br>';
+  html += profileTpl.close + '<br>';
   if (scripts.close.length > 0) {
-    html += '<span style="display:inline-block;padding:1px 6px;background:var(--g100,#f3f4f6);border-radius:4px;font-size:11px;color:var(--text3,#9ca3af);margin-right:4px;">' + scripts.close[0].label + '</span>' + scripts.close[0].text + '<br>';
+    html += scripts.close[0].text + '<br>';
   }
 
-  // 4. 异议处理
+  // 3. 异议处理
   html += '<br><strong style="color:var(--orange,#ea580c);">异议处理：</strong><br>';
-  // 画像异议
-  html += '<span style="display:inline-block;padding:1px 6px;background:var(--g100,#f3f4f6);border-radius:4px;font-size:11px;color:var(--text3,#9ca3af);margin-right:4px;">画像</span>' + profileTpl.obj + '<br>';
-  // 品类+通用异议（取前2条）
+  html += profileTpl.obj + '<br>';
   var objShow = scripts.obj.slice(0, 2);
   for (var oj = 0; oj < objShow.length; oj++) {
-    html += '<span style="display:inline-block;padding:1px 6px;background:var(--g100,#f3f4f6);border-radius:4px;font-size:11px;color:var(--text3,#9ca3af);margin-right:4px;">' + objShow[oj].label + '</span>' + objShow[oj].text + '<br>';
+    html += objShow[oj].text + '<br>';
   }
 
-  // 5. 案例数据
-  html += '<br><strong>案例支撑：</strong>"' + _caseLine + '"';
+  // 4. 案例数据
+  html += '<br><strong>案例：</strong>"' + _caseLine + '"';
 
-  // 6. 占量机会（条件性）
+  // 5. 占量机会（条件性）
   if (hasDzOpp) {
-    html += '<br><strong style="color:var(--red,#dc2626);">词包机会：</strong>"当前' + cat + '类目顶展/钻展词包未占量，建议尽快抢注，一个城市一个类目只招一家。"';
+    html += '<br><strong style="color:var(--red,#dc2626);">机会：</strong>"当前' + cat + '类目顶展/钻展词包未占量，建议尽快抢注，一个城市一个类目只招一家。"';
   }
 
   html += '</div></div>';
