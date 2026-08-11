@@ -522,8 +522,13 @@ a { color:var(--accent2); text-decoration:none; }
 
       <!-- ===== PAGE: 管理驾驶舱 ===== -->
       <div id="page-mgmt" class="page">
-        <h2 class="page-title">管理驾驶舱 · 做工渗透分析</h2>
+        <h2 class="page-title">管理驾驶舱</h2>
         <p class="page-desc" id="mgmtDesc">全渠道作业进度与渗透率总览</p>
+        <div class="tab-bar" id="mgmtMasterTabs" style="margin-bottom:12px;">
+          <button class="tab-btn active" onclick="switchMgmtMaster(this,'penetration')">📊 做工渗透</button>
+          <button class="tab-btn" onclick="switchMgmtMaster(this,'usage')">📈 使用统计</button>
+        </div>
+        <div id="mgmtPenetration">
         <div class="tab-bar" id="mgmtDimTabs" style="margin-bottom:0;">
           <button class="tab-btn active" onclick="switchMgmtDim(this,'region')">大区</button>
           <button class="tab-btn" onclick="switchMgmtDim(this,'channel')">渠道经理</button>
@@ -536,6 +541,11 @@ a { color:var(--accent2); text-decoration:none; }
         <div id="mgmtStats" class="stats-row" style="margin-bottom:16px;"></div>
         <div id="mgmtSummary" style="margin-bottom:20px;"></div>
         <div id="mgmtDetail"></div>
+        </div>
+        <div id="mgmtUsage" style="display:none;">
+          <div id="mgmtUsageStats" class="stats-row" style="margin-bottom:16px;"></div>
+          <div id="mgmtUsageDetail"></div>
+        </div>
       </div>
 
     </main>
@@ -1008,6 +1018,7 @@ function toggleSidebar() {
    ============================================= */
 function navigate(page) {
   STATE.currentPage = page;
+  if (page !== 'mgmt') logUsage('nav_' + page);
   // Update sidebar
   document.querySelectorAll('.sidebar .nav-item').forEach(function(el) {
     el.classList.toggle('active', el.dataset.page === page);
@@ -3624,10 +3635,132 @@ function switchMgmtTab(btn, tab) {
   renderMgmtDashboard();
 }
 
-/* =============================================
-   EXPORT
-   ============================================= */
+function switchMgmtMaster(btn, mode) {
+  document.querySelectorAll('#mgmtMasterTabs .tab-btn').forEach(function(b){b.classList.remove('active');});
+  btn.classList.add('active');
+  if (mode === 'usage') {
+    $('mgmtPenetration').style.display = 'none';
+    $('mgmtUsage').style.display = 'block';
+    $('mgmtDesc').textContent = '各服务商工具使用情况';
+    renderMgmtUsage();
+  } else {
+    $('mgmtPenetration').style.display = 'block';
+    $('mgmtUsage').style.display = 'none';
+    $('mgmtDesc').textContent = '全渠道作业进度与渗透率总览';
+    renderMgmtDashboard();
+  }
+}
+
+async function renderMgmtUsage() {
+  $('mgmtUsageStats').innerHTML = '<div style="text-align:center;padding:20px;color:var(--text2);">加载中...</div>';
+  $('mgmtUsageDetail').innerHTML = '';
+
+  try {
+    // Load usage logs (login, nav, export, import)
+    var usageRes = await fetchAll(sb.from('crm_usage_logs').select('provider_id,provider_name,action,page,created_at'));
+    var usageLogs = usageRes.data || [];
+
+    // Load action logs (pool ops, follow-ups, identity)
+    var actionRes = await fetchAll(sb.from('crm_action_logs').select('provider_id,employee_name,action,target_type,detail,created_at'));
+    var actionLogs = actionRes.data || [];
+
+    // Load provider list for org info
+    var provRes = await fetchAll(sb.from('crm_providers').select('provider_id,provider_name,region,channel_manager'));
+    var provMap = {};
+    (provRes.data || []).forEach(function(p) { provMap[p.provider_id] = p; });
+
+    // Aggregate usage by provider
+    var byProvider = {};
+    var totalLogins = 0, totalOps = 0, totalExports = 0;
+    var activeProviders = new Set();
+
+    usageLogs.forEach(function(log) {
+      var pid = log.provider_id;
+      if (!byProvider[pid]) byProvider[pid] = { provider_name: log.provider_name || (provMap[pid] && provMap[pid].provider_name) || pid, region: (provMap[pid] && provMap[pid].region) || '未分配', channel_manager: (provMap[pid] && provMap[pid].channel_manager) || '未分配', logins: 0, navs: 0, exports: 0, imports: 0, followUps: 0, poolOps: 0, lastActive: null, activeDays: {} };
+      var b = byProvider[pid];
+      var action = log.action || '';
+      if (action === 'login' || action === 'mgmt_login') { b.logins++; totalLogins++; }
+      else if (action.indexOf('nav_') === 0) { b.navs++; }
+      else if (action.indexOf('export') === 0) { b.exports++; totalExports++; }
+      else if (action.indexOf('import') >= 0 || action.indexOf('custom_add') === 0) { b.imports++; }
+      else if (action === 'follow_up') { b.followUps++; }
+      totalOps++;
+      if (log.created_at) {
+        var d = log.created_at.substring(0, 10);
+        b.activeDays[d] = true;
+        if (!b.lastActive || log.created_at > b.lastActive) b.lastActive = log.created_at;
+      }
+      activeProviders.add(pid);
+    });
+
+    actionLogs.forEach(function(log) {
+      var pid = log.provider_id;
+      if (!byProvider[pid]) byProvider[pid] = { provider_name: (provMap[pid] && provMap[pid].provider_name) || pid, region: (provMap[pid] && provMap[pid].region) || '未分配', channel_manager: (provMap[pid] && provMap[pid].channel_manager) || '未分配', logins: 0, navs: 0, exports: 0, imports: 0, followUps: 0, poolOps: 0, lastActive: null, activeDays: {} };
+      var b = byProvider[pid];
+      var action = log.action || '';
+      if (action === 'follow_up' || action === 'switch_identity') { b.followUps++; }
+      else if (action.indexOf('pool') >= 0) { b.poolOps++; }
+      totalOps++;
+      if (log.created_at) {
+        var d = log.created_at.substring(0, 10);
+        b.activeDays[d] = true;
+        if (!b.lastActive || log.created_at > b.lastActive) b.lastActive = log.created_at;
+      }
+      activeProviders.add(pid);
+    });
+
+    // Convert activeDays to count
+    Object.keys(byProvider).forEach(function(k) {
+      byProvider[k].activeDayCount = Object.keys(byProvider[k].activeDays).length;
+    });
+
+    // Sort by lastActive descending (most recent first)
+    var arr = Object.keys(byProvider).map(function(k){ return Object.assign({provider_id: k}, byProvider[k]); });
+    arr.sort(function(a,b){ return (b.lastActive||'').localeCompare(a.lastActive||''); });
+
+    // Stats cards
+    var totalActiveDays = 0;
+    arr.forEach(function(d){ totalActiveDays += d.activeDayCount; });
+    $('mgmtUsageStats').innerHTML =
+      '<div class="stat-card"><div class="label">活跃服务商</div><div class="value blue">' + activeProviders.size + '</div><div class="sub">共' + (provRes.data||[]).length + '家注册</div></div>' +
+      '<div class="stat-card"><div class="label">总登录次数</div><div class="value amber">' + totalLogins + '</div><div class="sub">人均 ' + (activeProviders.size > 0 ? (totalLogins / activeProviders.size).toFixed(1) : 0) + ' 次</div></div>' +
+      '<div class="stat-card"><div class="label">总操作次数</div><div class="value purple">' + totalOps + '</div><div class="sub">导出 ' + totalExports + ' 次</div></div>' +
+      '<div class="stat-card"><div class="label">总活跃天数</div><div class="value green">' + totalActiveDays + '</div><div class="sub">人均 ' + (activeProviders.size > 0 ? (totalActiveDays / activeProviders.size).toFixed(1) : 0) + ' 天</div></div>';
+
+    // Table
+    var html = '<div class="data-table-wrap"><table class="data-table"><thead><tr>' +
+      '<th>服务商</th><th class="num">登录</th><th class="num">页面浏览</th><th class="num">跟进</th><th class="num">做工池</th><th class="num">导出</th><th class="num">活跃天数</th><th>最近活跃</th>' +
+      '</tr></thead><tbody>';
+
+    arr.forEach(function(d) {
+      var lastStr = d.lastActive ? d.lastActive.substring(0, 16).replace('T', ' ') : '-';
+      var daysAgo = d.lastActive ? Math.floor((Date.now() - new Date(d.lastActive).getTime()) / 86400000) : -1;
+      var daysLabel = daysAgo < 0 ? '-' : (daysAgo === 0 ? '今天' : (daysAgo + '天前'));
+      var daysColor = daysAgo < 0 ? 'var(--text3)' : (daysAgo <= 1 ? 'var(--green)' : (daysAgo <= 7 ? 'var(--amber)' : 'var(--red)'));
+      var total = d.logins + d.navs + d.followUps + d.poolOps + d.exports + d.imports;
+
+      html += '<tr>' +
+        '<td>🏢 ' + d.provider_name + ' <span style="font-size:11px;color:var(--text3);">' + d.region + '</span></td>' +
+        '<td class="num">' + d.logins + '</td>' +
+        '<td class="num">' + d.navs + '</td>' +
+        '<td class="num">' + d.followUps + '</td>' +
+        '<td class="num">' + d.poolOps + '</td>' +
+        '<td class="num">' + d.exports + '</td>' +
+        '<td class="num">' + d.activeDayCount + '</td>' +
+        '<td style="color:' + daysColor + ';font-weight:600;">' + daysLabel + '</td>' +
+        '</tr>';
+    });
+
+    html += '</tbody></table></div>';
+    $('mgmtUsageDetail').innerHTML = html;
+
+    console.log('Usage stats:', activeProviders.size, 'active providers,', usageLogs.length, 'usage logs,', actionLogs.length, 'action logs');
+  } catch(e) {
+    $('mgmtUsageStats').innerHTML = '<div style="text-align:center;padding:20px;color:var(--red);">加载失败: ' + e.message + '</div>';
+  }
+}
 function exportCommercial() {
+  logUsage('export_commercial');
   var data = STATE.commercialFiltered;
   var header = 'PID,门店名,城市,区县,类目,分层,DPV,90天GMV,门店数,签约状态';
   var lines = [header];
@@ -3642,6 +3775,7 @@ function exportCommercial() {
 }
 
 function exportLeads() {
+  logUsage('export_leads');
   var data = STATE.leadsFiltered;
   var header = 'POI_ID,POI名称,城市,区县,类目,DPV,品牌类型,烟火档位,高优';
   var lines = [header];
