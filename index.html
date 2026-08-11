@@ -3414,8 +3414,7 @@ async function loadMgmtData() {
       byProvider[p.provider_id] = {
         provider_name: p.provider_name, region: p.region || '未分配',
         channel_manager: p.channel_manager || '未分配', provider_id: p.provider_id,
-        pid_total:0, pid_signed:0, pid_high_pri:0,
-        lead_total:0, lead_high_pri:0, followed:0, highPriFollowed:0
+        pid_total:0, pid_signed:0, lead_total:0, followed:0, highPriFollowed:0
       };
     });
 
@@ -3424,23 +3423,24 @@ async function loadMgmtData() {
       var batch = providers.slice(i, i + BATCH);
       var promises = [];
       batch.forEach(function(p) {
-        promises.push(sb.from('crm_pids').select('pid',{count:'exact',head:true}).eq('provider_id',p.provider_id));
-        promises.push(sb.from('crm_pids').select('pid',{count:'exact',head:true}).eq('provider_id',p.provider_id).or('is_signed_agent.eq.true,is_signed_eff.eq.true,is_signed_brand.eq.true'));
-        promises.push(sb.from('crm_leads').select('poi_id',{count:'exact',head:true}).eq('provider_id',p.provider_id));
+        // Q0: 商业化做工底池 = A1+A2 PIDs
+        promises.push(sb.from('crm_pids').select('pid',{count:'exact',head:true}).eq('provider_id',p.provider_id).in('tier',['A1','A2']));
+        // Q1: A1+A2中已签约
+        promises.push(sb.from('crm_pids').select('pid',{count:'exact',head:true}).eq('provider_id',p.provider_id).in('tier',['A1','A2']).or('is_signed_agent.eq.true,is_signed_eff.eq.true,is_signed_brand.eq.true'));
+        // Q2: 开店做工底池 = 城市高优POI
         promises.push(sb.from('crm_leads').select('poi_id',{count:'exact',head:true}).eq('provider_id',p.provider_id).eq('is_high_priority',true));
       });
       var results = await Promise.all(promises);
       batch.forEach(function(p, j) {
         var b = byProvider[p.provider_id];
-        b.pid_total = results[j*4].count || 0;
-        b.pid_signed = results[j*4+1].count || 0;
-        b.lead_total = results[j*4+2].count || 0;
-        b.lead_high_pri = results[j*4+3].count || 0;
+        b.pid_total = results[j*3].count || 0;
+        b.pid_signed = results[j*3+1].count || 0;
+        b.lead_total = results[j*3+2].count || 0;
       });
     }
 
     var natRes = await Promise.all([
-      sb.from('crm_pids').select('pid',{count:'exact',head:true}).or('is_signed_agent.eq.true,is_signed_eff.eq.true,is_signed_brand.eq.true'),
+      sb.from('crm_pids').select('pid',{count:'exact',head:true}).in('tier',['A1','A2']).or('is_signed_agent.eq.true,is_signed_eff.eq.true,is_signed_brand.eq.true'),
       sb.from('crm_pids').select('pid',{count:'exact',head:true}).in('tier',['A1','A2']),
       sb.from('crm_leads').select('poi_id',{count:'exact',head:true}).eq('is_high_priority',true)
     ]);
@@ -3450,7 +3450,7 @@ async function loadMgmtData() {
       nationalPidSigned: natRes[0].count||0, nationalPidHighPri: natRes[1].count||0, nationalLeadHighPri: natRes[2].count||0
     };
     var tP=0,tL=0; Object.keys(byProvider).forEach(function(k){ tP+=byProvider[k].pid_total; tL+=byProvider[k].lead_total; });
-    console.log('Mgmt real data:', providers.length, 'providers,', tP, 'PIDs,', tL, 'leads');
+    console.log('Mgmt real data:', providers.length, 'providers,', tP, 'A1A2 PIDs,', tL, '高优leads');
   } catch(e) {
     console.warn('Mgmt load failed:', e.message);
     generateMgmtDemoData();
@@ -3463,18 +3463,16 @@ function generateMgmtDemoData() {
     rg.channels.forEach(function(ch) {
       ch.providers.forEach(function(sp) {
         allProviders.push({ provider_id: sp.id, provider_name: sp.name, region: rg.region, channel_manager: ch.name, cities: sp.cities, employees: sp.employees });
-        var pidTotal = 40 + Math.floor(Math.random()*40);
+        var pidTotal = 15 + Math.floor(Math.random()*20); // A1+A2 pool
         var pidSigned = Math.floor(pidTotal * (0.1 + Math.random()*0.25));
-        var pidHighPri = Math.floor(pidTotal * (0.15 + Math.random()*0.2));
-        var leadTotal = 30 + Math.floor(Math.random()*30);
-        var leadHighPri = Math.floor(leadTotal * (0.2 + Math.random()*0.2));
+        var leadTotal = 10 + Math.floor(Math.random()*20); // 高优POI pool
         var fuRate = 0.25 + Math.random()*0.45;
         byProvider[sp.id] = {
           provider_name: sp.name, region: rg.region, channel_manager: ch.name, provider_id: sp.id,
-          pid_total: pidTotal, pid_signed: pidSigned, pid_high_pri: pidHighPri,
-          lead_total: leadTotal, lead_high_pri: leadHighPri,
-          followed: Math.floor(pidTotal * fuRate), highPriFollowed: Math.floor(pidHighPri * fuRate * 1.2),
-          lead_followed: Math.floor(leadTotal * fuRate * 0.8), lead_highPriFollowed: Math.floor(leadHighPri * fuRate)
+          pid_total: pidTotal, pid_signed: pidSigned,
+          lead_total: leadTotal,
+          followed: Math.floor(pidTotal * fuRate),
+          lead_followed: Math.floor(leadTotal * fuRate * 0.8)
         };
       });
     });
@@ -3489,9 +3487,9 @@ function generateMgmtDemoData() {
   Object.keys(byProvider).forEach(function(k){ totalLeadFu += (byProvider[k].lead_followed||0); });
   leadStatuses.forEach(function(s,i){ fuStatusCount[s] = (fuStatusCount[s]||0) + Math.floor(totalLeadFu * [0.3,0.25,0.25,0.2][i]); });
 
-  var natSigned=0, natHP=0, natLeadHP=0;
-  Object.keys(byProvider).forEach(function(k){ natSigned+=byProvider[k].pid_signed; natHP+=byProvider[k].pid_high_pri; natLeadHP+=byProvider[k].lead_high_pri; });
-  STATE.mgmtData = { providers: allProviders, byProvider: byProvider, fuStatusCount: fuStatusCount, nationalPidSigned: natSigned, nationalPidHighPri: natHP, nationalLeadHighPri: natLeadHP };
+  var natSigned=0, natPidTotal=0, natLeadTotal=0;
+  Object.keys(byProvider).forEach(function(k){ natSigned+=byProvider[k].pid_signed; natPidTotal+=byProvider[k].pid_total; natLeadTotal+=byProvider[k].lead_total; });
+  STATE.mgmtData = { providers: allProviders, byProvider: byProvider, fuStatusCount: fuStatusCount, nationalPidSigned: natSigned, nationalPidHighPri: natPidTotal, nationalLeadHighPri: natLeadTotal };
   console.log('Mgmt demo data:', allProviders.length, 'providers');
 }
 
@@ -3500,12 +3498,13 @@ function computeMgmtStats(data, type) {
   Object.keys(data.byProvider).forEach(function(k) {
     var d = data.byProvider[k];
     var isComm = type === 'commercial';
+    var total = isComm ? d.pid_total : d.lead_total;
     bp[k] = {
-      total: isComm ? d.pid_total : d.lead_total,
+      total: total,
       followed: isComm ? (d.followed||0) : (d.lead_followed||0),
       signed: isComm ? d.pid_signed : 0,
-      highPri: isComm ? d.pid_high_pri : d.lead_high_pri,
-      highPriFollowed: isComm ? (d.highPriFollowed||0) : (d.lead_highPriFollowed||0),
+      highPri: total,
+      highPriFollowed: isComm ? (d.followed||0) : (d.lead_followed||0),
       region: d.region, channel_manager: d.channel_manager,
       provider_name: d.provider_name, provider_id: d.provider_id
     };
@@ -3548,36 +3547,37 @@ function renderMgmtDashboard() {
     natHighPri += d.highPri; natHighPriFollowed += d.highPriFollowed; natProviders++;
   });
 
-  var typeLabel = tab === 'commercial' ? '商业化' : '开店';
+  var typeLabel = tab === 'commercial' ? '商业化(A1/A2)' : '开店(高优)';
+  var poolLabel = tab === 'commercial' ? 'A1/A2做工池' : '高优做工池';
   var signLabel = tab === 'commercial' ? '签约转化率' : '开店转化率';
   $('mgmtDesc').textContent = '全渠道' + typeLabel + '作业进度 · ' + (dim === 'region' ? '按大区' : (dim === 'channel' ? '按渠道经理' : '按服务商'));
 
   // Stats cards
   $('mgmtStats').innerHTML =
-    '<div class="stat-card"><div class="label">' + typeLabel + '池总量</div><div class="value blue">' + natTotal + '</div><div class="sub">' + natProviders + '家服务商</div></div>' +
+    '<div class="stat-card"><div class="label">' + poolLabel + '</div><div class="value blue">' + natTotal + '</div><div class="sub">' + natProviders + '家服务商</div></div>' +
     '<div class="stat-card"><div class="label">已跟进</div><div class="value amber">' + natFollowed + '</div><div class="sub">跟进率 ' + pct(natFollowed, natTotal) + '</div></div>' +
-    '<div class="stat-card"><div class="label">高优池</div><div class="value purple">' + natHighPri + '</div><div class="sub">高优跟进率 ' + pct(natHighPriFollowed, natHighPri) + '</div></div>' +
+    '<div class="stat-card"><div class="label">待跟进</div><div class="value purple">' + (natTotal - natFollowed) + '</div><div class="sub">占比 ' + pct(natTotal - natFollowed, natTotal) + '</div></div>' +
     '<div class="stat-card"><div class="label">' + signLabel + '</div><div class="value green">' + pct(natSigned, natTotal) + '</div><div class="sub">已转化 ' + natSigned + '</div></div>';
 
   // Summary table
   var colLabel = dim === 'region' ? '大区' : (dim === 'channel' ? '渠道经理' : '服务商');
   var html = '<div class="data-table-wrap"><table class="data-table"><thead><tr>' +
     '<th>' + colLabel + '</th><th class="num">池总量</th><th class="num">已跟进</th><th class="num">跟进率</th>' +
-    '<th class="num">高优</th><th class="num">高优跟进率</th>' +
+    '<th class="num">待跟进</th>' +
     (tab === 'commercial' ? '<th class="num">已签约</th><th class="num">签约率</th>' : '<th class="num">已开店</th><th class="num">开店率</th>') +
     '</tr></thead><tbody>';
 
   // National row
   html += '<tr style="font-weight:600;background:rgba(59,130,246,.06);">' +
     '<td>🇨🇳 全国汇总</td><td class="num">' + natTotal + '</td><td class="num">' + natFollowed + '</td><td class="num"><strong>' + pct(natFollowed, natTotal) + '</strong></td>' +
-    '<td class="num">' + natHighPri + '</td><td class="num">' + pct(natHighPriFollowed, natHighPri) + '</td>' +
+    '<td class="num">' + (natTotal - natFollowed) + '</td>' +
     '<td class="num">' + natSigned + '</td><td class="num"><strong>' + pct(natSigned, natTotal) + '</strong></td></tr>';
 
   groupArr.forEach(function(g) {
     var rate = pct(g.followed, g.total);
-    var hpRate = pct(g.highPriFollowed, g.highPri);
     var signRate = pct(g.signed, g.total);
     var icon = dim === 'region' ? '🌍' : (dim === 'channel' ? '👤' : '🏢');
+    var pending = g.total - g.followed;
 
     // Color coding for follow rate
     var rateNum = g.total > 0 ? (g.followed / g.total * 100) : 0;
@@ -3588,8 +3588,7 @@ function renderMgmtDashboard() {
       '<td class="num">' + g.total + '</td>' +
       '<td class="num">' + g.followed + '</td>' +
       '<td class="num" style="color:' + rateColor + ';font-weight:600;">' + rate + '</td>' +
-      '<td class="num">' + g.highPri + '</td>' +
-      '<td class="num">' + hpRate + '</td>' +
+      '<td class="num">' + pending + '</td>' +
       '<td class="num">' + g.signed + '</td>' +
       '<td class="num" style="font-weight:600;">' + signRate + '</td>' +
       '</tr>';
