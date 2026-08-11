@@ -1418,15 +1418,26 @@ function filterCommercial() {
 
 function renderCommercialTable() {
   var data = STATE.commercialFiltered;
+  var sort = STATE.commercialSort || {field:'dpv_30d', dir:'desc'};
+  // Apply sort
+  data = data.slice().sort(function(a,b) {
+    var va = sort.field === 'store_count' ? (a.store_count||1) : (a.dpv_30d||0);
+    var vb = sort.field === 'store_count' ? (b.store_count||1) : (b.dpv_30d||0);
+    return sort.dir === 'desc' ? vb - va : va - vb;
+  });
+
   var start = (STATE.commercialPage - 1) * CONFIG.pageSize;
   var pageData = data.slice(start, start + CONFIG.pageSize);
   var totalPages = Math.ceil(data.length / CONFIG.pageSize);
 
+  var dpvArrow = sort.field==='dpv_30d' ? (sort.dir==='desc'?' ▼':' ▲') : ' ⇅';
+  var storeArrow = sort.field==='store_count' ? (sort.dir==='desc'?' ▼':' ▲') : ' ⇅';
+
   var html = '<div class="data-table-wrap" style="max-height:calc(100vh - 340px);overflow-y:auto;"><table class="data-table">' +
-    '<thead><tr><th>门店名</th><th>PID</th><th>城市</th><th>类目</th><th>分层</th><th class="num">DPV</th><th class="num">90天GMV</th><th class="num">门店数</th><th>签约</th><th>状态</th><th>操作</th></tr></thead><tbody>';
+    '<thead><tr><th>门店名</th><th>PID</th><th>城市</th><th>类目</th><th>分层</th><th class="num" style="cursor:pointer;user-select:none;" onclick="sortCommercial(\'dpv_30d\')">日均DPV' + dpvArrow + '</th><th class="num" style="cursor:pointer;user-select:none;" onclick="sortCommercial(\'store_count\')">门店数' + storeArrow + '</th><th>签约</th><th>状态</th><th>操作</th></tr></thead><tbody>';
 
   if (pageData.length === 0) {
-    html += '<tr><td colspan="11" style="text-align:center;padding:30px;color:var(--text3);">暂无数据</td></tr>';
+    html += '<tr><td colspan="10" style="text-align:center;padding:30px;color:var(--text3);">暂无数据</td></tr>';
   } else {
     pageData.forEach(function(d) {
       var signed = [];
@@ -1450,7 +1461,6 @@ function renderCommercialTable() {
         '<td>' + (d.category_l2||'-') + '</td>' +
         '<td>' + tierBadge(d.tier) + '</td>' +
         '<td class="num">' + fmt(d.dpv_30d) + '</td>' +
-        '<td class="num">' + fmtMoney(d.gmv_90d) + '</td>' +
         '<td class="num">' + (d.store_count||1) + '</td>' +
         '<td style="font-size:12px;">' + signedStr + '</td>' +
         '<td>' + statusBadge(fuStatus) + '</td>' +
@@ -1468,6 +1478,15 @@ function renderCommercialTable() {
 }
 
 function setCommercialPage(p) { STATE.commercialPage = p; renderCommercialTable(); }
+
+function sortCommercial(field) {
+  var s = STATE.commercialSort || {field:'dpv_30d', dir:'desc'};
+  if (s.field === field) { s.dir = s.dir === 'desc' ? 'asc' : 'desc'; }
+  else { s.field = field; s.dir = 'desc'; }
+  STATE.commercialSort = s;
+  STATE.commercialPage = 1;
+  renderCommercialTable();
+}
 
 /* =============================================
    PAGE: 开店做工 (Leads)
@@ -1582,7 +1601,7 @@ function showPIDDetail(pid, autoFollow) {
     detailItem('PID', d.pid) + detailItem('城市', d.city) + detailItem('区县', d.district) +
     detailItem('类目', d.category_l2 + (d.category_l3 ? ' > ' + d.category_l3 : '')) +
     detailItem('分层', d.tier + ' - ' + (d.segment||'')) + detailItem('门店数', d.store_count) +
-    detailItem('30天DPV', fmt(d.dpv_30d)) + detailItem('90天GMV', fmtMoney(d.gmv_90d)) +
+    detailItem('日均DPV', fmt(d.dpv_30d)) +
     '</div></div>';
 
   // 跟进人 selector
