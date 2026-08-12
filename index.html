@@ -400,6 +400,15 @@ a { color:var(--accent2); text-decoration:none; }
             <option value="已签约">已签约</option>
             <option value="暂不跟进">暂不跟进</option>
           </select>
+          <select id="cfRecProduct" onchange="filterCommercial()">
+            <option value="">全部推荐</option>
+            <option value="znt">品牌智能体</option>
+            <option value="xg">效果广告</option>
+            <option value="dz">顶展</option>
+            <option value="zx">钻展</option>
+            <option value="dj">导结</option>
+            <option value="pz">品专版</option>
+          </select>
           <button class="btn btn-outline btn-sm" onclick="exportCommercial()">📥 导出</button>
           <button class="btn btn-primary btn-sm" onclick="openCustomModal('commercial')">+ 添加商机</button>
         </div>
@@ -1164,6 +1173,13 @@ async function loadData() {
   // Build city-level DPV percentiles for recommendation scoring
   buildCityDpvPct();
 
+  // Pre-compute recommended products for each PID (used by filter)
+  console.time('precompute recProducts');
+  for (var ri = 0; ri < STATE.commercialData.length; ri++) {
+    STATE.commercialData[ri].recProducts = getRecProducts(STATE.commercialData[ri]);
+  }
+  console.timeEnd('precompute recProducts');
+
   // Populate category filters
   populateCategoryFilter('cfCategory', STATE.commercialData, 'category_l2');
   populateCategoryFilter('lfCategory', STATE.leadsData, 'category_l2');
@@ -1667,6 +1683,7 @@ function filterCommercial() {
   var tier = $('cfTier').value;
   var cat = $('cfCategory').value;
   var status = $('cfStatus').value;
+  var recProd = $('cfRecProduct').value;
 
   STATE.commercialFiltered = STATE.commercialData.filter(function(d) {
     // 只展示未签约商户
@@ -1679,6 +1696,8 @@ function filterCommercial() {
       var fu = getFollowUpStatus('pid', d.pid);
       if (fu !== status) return false;
     }
+    // Recommended product filter
+    if (recProd && d.recProducts && d.recProducts.indexOf(recProd) < 0) return false;
     return true;
   });
 
@@ -2203,6 +2222,77 @@ function getCityDpvTier(city, dpv) {
   if (dpv < pct.p33) return 'low';
   if (dpv < pct.p67) return 'medium';
   return 'high';
+}
+
+// 提取推荐评分逻辑：返回PID的Top≤3推荐产品key数组
+function getRecProducts(d) {
+  var dpv = d.dpv_30d || 0;
+  var stores = d.store_count || 1;
+  var region = getRegion(d.city);
+  var cat = d.category_l2 || '中餐';
+  var caseMap = {
+    znt: findCaseData(region, cat, 'znt'),
+    xg: findCaseData(region, cat, 'xg'),
+    dz: findCaseData(region, cat, 'dz'),
+    zx: findCaseData(region, cat, 'zx'),
+    dj: findCaseData(region, cat, 'dj')
+  };
+  var hasDzOpp = !checkOccupancy(d.city, cat).occupied;
+  var tier = getCityDpvTier(d.city, dpv);
+  var candidates = [];
+
+  var zntScore = 20;
+  if (tier === 'low') zntScore += 40; else if (tier === 'medium') zntScore += 20; else zntScore += 5;
+  if (caseMap.znt && caseMap.znt.dp > 0) zntScore += 15;
+  if (stores <= 3) zntScore += 10;
+  candidates.push({key:'znt', score:zntScore});
+
+  var xgScore = 15;
+  if (tier === 'low') xgScore += (dpv < 10 ? 5 : 25); else if (tier === 'medium') xgScore += 40; else xgScore += 25;
+  if (caseMap.xg && caseMap.xg.dp > 0) xgScore += 15;
+  if (stores >= 2 && stores <= 10) xgScore += 10;
+  candidates.push({key:'xg', score:xgScore});
+
+  if (hasDzOpp) {
+    var dzScore = 0;
+    if (tier === 'high') dzScore += 40; else if (tier === 'medium') dzScore += 15;
+    if (caseMap.dz && caseMap.dz.dp > 0) dzScore += 20;
+    if (stores >= 3) dzScore += 10;
+    if (dzScore >= 30) candidates.push({key:'dz', score:dzScore});
+  }
+  if (hasDzOpp) {
+    var zxScore = 0;
+    if (tier === 'high') zxScore += 40; else if (tier === 'medium') zxScore += 15;
+    if (caseMap.zx && caseMap.zx.dp > 0) zxScore += 20;
+    if (stores >= 5) zxScore += 10;
+    if (zxScore >= 30) candidates.push({key:'zx', score:zxScore});
+  }
+  if (caseMap.dj && caseMap.dj.dp > 0) {
+    var djScore = 30;
+    if (tier !== 'low') djScore += 20;
+    if (stores >= 2) djScore += 10;
+    candidates.push({key:'dj', score:djScore});
+  }
+  if (stores >= 1 && stores <= 9 && !d.is_signed_brand && zntScore <= 45) {
+    var pzScore = 25;
+    if (tier !== 'low') pzScore += 15;
+    if (stores <= 5) pzScore += 10;
+    candidates.push({key:'pz', score:pzScore});
+  }
+
+  candidates.sort(function(a,b){ return b.score - a.score; });
+  var top3 = candidates.slice(0, 3);
+  var hasZnt = top3.some(function(c){ return c.key === 'znt'; });
+  if (hasZnt) {
+    var filtered = top3.filter(function(c){ return c.key !== 'pz'; });
+    if (filtered.length < 3 && candidates.length > 3) {
+      for (var fi = 0; fi < candidates.length && filtered.length < 3; fi++) {
+        if (candidates[fi].key !== 'pz' && !filtered.some(function(f){return f.key===candidates[fi].key;})) filtered.push(candidates[fi]);
+      }
+    }
+    top3 = filtered;
+  }
+  return top3.map(function(c){ return c.key; });
 }
 
 function renderRecommendations(d) {
