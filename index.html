@@ -3193,10 +3193,11 @@ function renderFollowUpTimeline(targetType, targetId) {
 function checkOccupancy(city, category) {
   var now = new Date();
   var match = STATE.occupancy.find(function(o) {
-    return o.city_name === city &&
-      (o.biz_name || '').indexOf(category) >= 0 &&
-      new Date(o.start_time) <= now &&
-      new Date(o.end_time) >= now;
+    if (o.city_name !== city) return false;
+    if (new Date(o.start_time) > now || new Date(o.end_time) < now) return false;
+    var parts = (o.biz_name || '').split(';');
+    var occCat = parts[parts.length - 1]; // 取最深层类目
+    return occCat === category;
   });
   if (match) return { occupied: true, start: match.start_time, end: match.end_time };
   return { occupied: false };
