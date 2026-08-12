@@ -409,7 +409,7 @@ a { color:var(--accent2); text-decoration:none; }
       <!-- ===== PAGE: 公海-高优开店 ===== -->
       <div id="page-leads" class="page">
         <h2 class="page-title">公海-高优开店</h2>
-        <p class="page-desc">未签约高优POI，核心做工点是开店</p>
+        <p class="page-desc" style="color:var(--red);font-weight:bold;font-size:14px;margin-bottom:12px;">该页面POI仅展示，实际开店作业请返回轩辕系统。</p>
         <div id="leadsStats" class="stats-row"></div>
         <div class="filter-bar" id="leadsFilters">
           <input id="lfSearch" placeholder="搜索POI名称/ID" oninput="filterLeads()">
@@ -425,15 +425,7 @@ a { color:var(--accent2); text-decoration:none; }
             <option value="">全部</option>
             <option value="high">城市高优</option>
           </select>
-          <select id="lfStatus" onchange="filterLeads()">
-            <option value="">全部状态</option>
-            <option value="待联系">待联系</option>
-            <option value="跟进中">跟进中</option>
-            <option value="已开店">已开店</option>
-            <option value="无效">无效</option>
-          </select>
           <button class="btn btn-outline btn-sm" onclick="exportLeads()">📥 导出</button>
-          <button class="btn btn-primary btn-sm" onclick="openCustomModal('leads')">+ 添加商机</button>
         </div>
         <div id="leadsTableWrap"></div>
       </div>
@@ -533,10 +525,6 @@ a { color:var(--accent2); text-decoration:none; }
           <button class="tab-btn active" onclick="switchMgmtDim(this,'region')">大区</button>
           <button class="tab-btn" onclick="switchMgmtDim(this,'channel')">渠道经理</button>
           <button class="tab-btn" onclick="switchMgmtDim(this,'provider')">服务商</button>
-        </div>
-        <div class="tab-bar" id="mgmtTypeTabs" style="margin-bottom:16px;border-top:1px solid var(--border);padding-top:10px;">
-          <button class="tab-btn active" onclick="switchMgmtTab(this,'commercial')" style="font-size:12px;">🏪 名下-高优商业化</button>
-          <button class="tab-btn" onclick="switchMgmtTab(this,'leads')" style="font-size:12px;">📋 公海-高优开店</button>
         </div>
         <div id="mgmtStats" class="stats-row" style="margin-bottom:16px;"></div>
         <div id="mgmtSummary" style="margin-bottom:20px;"></div>
@@ -727,7 +715,6 @@ var STATE = {
   myPool: [],        // current employee's work pool items
   myPoolTab: 'commercial', // current tab in my pool page
   mgmtDimension: 'region', // management dashboard: region|channel|provider
-  mgmtTab: 'commercial',   // management dashboard: commercial|leads
   mgmtData: null,          // management dashboard aggregated data
   charts: {}         // chart instances
 };
@@ -1814,16 +1801,11 @@ function filterLeads() {
   var search = ($('lfSearch').value || '').toLowerCase();
   var cat = $('lfCategory').value;
   var priority = $('lfPriority').value;
-  var status = $('lfStatus').value;
 
   STATE.leadsFiltered = STATE.leadsData.filter(function(d) {
     if (search && (d.poi_name||'').toLowerCase().indexOf(search) < 0 && (d.poi_id||'').indexOf(search) < 0) return false;
     if (cat && d.category_l2 !== cat) return false;
     if (priority === 'high' && !d.is_high_priority) return false;
-    if (status) {
-      var fu = getFollowUpStatus('lead', d.poi_id);
-      if (fu !== status) return false;
-    }
     return true;
   });
 
@@ -1845,59 +1827,29 @@ function renderLeadsTable() {
 
   var dpvArrow = sort.dir === 'desc' ? ' ▼' : ' ▲';
 
-  // Build pool lookup set
-  var poolSet = {};
-  STATE.myPool.forEach(function(p){ if(p.target_type==='lead') poolSet[p.target_id] = p.id; });
-
   var html = '<div class="data-table-wrap" style="max-height:calc(100vh - 340px);overflow-y:auto;"><table class="data-table">' +
-    '<thead><tr><th style="width:30px;text-align:center;"><input type="checkbox" onchange="toggleAllPoolCheck(this,\'lead\')"></th><th>POI名称</th><th>城市</th><th>类目</th><th class="num" style="cursor:pointer;user-select:none;" onclick="sortLeads(\'dpv_30d\')">近30天日均DPV' + dpvArrow + '</th><th>品牌类型</th><th>烟火档位</th><th>高优</th><th>状态</th><th>操作</th></tr></thead><tbody>';
+    '<thead><tr><th>POI名称</th><th>城市</th><th>类目</th><th class="num" style="cursor:pointer;user-select:none;" onclick="sortLeads(\'dpv_30d\')">近30天日均DPV' + dpvArrow + '</th><th>品牌类型</th><th>烟火档位</th><th>高优</th></tr></thead><tbody>';
 
   if (pageData.length === 0) {
-    html += '<tr><td colspan="10" style="text-align:center;padding:30px;color:var(--text3);">暂无数据</td></tr>';
+    html += '<tr><td colspan="7" style="text-align:center;padding:30px;color:var(--text3);">暂无数据</td></tr>';
   } else {
     pageData.forEach(function(d) {
-      var fuStatus = getFollowUpStatus('lead', d.poi_id);
-      var customBadge = d._custom ? ' <span class="badge badge-custom">自录入</span>' : '';
-      var inPool = poolSet[d.poi_id];
-      var poolBtn = inPool
-        ? '<span class="badge badge-green" style="font-size:10px;cursor:pointer;" onclick="removeFromPool(\'' + inPool + '\')">✓已在池</span>'
-        : '<button class="btn btn-sm btn-outline" style="font-size:10px;color:var(--accent);border-color:var(--accent);" onclick="addToPool(\'lead\',\'' + d.poi_id + '\')">+ 做工池</button>';
-
-      var actionBtn = d._custom
-        ? '<button class="btn btn-sm btn-outline" style="color:var(--red);border-color:var(--red);" onclick="deleteCustomLead(' + d.id + ')">删除</button>'
-        : '<button class="btn btn-sm btn-outline" onclick="showLeadDetail(\'' + d.poi_id + '\',true)">跟进</button>';
-
       html += '<tr>' +
-        '<td style="text-align:center;"><input type="checkbox" class="pool-check" data-type="lead" data-id="' + d.poi_id + '"></td>' +
-        '<td class="clickable" onclick="showLeadDetail(\'' + d.poi_id + '\')"><strong>' + (d.poi_name||'-') + '</strong>' + customBadge + '</td>' +
+        '<td><strong>' + (d.poi_name||'-') + '</strong></td>' +
         '<td>' + d.city + '</td>' +
         '<td>' + (d.category_l2||'-') + '</td>' +
         '<td class="num">' + fmtDpv(d.dpv_30d) + '</td>' +
         '<td>' + (d.brand_type||'-') + '</td>' +
         '<td>' + (d.smoke_level||'-') + '</td>' +
         '<td>' + (d._custom ? '<span class="badge badge-gray">-</span>' : (d.is_high_priority ? '<span class="badge badge-green">高优</span>' : '<span class="badge badge-gray">-</span>')) + '</td>' +
-        '<td>' + statusBadge(fuStatus) + '</td>' +
-        '<td style="white-space:nowrap;">' + poolBtn + ' ' + actionBtn + '</td>' +
         '</tr>';
     });
   }
 
   html += '</tbody></table></div>';
-
-  // Batch pool action bar
-  html += '<div id="leadBatchBar" style="display:none;background:var(--card);border-top:1px solid var(--border);padding:10px 16px;align-items:center;gap:12px;z-index:10;">' +
-    '<span id="leadBatchCount" style="font-size:13px;color:var(--text2);">已选0项</span>' +
-    '<button class="btn btn-sm btn-primary" onclick="batchAddPool(\'lead\')">批量加入做工池</button>' +
-    '<button class="btn btn-sm btn-outline" onclick="clearPoolChecks(\'lead\')">取消选择</button></div>';
-
   html += renderPagination(data.length, STATE.leadsPage, totalPages, 'setLeadsPage');
 
   $('leadsTableWrap').innerHTML = html;
-
-  // Attach checkbox listeners
-  document.querySelectorAll('#leadsTableWrap .pool-check').forEach(function(cb) {
-    cb.addEventListener('change', function(){ updatePoolBatchBar('lead'); });
-  });
 }
 
 function setLeadsPage(p) { STATE.leadsPage = p; renderLeadsTable(); }
@@ -3432,26 +3384,23 @@ async function loadMgmtData() {
       byProvider[p.provider_id] = {
         provider_name: p.provider_name, region: p.region || '未分配',
         channel_manager: p.channel_manager || '未分配', provider_id: p.provider_id,
-        pid_total:0, pid_signed:0, lead_total:0, followed:0, highPriFollowed:0
+        pid_total:0, pid_signed:0, followed:0, highPriFollowed:0
       };
     });
 
-    // Batch: 2 queries per provider (all PIDs + high-priority leads), 30 providers per batch
+    // Batch: 1 query per provider (all PIDs), 30 providers per batch
     var BATCH = 30;
     for (var i = 0; i < providers.length; i += BATCH) {
       var batch = providers.slice(i, i + BATCH);
       var promises = [];
       batch.forEach(function(p) {
-        // Q0: 名下-高优商业化底池 = 全量分层PID (A1+A2+B1+B2)
+        // 名下-高优商业化底池 = 全量分层PID
         promises.push(sb.from('crm_pids').select('pid',{count:'exact',head:true}).eq('provider_id',p.provider_id));
-        // Q1: 公海-高优开店底池 = 城市高优POI
-        promises.push(sb.from('crm_leads').select('poi_id',{count:'exact',head:true}).eq('provider_id',p.provider_id).eq('is_high_priority',true));
       });
       var results = await Promise.all(promises);
       batch.forEach(function(p, j) {
         var b = byProvider[p.provider_id];
-        b.pid_total = results[j*2].count || 0;
-        b.lead_total = results[j*2+1].count || 0;
+        b.pid_total = results[j].count || 0;
       });
       console.log('Mgmt loading:', Math.min(i+BATCH, providers.length) + '/' + providers.length);
     }
@@ -3459,16 +3408,15 @@ async function loadMgmtData() {
     // National aggregates
     var natRes = await Promise.all([
       sb.from('crm_pids').select('pid',{count:'exact',head:true}).or('is_signed_agent.eq.true,is_signed_eff.eq.true,is_signed_brand.eq.true'),
-      sb.from('crm_pids').select('pid',{count:'exact',head:true}),
-      sb.from('crm_leads').select('poi_id',{count:'exact',head:true}).eq('is_high_priority',true)
+      sb.from('crm_pids').select('pid',{count:'exact',head:true})
     ]);
 
     STATE.mgmtData = {
       providers: providers, byProvider: byProvider, fuStatusCount: {},
-      nationalPidSigned: natRes[0].count||0, nationalPidHighPri: natRes[1].count||0, nationalLeadHighPri: natRes[2].count||0
+      nationalPidSigned: natRes[0].count||0, nationalPidHighPri: natRes[1].count||0
     };
-    var tP=0,tL=0; Object.keys(byProvider).forEach(function(k){ tP+=byProvider[k].pid_total; tL+=byProvider[k].lead_total; });
-    console.log('Mgmt real data:', providers.length, 'providers,', tP, '全量PIDs,', tL, '高优leads');
+    var tP=0; Object.keys(byProvider).forEach(function(k){ tP+=byProvider[k].pid_total; });
+    console.log('Mgmt real data:', providers.length, 'providers,', tP, '全量PIDs');
     renderMgmtDashboard();
   } catch(e) {
     console.warn('Mgmt load failed:', e.message);
@@ -3482,48 +3430,39 @@ function generateMgmtDemoData() {
     rg.channels.forEach(function(ch) {
       ch.providers.forEach(function(sp) {
         allProviders.push({ provider_id: sp.id, provider_name: sp.name, region: rg.region, channel_manager: ch.name, cities: sp.cities, employees: sp.employees });
-        var pidTotal = 15 + Math.floor(Math.random()*20); // A1+A2 pool
+        var pidTotal = 15 + Math.floor(Math.random()*20);
         var pidSigned = Math.floor(pidTotal * (0.1 + Math.random()*0.25));
-        var leadTotal = 10 + Math.floor(Math.random()*20); // 高优POI pool
         var fuRate = 0.25 + Math.random()*0.45;
         byProvider[sp.id] = {
           provider_name: sp.name, region: rg.region, channel_manager: ch.name, provider_id: sp.id,
           pid_total: pidTotal, pid_signed: pidSigned,
-          lead_total: leadTotal,
-          followed: Math.floor(pidTotal * fuRate),
-          lead_followed: Math.floor(leadTotal * fuRate * 0.8)
+          followed: Math.floor(pidTotal * fuRate)
         };
       });
     });
   });
   var fuStatusCount = {};
   var statuses = CONFIG.statusMachine.commercial;
-  var leadStatuses = CONFIG.statusMachine.leads;
   var totalFu = 0;
   Object.keys(byProvider).forEach(function(k){ totalFu += byProvider[k].followed; });
   statuses.forEach(function(s,i){ fuStatusCount[s] = Math.floor(totalFu * [0.35,0.25,0.2,0.12,0.08][i]); });
-  var totalLeadFu = 0;
-  Object.keys(byProvider).forEach(function(k){ totalLeadFu += (byProvider[k].lead_followed||0); });
-  leadStatuses.forEach(function(s,i){ fuStatusCount[s] = (fuStatusCount[s]||0) + Math.floor(totalLeadFu * [0.3,0.25,0.25,0.2][i]); });
 
-  var natSigned=0, natPidTotal=0, natLeadTotal=0;
-  Object.keys(byProvider).forEach(function(k){ natSigned+=byProvider[k].pid_signed; natPidTotal+=byProvider[k].pid_total; natLeadTotal+=byProvider[k].lead_total; });
-  STATE.mgmtData = { providers: allProviders, byProvider: byProvider, fuStatusCount: fuStatusCount, nationalPidSigned: natSigned, nationalPidHighPri: natPidTotal, nationalLeadHighPri: natLeadTotal };
+  var natSigned=0, natPidTotal=0;
+  Object.keys(byProvider).forEach(function(k){ natSigned+=byProvider[k].pid_signed; natPidTotal+=byProvider[k].pid_total; });
+  STATE.mgmtData = { providers: allProviders, byProvider: byProvider, fuStatusCount: fuStatusCount, nationalPidSigned: natSigned, nationalPidHighPri: natPidTotal };
   console.log('Mgmt demo data:', allProviders.length, 'providers');
 }
 
-function computeMgmtStats(data, type) {
+function computeMgmtStats(data) {
   var bp = {};
   Object.keys(data.byProvider).forEach(function(k) {
     var d = data.byProvider[k];
-    var isComm = type === 'commercial';
-    var total = isComm ? d.pid_total : d.lead_total;
     bp[k] = {
-      total: total,
-      followed: isComm ? (d.followed||0) : (d.lead_followed||0),
-      signed: isComm ? d.pid_signed : 0,
-      highPri: total,
-      highPriFollowed: isComm ? (d.followed||0) : (d.lead_followed||0),
+      total: d.pid_total,
+      followed: d.followed||0,
+      signed: d.pid_signed||0,
+      highPri: d.pid_total,
+      highPriFollowed: d.followed||0,
       region: d.region, channel_manager: d.channel_manager,
       provider_name: d.provider_name, provider_id: d.provider_id
     };
@@ -3536,9 +3475,8 @@ function pct(a, b) { return b > 0 ? (a / b * 100).toFixed(1) + '%' : '0%'; }
 function renderMgmtDashboard() {
   if (!STATE.mgmtData) generateMgmtDemoData();
   var data = STATE.mgmtData;
-  var tab = STATE.mgmtTab;
   var dim = STATE.mgmtDimension;
-  var stats = computeMgmtStats(data, tab);
+  var stats = computeMgmtStats(data);
   var bp = stats.byProvider;
 
   // Aggregate by dimension
@@ -3564,19 +3502,16 @@ function renderMgmtDashboard() {
     var d = bp[pid];
     natTotal += d.total; natFollowed += d.followed; natProviders++;
   });
-  var natSigned = tab === 'commercial' ? (data.nationalPidSigned||0) : 0;
+  var natSigned = data.nationalPidSigned||0;
 
-  var typeLabel = tab === 'commercial' ? '名下-高优商业化' : '公海-高优开店';
-  var poolLabel = tab === 'commercial' ? '名下-高优商业化池' : '高优做工池';
-  var signLabel = tab === 'commercial' ? '签约转化率' : '开店转化率';
-  $('mgmtDesc').textContent = '全渠道' + typeLabel + '作业进度 · ' + (dim === 'region' ? '按大区' : (dim === 'channel' ? '按渠道经理' : '按服务商'));
+  $('mgmtDesc').textContent = '全渠道名下-高优商业化作业进度 · ' + (dim === 'region' ? '按大区' : (dim === 'channel' ? '按渠道经理' : '按服务商'));
 
   // Stats cards
   $('mgmtStats').innerHTML =
-    '<div class="stat-card"><div class="label">' + poolLabel + '</div><div class="value blue">' + natTotal + '</div><div class="sub">' + natProviders + '家服务商</div></div>' +
+    '<div class="stat-card"><div class="label">名下-高优商业化池</div><div class="value blue">' + natTotal + '</div><div class="sub">' + natProviders + '家服务商</div></div>' +
     '<div class="stat-card"><div class="label">已跟进</div><div class="value amber">' + natFollowed + '</div><div class="sub">跟进率 ' + pct(natFollowed, natTotal) + '</div></div>' +
     '<div class="stat-card"><div class="label">待跟进</div><div class="value purple">' + (natTotal - natFollowed) + '</div><div class="sub">占比 ' + pct(natTotal - natFollowed, natTotal) + '</div></div>' +
-    '<div class="stat-card"><div class="label">' + signLabel + '</div><div class="value green">' + pct(natSigned, natTotal) + '</div><div class="sub">已转化 ' + natSigned + '</div></div>';
+    '<div class="stat-card"><div class="label">签约转化率</div><div class="value green">' + pct(natSigned, natTotal) + '</div><div class="sub">已转化 ' + natSigned + '</div></div>';
 
   // Summary table
   var colLabel = dim === 'region' ? '大区' : (dim === 'channel' ? '渠道经理' : '服务商');
@@ -3631,13 +3566,6 @@ function renderMgmtDashboard() {
 function switchMgmtDim(btn, dim) {
   STATE.mgmtDimension = dim;
   document.querySelectorAll('#mgmtDimTabs .tab-btn').forEach(function(b){b.classList.remove('active');});
-  btn.classList.add('active');
-  renderMgmtDashboard();
-}
-
-function switchMgmtTab(btn, tab) {
-  STATE.mgmtTab = tab;
-  document.querySelectorAll('#mgmtTypeTabs .tab-btn').forEach(function(b){b.classList.remove('active');});
   btn.classList.add('active');
   renderMgmtDashboard();
 }
