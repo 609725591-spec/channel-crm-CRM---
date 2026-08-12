@@ -1161,6 +1161,9 @@ async function loadData() {
   // Load personal work pool
   await loadMyPool();
 
+  // Build city-level DPV percentiles for recommendation scoring
+  buildCityDpvPct();
+
   // Populate category filters
   populateCategoryFilter('cfCategory', STATE.commercialData, 'category_l2');
   populateCategoryFilter('lfCategory', STATE.leadsData, 'category_l2');
@@ -2174,6 +2177,34 @@ function detectProfile(d) {
   return 'besieged';                                         // 默认 = 同品类竞争强
 }
 
+// 城市DPV百分位：每个城市的P33/P67作为分层阈值
+var CITY_DPV_PCT = {};
+function buildCityDpvPct() {
+  CITY_DPV_PCT = {};
+  var byCity = {};
+  var data = STATE.commercialData || [];
+  for (var i = 0; i < data.length; i++) {
+    var v = data[i].dpv_30d || 0;
+    if (v <= 0) continue;
+    var city = data[i].city;
+    if (!byCity[city]) byCity[city] = [];
+    byCity[city].push(v);
+  }
+  for (var city in byCity) {
+    var arr = byCity[city].sort(function(a,b){return a-b;});
+    var p33 = arr[Math.floor(arr.length * 0.33)] || 30;
+    var p67 = arr[Math.floor(arr.length * 0.67)] || 150;
+    CITY_DPV_PCT[city] = {p33: p33, p67: p67};
+  }
+}
+function getCityDpvTier(city, dpv) {
+  var pct = CITY_DPV_PCT[city];
+  if (!pct) return dpv < 30 ? 'low' : (dpv < 150 ? 'medium' : 'high');
+  if (dpv < pct.p33) return 'low';
+  if (dpv < pct.p67) return 'medium';
+  return 'high';
+}
+
 function renderRecommendations(d) {
   var dpv = d.dpv_30d || 0;
   var stores = d.store_count || 1;
@@ -2193,14 +2224,14 @@ function renderRecommendations(d) {
   var occ = checkOccupancy(d.city, cat);
   var hasDzOpp = !occ.occupied;
 
-  // ── 评分制推荐：按DPV×类目×门店数打分，取Top≤3 ──
+  // ── 评分制推荐：按城市DPV分层×类目×门店数打分，取Top≤3 ──
+  var tier = getCityDpvTier(d.city, dpv);
   var candidates = [];
 
   // 智能体评分：低DPV小店最有价值，高DPV大店边际价值低
   var zntScore = 20;
-  if (dpv < 20) zntScore += 40;
-  else if (dpv < 80) zntScore += 25;
-  else if (dpv < 200) zntScore += 10;
+  if (tier === 'low') zntScore += 40;
+  else if (tier === 'medium') zntScore += 20;
   else zntScore += 5;
   if (caseMap.znt.data && caseMap.znt.data.dp > 0) zntScore += 15;
   if (stores <= 3) zntScore += 10;
@@ -2208,11 +2239,9 @@ function renderRecommendations(d) {
 
   // 效果广告评分：中等DPV是甜区
   var xgScore = 15;
-  if (dpv < 10) xgScore += 5;
-  else if (dpv < 50) xgScore += 30;
-  else if (dpv < 150) xgScore += 40;
-  else if (dpv < 300) xgScore += 30;
-  else xgScore += 20;
+  if (tier === 'low') xgScore += (dpv < 10 ? 5 : 25);
+  else if (tier === 'medium') xgScore += 40;
+  else xgScore += 25;
   if (caseMap.xg.data && caseMap.xg.data.dp > 0) xgScore += 15;
   if (stores >= 2 && stores <= 10) xgScore += 10;
   candidates.push({key:'xg', name:'效果广告', score:xgScore, tag:'推荐投流', color:'#059669'});
@@ -2220,9 +2249,8 @@ function renderRecommendations(d) {
   // 顶展评分：高DPV+多店品牌优先，需占量可售
   if (hasDzOpp) {
     var dzScore = 0;
-    if (dpv >= 200) dzScore += 40;
-    else if (dpv >= 100) dzScore += 30;
-    else if (dpv >= 50) dzScore += 15;
+    if (tier === 'high') dzScore += 40;
+    else if (tier === 'medium') dzScore += 15;
     if (caseMap.dz.data && caseMap.dz.data.dp > 0) dzScore += 20;
     if (stores >= 3) dzScore += 10;
     if (dzScore >= 30) candidates.push({key:'dz', name:'顶展', score:dzScore, tag:'品牌曝光', color:'#ea580c'});
@@ -2231,9 +2259,8 @@ function renderRecommendations(d) {
   // 钻展评分：高DPV+连锁品牌
   if (hasDzOpp) {
     var zxScore = 0;
-    if (dpv >= 300) zxScore += 40;
-    else if (dpv >= 150) zxScore += 30;
-    else if (dpv >= 80) zxScore += 15;
+    if (tier === 'high') zxScore += 40;
+    else if (tier === 'medium') zxScore += 15;
     if (caseMap.zx.data && caseMap.zx.data.dp > 0) zxScore += 20;
     if (stores >= 5) zxScore += 10;
     if (zxScore >= 30) candidates.push({key:'zx', name:'钻展', score:zxScore, tag:'品牌曝光', color:'#7c3aed'});
@@ -2242,15 +2269,15 @@ function renderRecommendations(d) {
   // 导结评分：有真实案例才推荐
   if (caseMap.dj.data && caseMap.dj.data.dp > 0) {
     var djScore = 30;
-    if (dpv >= 30) djScore += 20;
+    if (tier !== 'low') djScore += 20;
     if (stores >= 2) djScore += 10;
     candidates.push({key:'dj', name:'导结', score:djScore, tag:'场景覆盖', color:'#0d9488'});
   }
 
-  // 品专版：少店品牌升级
-  if (stores >= 1 && stores <= 9 && !d.is_signed_brand) {
+  // 品专版：少店品牌升级，且智能体不在推荐中时才推（避免重复推荐智能体系列）
+  if (stores >= 1 && stores <= 9 && !d.is_signed_brand && zntScore <= 45) {
     var pzScore = 25;
-    if (dpv >= 20) pzScore += 15;
+    if (tier !== 'low') pzScore += 15;
     if (stores <= 5) pzScore += 10;
     candidates.push({key:'pz', name:'品牌智能体品专版', score:pzScore, tag:'品牌升级', color:'#db2777'});
   }
@@ -2258,6 +2285,22 @@ function renderRecommendations(d) {
   // 按分数降序，取Top 3
   candidates.sort(function(a,b){ return b.score - a.score; });
   var top3 = candidates.slice(0, 3);
+
+  // 互斥：智能体和品专版不同时出现
+  var hasZnt = false;
+  for (var ci = 0; ci < top3.length; ci++) { if (top3[ci].key === 'znt') hasZnt = true; }
+  if (hasZnt) {
+    var filtered = top3.filter(function(c){ return c.key !== 'pz'; });
+    if (filtered.length < 3 && candidates.length > 3) {
+      for (var fi = 0; fi < candidates.length && filtered.length < 3; fi++) {
+        if (candidates[fi].key !== 'pz' && !filtered.some(function(f){return f.key===candidates[fi].key;})) {
+          filtered.push(candidates[fi]);
+        }
+      }
+    }
+    top3 = filtered;
+  }
+
   var topKeys = {};
   for (var ti = 0; ti < top3.length; ti++) topKeys[top3[ti].key] = true;
 
@@ -2272,7 +2315,7 @@ function renderRecommendations(d) {
       if (cd && cd.data && cd.data.dp > 0) desc += region + cat + cd.data.n + '户签约后DPV +' + cd.data.dp + '%。';
       else desc += '提升自然流量转化。';
     } else if (rec.key === 'xg') {
-      desc = dpv < 50 ? 'CPC按点击付费，预算自控。' : (dpv < 200 ? '获客宝+OCPC智能出价，精准获客。' : 'NoBid/OCPC放量投放，旺季冲量。');
+      desc = tier === 'low' ? 'CPC按点击付费，预算自控。' : (tier === 'medium' ? '获客宝+OCPC智能出价，精准获客。' : 'NoBid/OCPC放量投放，旺季冲量。');
       if (cd && cd.data && cd.data.dp > 0) desc += region + cat + cd.data.n + '户签约后DPV +' + cd.data.dp + '%' + (cd.data.gp > 0 ? '、GMV +' + cd.data.gp + '%' : '') + '。';
     } else if (rec.key === 'dz') {
       desc = '搜索首屏品牌展示，' + cat + '类目词包当前可售。';
