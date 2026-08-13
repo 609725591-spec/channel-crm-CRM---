@@ -1416,7 +1416,7 @@ function renderAnalysis() {
   var avgLift = liftCnt > 0 ? Math.round(liftSum / liftCnt) : 0;
 
   $('analysisStats').innerHTML =
-    '<div class="stat-card"><div class="label">商业化PID</div><div class="value blue">' + fmt(totalPIDs) + '</div><div class="sub">覆盖 ' + cities.length + ' 个城市</div></div>' +
+    '<div class="stat-card"><div class="label">高优商业化PID</div><div class="value blue">' + fmt(totalPIDs) + '</div><div class="sub">覆盖 ' + cities.length + ' 个城市</div></div>' +
     '<div class="stat-card"><div class="label">已签约PID</div><div class="value green">' + fmt(providerSigned) + '</div><div class="sub">转化率 ' + convRate + '%</div></div>' +
     '<div class="stat-card"><div class="label">待签约PID</div><div class="value amber">' + fmt(pendingPIDs) + '</div><div class="sub">待拓展空间</div></div>';
 
