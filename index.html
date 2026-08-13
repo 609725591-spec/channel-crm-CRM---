@@ -1259,6 +1259,122 @@ function initSearchSelect(selectId, inputId, ddId) {
 /* =============================================
    PAGE: 城市分析
    ============================================= */
+
+function computeDeepAnalysis(cases, city, region, commercialData) {
+  var regionCases = cases.filter(function(c) {
+    return c.metrics && getRegion(c.city) === region;
+  });
+  var cityCases = regionCases.filter(function(c) { return c.city === city; });
+  var useCases = cityCases.length >= 5 ? cityCases : regionCases;
+
+  // Monthly trend (5/6/7)
+  var monthly = {};
+  ['5月','6月','7月'].forEach(function(m){ monthly[m] = {n:0, prods:{}}; });
+  useCases.forEach(function(c) {
+    var m = c.metrics;
+    var month = m.sign_month;
+    if (!monthly[month]) return;
+    monthly[month].n++;
+    var prod = c.product || '';
+    if (!monthly[month].prods[prod]) monthly[month].prods[prod] = 0;
+    monthly[month].prods[prod]++;
+  });
+  var m5 = monthly['5月'].n, m6 = monthly['6月'].n, m7 = monthly['7月'].n;
+  var trendPct = m6 > 0 ? Math.round((m7 - m6) / m6 * 100) : 0;
+
+  // Channel split
+  var channels = {};
+  useCases.forEach(function(c) {
+    var ch = c.metrics.channel || '未知';
+    if (!channels[ch]) channels[ch] = {n:0, prods:{}};
+    channels[ch].n++;
+    var prod = c.product || '';
+    if (!channels[ch].prods[prod]) channels[ch].prods[prod] = 0;
+    channels[ch].prods[prod]++;
+  });
+
+  // Category × Product cross
+  var catProd = {};
+  useCases.forEach(function(c) {
+    var cat = c.category || '其他';
+    var prod = c.product || '';
+    var m = c.metrics;
+    var dpv = m.dpv_pct || 0, gmv = m.gmv_pct || 0;
+    if (dpv > 500 || gmv > 500 || (dpv <= 0 && gmv <= 0)) return;
+    var key = cat + '|||' + prod;
+    if (!catProd[key]) catProd[key] = {cat:cat, prod:prod, n:0, dpSum:0, gpSum:0};
+    catProd[key].n++;
+    catProd[key].dpSum += dpv;
+    catProd[key].gpSum += gmv;
+  });
+  var catProdList = Object.keys(catProd).map(function(k) {
+    var c = catProd[k];
+    return {cat:c.cat, prod:c.prod, n:c.n, dp:Math.round(c.dpSum/c.n), gp:Math.round(c.gpSum/c.n)};
+  }).sort(function(a,b){return b.n - a.n;});
+
+  // Category conversion rate (commercial pool vs signed)
+  var catConversion = [];
+  var catTotals = {}, catSigned = {};
+  if (commercialData && commercialData.length > 0) {
+    commercialData.forEach(function(d) {
+      var cat = d.category_l2 || '其他';
+      catTotals[cat] = (catTotals[cat] || 0) + 1;
+    });
+    var signedPidSet = {};
+    useCases.forEach(function(c) {
+      var pid = c.metrics.pid;
+      if (pid) signedPidSet[pid] = true;
+    });
+    commercialData.forEach(function(d) {
+      if (d.pid && signedPidSet[d.pid]) {
+        var cat = d.category_l2 || '其他';
+        catSigned[cat] = (catSigned[cat] || 0) + 1;
+      }
+    });
+    catConversion = Object.keys(catTotals).map(function(cat) {
+      var total = catTotals[cat];
+      var signed = catSigned[cat] || 0;
+      return {cat:cat, total:total, signed:signed, rate: Math.round(signed/total*100)};
+    }).sort(function(a,b){return b.total - a.total;});
+  }
+
+  // DPV segment analysis
+  var segments = {high:{n:0,dpSum:0,gpSum:0}, mid:{n:0,dpSum:0,gpSum:0}, low:{n:0,dpSum:0,gpSum:0}};
+  useCases.forEach(function(c) {
+    var m = c.metrics;
+    var before = m.dpv_before || 0;
+    var dpv = m.dpv_pct || 0, gmv = m.gmv_pct || 0;
+    if (dpv > 500 || gmv > 500 || (dpv <= 0 && gmv <= 0)) return;
+    var seg = before >= 50 ? 'high' : (before >= 15 ? 'mid' : 'low');
+    segments[seg].n++;
+    segments[seg].dpSum += dpv;
+    segments[seg].gpSum += gmv;
+  });
+  ['high','mid','low'].forEach(function(s) {
+    if (segments[s].n > 0) {
+      segments[s].dp = Math.round(segments[s].dpSum / segments[s].n);
+      segments[s].gp = Math.round(segments[s].gpSum / segments[s].n);
+    }
+  });
+
+  // Average absolute DPV lift
+  var absLiftSum = 0, absLiftCnt = 0;
+  useCases.forEach(function(c) {
+    var m = c.metrics;
+    var before = m.dpv_before || 0, after = m.dpv_after || 0;
+    if (before > 0 && after > 0) { absLiftSum += (after - before); absLiftCnt++; }
+  });
+  var avgAbsLift = absLiftCnt > 0 ? Math.round(absLiftSum / absLiftCnt) : 0;
+
+  return {
+    monthly: monthly, trendPct: trendPct, channels: channels,
+    catProdList: catProdList, catConversion: catConversion,
+    segments: segments, avgAbsLift: avgAbsLift,
+    useCity: cityCases.length >= 5, totalCases: useCases.length,
+    scope: cityCases.length >= 5 ? city : region
+  };
+}
+
 function renderAnalysis() {
   var data = STATE.commercialData;
   var leads = STATE.leadsData;
@@ -1288,12 +1404,23 @@ function renderAnalysis() {
   var providerSigned = 0;
   data.forEach(function(d) { if (d.pid && signedPids[d.pid]) providerSigned++; });
   var pendingPIDs = totalPIDs - providerSigned;
+  var convRate = totalPIDs > 0 ? (providerSigned / totalPIDs * 100).toFixed(1) : '0.0';
+
+  // Quick avg DPV lift from signed cases
+  var liftSum = 0, liftCnt = 0;
+  if (STATE.signedCases) STATE.signedCases.forEach(function(c) {
+    if (c.city !== city || !c.metrics) return;
+    var b = c.metrics.dpv_before, a = c.metrics.dpv_after;
+    if (b > 0 && a > 0) { liftSum += (a - b); liftCnt++; }
+  });
+  var avgLift = liftCnt > 0 ? Math.round(liftSum / liftCnt) : 0;
 
   $('analysisStats').innerHTML =
-    '<div class="stat-card"><div class="label">待签约PID</div><div class="value blue">' + fmt(pendingPIDs) + '</div><div class="sub">覆盖 ' + cities.length + ' 个城市</div></div>' +
-    '<div class="stat-card"><div class="label">已签约品广</div><div class="value green">' + fmt(signedPg) + '</div><div class="sub">签约PID</div></div>' +
-    '<div class="stat-card"><div class="label">已签约效广</div><div class="value green">' + fmt(signedXg) + '</div><div class="sub">签约PID</div></div>' +
-    '<div class="stat-card"><div class="label">已签约智能体</div><div class="value green">' + fmt(signedZnt) + '</div><div class="sub">签约PID</div></div>';
+    '<div class="stat-card"><div class="label">商业化PID</div><div class="value blue">' + fmt(totalPIDs) + '</div><div class="sub">覆盖 ' + cities.length + ' 个城市</div></div>' +
+    '<div class="stat-card"><div class="label">已签约PID</div><div class="value green">' + fmt(providerSigned) + '</div><div class="sub">转化率 ' + convRate + '%</div></div>' +
+    '<div class="stat-card"><div class="label">待签约PID</div><div class="value amber">' + fmt(pendingPIDs) + '</div><div class="sub">待拓展空间</div></div>' +
+    '<div class="stat-card"><div class="label">已签约效广</div><div class="value green">' + fmt(signedXg) + '</div><div class="sub">品广' + fmt(signedPg) + ' 智能体' + fmt(signedZnt) + '</div></div>' +
+    '<div class="stat-card"><div class="label">签约DPV均提升</div><div class="value green">' + (avgLift > 0 ? '+' : '') + fmt(avgLift) + '</div><div class="sub">日均曝光绝对增量</div></div>';
 
   // === Section 2: Historical Signing Analysis (by product × category) ===
   renderSigningAnalysis(data, cities);
@@ -1462,8 +1589,12 @@ function renderSigningAnalysis(data, cities) {
   });
   prodList.sort(function(a,b){return b.n - a.n;});
 
+  // Deep analysis: monthly trend, channel, cross-analysis, conversion
+  var deep = computeDeepAnalysis(STATE.signedCases, city, region, data);
+  var analysisScope = deep.scope;
+
   var html = '<h3 style="font-size:15px;font-weight:600;margin-bottom:4px;">历史签约效果分析</h3>';
-  html += '<p style="font-size:12px;color:var(--text3);margin-bottom:16px;">数据来源：5-7月直渠电新签广告主 · 范围：' + scope + scopeNote + '</p>';
+  html += '<p style="font-size:12px;color:var(--text3);margin-bottom:16px;">数据来源：5-7月直渠电新签广告主 · 范围：' + analysisScope + (deep.useCity ? '' : '（该城市签约样本不足，展示' + region + '大区汇总数据）') + ' · 共' + deep.totalCases + '条签约记录</p>';
 
   // === ANALYSIS BLOCK (above tables, prominent) ===
   if (top8.length > 0 && prodList.length > 0) {
@@ -1473,32 +1604,70 @@ function renderSigningAnalysis(data, cities) {
     var topProd = prodList[0];
     var bestDpProd = prodList.reduce(function(a,b){return a.dp>b.dp?a:b;});
     var bestGpProd = prodList.reduce(function(a,b){return a.gp>b.gp?a:b;});
-    var avgDp = Math.round(catList.reduce(function(s,c){return s+c.dp;},0)/catList.length);
-    var avgGp = Math.round(catList.reduce(function(s,c){return s+c.gp;},0)/catList.length);
-    // Find categories with both high DPV and GMV growth
     var dualHigh = catList.filter(function(c){return c.dp >= 50 && c.gp >= 50;});
 
     html += '<div style="margin-bottom:24px;padding:20px 24px;background:linear-gradient(135deg,rgba(99,102,241,0.08),rgba(16,185,129,0.08));border:1px solid rgba(99,102,241,0.2);border-radius:12px;">';
-    html += '<div style="font-size:16px;font-weight:700;color:var(--text1);margin-bottom:14px;">' + scope + '签约效果洞察</div>';
+    html += '<div style="font-size:16px;font-weight:700;color:var(--text1);margin-bottom:14px;">' + analysisScope + '签约效果洞察</div>';
 
+    var insightIdx = 1;
     html += '<div style="font-size:14px;line-height:2;color:var(--text1);">';
-    html += '<div style="margin-bottom:8px;"><span style="color:var(--accent);font-weight:700;">1.</span> ' + scope + '签约量最大的类目是「<strong>' + topCat.cat + '</strong>」（' + topCat.n + '户），说明该品类商户商业化意愿最强，是当前最成熟的签约品类。</div>';
-    html += '<div style="margin-bottom:8px;"><span style="color:var(--accent);font-weight:700;">2.</span> DPV提升最显著的是「<strong>' + bestDpCat.cat + '</strong>」（+' + bestDpCat.dp + '%），签约后门店曝光增长最为明显，适合作为效果广告的主推案例。</div>';
-    html += '<div style="margin-bottom:8px;"><span style="color:var(--accent);font-weight:700;">3.</span> GMV提升最突出的是「<strong>' + bestGpCat.cat + '</strong>」（+' + bestGpCat.gp + '%），该品类签约后实际营收转化效果最好，可用于说服看重ROI的商户。</div>';
+    html += '<div style="margin-bottom:8px;"><span style="color:var(--accent);font-weight:700;">' + insightIdx++ + '.</span> 签约量最大的类目是「<strong>' + topCat.cat + '</strong>」（' + topCat.n + '户），该品类商户商业化意愿最强。DPV提升最显著的是「<strong>' + bestDpCat.cat + '</strong>」（+' + bestDpCat.dp + '%），GMV转化最好的是「<strong>' + bestGpCat.cat + '</strong>」（+' + bestGpCat.gp + '%）。</div>';
     if (dualHigh.length > 0) {
-      html += '<div style="margin-bottom:8px;"><span style="color:var(--green);font-weight:700;">4.</span> 「<strong>' + dualHigh.map(function(c){return c.cat;}).join('」「') + '</strong>」等' + dualHigh.length + '个类目DPV与GMV双双大幅提升，属于"流量-营收"联动效果最佳的品类，推荐优先拓展。</div>';
+      html += '<div style="margin-bottom:8px;"><span style="color:var(--green);font-weight:700;">' + insightIdx++ + '.</span> 「<strong>' + dualHigh.map(function(c){return c.cat;}).join('」「') + '</strong>」等' + dualHigh.length + '个类目DPV与GMV双双大幅提升（均≥50%），属于"流量→营收"联动效果最佳的品类，推荐优先拓展。</div>';
     }
-    html += '<div style="margin-bottom:8px;"><span style="color:var(--accent2);font-weight:700;">' + (dualHigh.length > 0 ? '5' : '4') + '.</span> 产品层面，「<strong>' + topProd.name + '</strong>」签约量最多（' + topProd.n + '户），DPV拉动最强的是「<strong>' + bestDpProd.name + '</strong>」（+' + bestDpProd.dp + '%），GMV转化最好的是「<strong>' + bestGpProd.name + '</strong>」（+' + bestGpProd.gp + '%）。建议组合搭配推荐。</div>';
+    html += '<div style="margin-bottom:8px;"><span style="color:var(--accent2);font-weight:700;">' + insightIdx++ + '.</span> 产品层面，「<strong>' + topProd.name + '</strong>」签约量最多（' + topProd.n + '户）。DPV拉动最强的是「<strong>' + bestDpProd.name + '</strong>」（+' + bestDpProd.dp + '%），GMV转化最好是「<strong>' + bestGpProd.name + '</strong>」（+' + bestGpProd.gp + '%）。</div>';
+
+    // Channel insight
+    var chKeys = Object.keys(deep.channels);
+    if (chKeys.length > 0) {
+      var topCh = chKeys.reduce(function(a,b){ return deep.channels[a].n > deep.channels[b].n ? a : b; });
+      var topChPct = Math.round(deep.channels[topCh].n / deep.totalCases * 100);
+      html += '<div style="margin-bottom:8px;"><span style="color:var(--accent);font-weight:700;">' + insightIdx++ + '.</span> 渠道方面，「<strong>' + topCh + '</strong>」是签约主力（' + deep.channels[topCh].n + '户，占' + topChPct + '%）。';
+      if (chKeys.length > 1) {
+        var weakChs = chKeys.filter(function(k){return k !== topCh;}).sort(function(a,b){return deep.channels[b].n - deep.channels[a].n;});
+        html += '「' + weakChs[0] + '」仅' + deep.channels[weakChs[0]].n + '户，仍有较大拓展空间。';
+      }
+      html += '</div>';
+    }
+
+    // Monthly trend insight
+    var m5n = deep.monthly['5月'].n, m6n = deep.monthly['6月'].n, m7n = deep.monthly['7月'].n;
+    if (m5n + m6n + m7n > 0) {
+      var trendText = '';
+      if (deep.trendPct > 20) trendText = '签约量呈<strong>明显上升</strong>趋势，市场拓展加速。';
+      else if (deep.trendPct > 0) trendText = '签约量<strong>稳中有升</strong>。';
+      else if (deep.trendPct < -20) trendText = '签约量出现<strong>回落</strong>，需关注市场疲软信号。';
+      else trendText = '签约量基本持平。';
+      html += '<div style="margin-bottom:8px;"><span style="color:var(--accent);font-weight:700;">' + insightIdx++ + '.</span> 月度趋势：5月' + m5n + '户 → 6月' + m6n + '户 → 7月' + m7n + '户，' + trendText + '</div>';
+    }
+
+    // DPV segment insight
+    var segs = deep.segments;
+    if (segs.high.n > 0 && segs.low.n > 0) {
+      var segInsight = '高DPV商户（≥50）签约后DPV均提升+' + (segs.high.dp||0) + '%，低DPV商户（<15）提升+' + (segs.low.dp||0) + '%。';
+      if ((segs.low.dp||0) > (segs.high.dp||0)) segInsight += '低流量商户提升幅度更大，说明广告投放对冷启动效果显著。';
+      else segInsight += '高流量商户获益更大，基础流量越高广告杠杆效应越强。';
+      html += '<div style="margin-bottom:8px;"><span style="color:var(--accent2);font-weight:700;">' + insightIdx++ + '.</span> ' + segInsight + '</div>';
+    }
+
+    // Conversion opportunity
+    if (deep.catConversion.length > 0) {
+      var lowConv = deep.catConversion.filter(function(c){return c.total >= 3 && c.rate < 5;}).slice(0,3);
+      if (lowConv.length > 0) {
+        html += '<div style="margin-bottom:8px;"><span style="color:var(--red);font-weight:700;">' + insightIdx++ + '.</span> 低转化蓝海：「<strong>' + lowConv.map(function(c){return c.cat + '（' + c.total + '户仅签' + c.signed + '户）';}).join('」「') + '</strong>」等类目池子大但签约率极低，是重点突破方向。</div>';
+      }
+    }
+
     html += '</div></div>';
   }
 
-  // === Module 1: Top 8 categories (no signing count column) ===
+  // === Module 1: Top 8 categories ===
   html += '<div style="margin-bottom:28px;">';
   html += '<h4 style="font-size:14px;font-weight:600;margin-bottom:12px;color:var(--accent);">签约Top ' + top8.length + '类目（跨产品汇总）</h4>';
 
   if (top8.length > 0) {
     html += '<div class="data-table-wrap"><table class="data-table"><thead><tr>';
-    html += '<th>类目</th><th class="num">DPV提升</th><th class="num">GMV提升</th>';
+    html += '<th>类目</th><th class="num">签约户数</th><th class="num">DPV提升</th><th class="num">GMV提升</th>';
     html += '</tr></thead><tbody>';
     top8.forEach(function(c) {
       var dpColor = c.dp > 0 ? 'var(--green)' : 'var(--red)';
@@ -1506,6 +1675,7 @@ function renderSigningAnalysis(data, cities) {
       var dpText = c.dp > 0 ? '+' + c.dp + '%' : (c.dp < 0 ? c.dp + '%' : '持平');
       var gpText = c.gp > 0 ? '+' + c.gp + '%' : (c.gp < 0 ? c.gp + '%' : '持平');
       html += '<tr><td><strong>' + c.cat + '</strong></td>';
+      html += '<td class="num">' + c.n + '</td>';
       html += '<td class="num" style="color:' + dpColor + ';font-weight:600;">' + dpText + '</td>';
       html += '<td class="num" style="color:' + gpColor + ';font-weight:600;">' + gpText + '</td></tr>';
     });
@@ -1515,13 +1685,13 @@ function renderSigningAnalysis(data, cities) {
   }
   html += '</div>';
 
-  // === Module 2: Product-level (no signing count column) ===
-  html += '<div>';
+  // === Module 2: Product-level ===
+  html += '<div style="margin-bottom:28px;">';
   html += '<h4 style="font-size:14px;font-weight:600;margin-bottom:12px;color:var(--accent2);">签约产品效果（跨类目汇总）</h4>';
 
   if (prodList.length > 0) {
     html += '<div class="data-table-wrap"><table class="data-table"><thead><tr>';
-    html += '<th>产品</th><th class="num">DPV提升</th><th class="num">GMV提升</th>';
+    html += '<th>产品</th><th class="num">签约户数</th><th class="num">DPV提升</th><th class="num">GMV提升</th>';
     html += '</tr></thead><tbody>';
     prodList.forEach(function(p) {
       var dpColor = p.dp > 0 ? 'var(--green)' : 'var(--red)';
@@ -1529,6 +1699,7 @@ function renderSigningAnalysis(data, cities) {
       var dpText = p.dp > 0 ? '+' + p.dp + '%' : (p.dp < 0 ? p.dp + '%' : '持平');
       var gpText = p.gp > 0 ? '+' + p.gp + '%' : (p.gp < 0 ? p.gp + '%' : '持平');
       html += '<tr><td><strong>' + p.name + '</strong></td>';
+      html += '<td class="num">' + p.n + '</td>';
       html += '<td class="num" style="color:' + dpColor + ';font-weight:600;">' + dpText + '</td>';
       html += '<td class="num" style="color:' + gpColor + ';font-weight:600;">' + gpText + '</td></tr>';
     });
@@ -1537,6 +1708,101 @@ function renderSigningAnalysis(data, cities) {
     html += '<p style="color:var(--text3);text-align:center;padding:20px;">暂无该区域产品签约数据</p>';
   }
   html += '</div>';
+
+  // === Module 3: Monthly Signing Trend ===
+  var m5 = deep.monthly['5月'], m6 = deep.monthly['6月'], m7 = deep.monthly['7月'];
+  var maxM = Math.max(m5.n, m6.n, m7.n, 1);
+  html += '<div style="margin-bottom:28px;">';
+  html += '<h4 style="font-size:14px;font-weight:600;margin-bottom:12px;color:#8b5cf6;">月度签约趋势</h4>';
+  html += '<div style="display:flex;gap:12px;align-items:flex-end;margin-bottom:8px;">';
+  [{label:'5月',d:m5},{label:'6月',d:m6},{label:'7月',d:m7}].forEach(function(item) {
+    var h = Math.max(Math.round(item.d.n / maxM * 120), 4);
+    var pct = maxM > 0 ? Math.round(item.d.n / maxM * 100) : 0;
+    html += '<div style="flex:1;text-align:center;">';
+    html += '<div style="font-size:13px;font-weight:700;color:var(--text1);margin-bottom:4px;">' + item.d.n + '户</div>';
+    html += '<div style="height:' + h + 'px;background:linear-gradient(180deg,rgba(139,92,246,0.7),rgba(139,92,246,0.3));border-radius:6px 6px 0 0;"></div>';
+    html += '<div style="font-size:11px;color:var(--text3);margin-top:4px;">' + item.label + '</div>';
+    html += '</div>';
+  });
+  html += '</div>';
+  if (deep.trendPct !== 0) {
+    var trendColor = deep.trendPct > 0 ? 'var(--green)' : 'var(--red)';
+    var trendSign = deep.trendPct > 0 ? '+' : '';
+    html += '<div style="font-size:12px;color:var(--text3);text-align:center;">6→7月环比 <span style="color:' + trendColor + ';font-weight:600;">' + trendSign + deep.trendPct + '%</span></div>';
+  }
+  html += '</div>';
+
+  // === Module 4: Channel Distribution ===
+  var chEntries = Object.entries(deep.channels).sort(function(a,b){return b[1].n - a[1].n;});
+  if (chEntries.length > 0) {
+    html += '<div style="margin-bottom:28px;">';
+    html += '<h4 style="font-size:14px;font-weight:600;margin-bottom:12px;color:#0ea5e9;">渠道签约分布</h4>';
+    html += '<div class="data-table-wrap"><table class="data-table"><thead><tr>';
+    html += '<th>渠道</th><th class="num">签约户数</th><th class="num">占比</th><th>主要签约产品</th>';
+    html += '</tr></thead><tbody>';
+    chEntries.forEach(function(entry) {
+      var chName = entry[0], chData = entry[1];
+      var pct = Math.round(chData.n / deep.totalCases * 100);
+      // Find top product for this channel
+      var prodEntries = Object.entries(chData.prods).sort(function(a,b){return b[1] - a[1];});
+      var topProds = prodEntries.slice(0, 2).map(function(pe){return pe[0] + '(' + pe[1] + ')';}).join('、');
+      html += '<tr><td><strong>' + chName + '</strong></td>';
+      html += '<td class="num">' + chData.n + '</td>';
+      html += '<td class="num" style="font-weight:600;">' + pct + '%</td>';
+      html += '<td style="font-size:12px;color:var(--text2);">' + topProds + '</td></tr>';
+    });
+    html += '</tbody></table></div></div>';
+  }
+
+  // === Module 5: Category × Product Cross ===
+  if (deep.catProdList.length > 0) {
+    var top10cp = deep.catProdList.slice(0, 10);
+    html += '<div style="margin-bottom:28px;">';
+    html += '<h4 style="font-size:14px;font-weight:600;margin-bottom:12px;color:#f59e0b;">类目×产品组合 Top10</h4>';
+    html += '<div class="data-table-wrap"><table class="data-table"><thead><tr>';
+    html += '<th>类目</th><th>产品</th><th class="num">签约户数</th><th class="num">DPV提升</th><th class="num">GMV提升</th>';
+    html += '</tr></thead><tbody>';
+    top10cp.forEach(function(cp) {
+      var dpColor = cp.dp > 0 ? 'var(--green)' : 'var(--red)';
+      var gpColor = cp.gp > 0 ? 'var(--green)' : 'var(--red)';
+      var dpText = cp.dp > 0 ? '+' + cp.dp + '%' : (cp.dp < 0 ? cp.dp + '%' : '持平');
+      var gpText = cp.gp > 0 ? '+' + cp.gp + '%' : (cp.gp < 0 ? cp.gp + '%' : '持平');
+      html += '<tr><td><strong>' + cp.cat + '</strong></td>';
+      html += '<td>' + cp.prod + '</td>';
+      html += '<td class="num">' + cp.n + '</td>';
+      html += '<td class="num" style="color:' + dpColor + ';font-weight:600;">' + dpText + '</td>';
+      html += '<td class="num" style="color:' + gpColor + ';font-weight:600;">' + gpText + '</td></tr>';
+    });
+    html += '</tbody></table></div></div>';
+  }
+
+  // === Module 6: Category Conversion Opportunity ===
+  if (deep.catConversion.length > 0) {
+    var convTop = deep.catConversion.filter(function(c){return c.total >= 2;}).slice(0, 12);
+    if (convTop.length > 0) {
+      html += '<div style="margin-bottom:28px;">';
+      html += '<h4 style="font-size:14px;font-weight:600;margin-bottom:12px;color:var(--red);">类目转化漏斗（签约机会分析）</h4>';
+      html += '<p style="font-size:12px;color:var(--text3);margin-bottom:12px;">池子总量 = 当前服务商名下该类目PID数 · 已签约 = 5-7月已签约PID数 · 转化率越低 = 机会越大</p>';
+      html += '<div class="data-table-wrap"><table class="data-table"><thead><tr>';
+      html += '<th>类目</th><th class="num">池子总量</th><th class="num">已签约</th><th class="num">转化率</th><th>签约空间</th>';
+      html += '</tr></thead><tbody>';
+      convTop.forEach(function(c) {
+        var rateColor = c.rate < 5 ? 'var(--red)' : (c.rate < 15 ? '#f59e0b' : 'var(--green)');
+        var barWidth = Math.min(c.rate, 100);
+        var space = c.total - c.signed;
+        html += '<tr><td><strong>' + c.cat + '</strong></td>';
+        html += '<td class="num">' + c.total + '</td>';
+        html += '<td class="num">' + c.signed + '</td>';
+        html += '<td class="num" style="font-weight:700;color:' + rateColor + ';">' + c.rate + '%</td>';
+        html += '<td><div style="display:flex;align-items:center;gap:6px;">';
+        html += '<div style="flex:1;height:6px;background:var(--border);border-radius:3px;overflow:hidden;max-width:80px;">';
+        html += '<div style="height:100%;width:' + barWidth + '%;background:' + rateColor + ';border-radius:3px;"></div></div>';
+        html += '<span style="font-size:11px;color:var(--text3);white-space:nowrap;">' + space + '户待签</span>';
+        html += '</div></td></tr>';
+      });
+      html += '</tbody></table></div></div>';
+    }
+  }
 
   container.innerHTML = html;
 }
