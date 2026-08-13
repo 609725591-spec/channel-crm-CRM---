@@ -1617,44 +1617,74 @@ function renderSigningAnalysis(data, cities) {
     }
     html += '<div style="margin-bottom:8px;"><span style="color:var(--accent2);font-weight:700;">' + insightIdx++ + '.</span> 产品层面，「<strong>' + topProd.name + '</strong>」签约量最多（' + topProd.n + '户）。DPV拉动最强的是「<strong>' + bestDpProd.name + '</strong>」（+' + bestDpProd.dp + '%），GMV转化最好是「<strong>' + bestGpProd.name + '</strong>」（+' + bestGpProd.gp + '%）。</div>';
 
-    // Channel insight
-    var chKeys = Object.keys(deep.channels);
-    if (chKeys.length > 0) {
-      var topCh = chKeys.reduce(function(a,b){ return deep.channels[a].n > deep.channels[b].n ? a : b; });
-      var topChPct = Math.round(deep.channels[topCh].n / deep.totalCases * 100);
-      html += '<div style="margin-bottom:8px;"><span style="color:var(--accent);font-weight:700;">' + insightIdx++ + '.</span> 渠道方面，「<strong>' + topCh + '</strong>」是签约主力（' + deep.channels[topCh].n + '户，占' + topChPct + '%）。';
-      if (chKeys.length > 1) {
-        var weakChs = chKeys.filter(function(k){return k !== topCh;}).sort(function(a,b){return deep.channels[b].n - deep.channels[a].n;});
-        html += '「' + weakChs[0] + '」仅' + deep.channels[weakChs[0]].n + '户，仍有较大拓展空间。';
+    // Best product × category combos
+    if (deep.catProdList.length >= 3) {
+      var bestCombos = [];
+      var seenCats = {};
+      for (var ci = 0; ci < deep.catProdList.length && bestCombos.length < 3; ci++) {
+        var cp = deep.catProdList[ci];
+        if (seenCats[cp.cat] || cp.n < 2) continue;
+        if (cp.dp > 0 && cp.gp > 0) { seenCats[cp.cat] = true; bestCombos.push(cp); }
+      }
+      if (bestCombos.length > 0) {
+        html += '<div style="margin-bottom:8px;"><span style="color:var(--green);font-weight:700;">' + insightIdx++ + '.</span> 黄金组合（类目×产品最佳搭配）：' + bestCombos.map(function(c) {
+          return '「' + c.cat + '」配<strong>' + c.prod + '</strong>（DPV+' + c.dp + '%，GMV+' + c.gp + '%）';
+        }).join('；') + '。这些组合经验证效果突出，向对应类目商户主推这些产品成功率最高。</div>';
+      }
+    }
+
+    // Regional comparison
+    var regionTotal = 0, regionCities = {};
+    STATE.signedCases.forEach(function(c) {
+      if (c.metrics && getRegion(c.city) === region) {
+        regionTotal++;
+        regionCities[c.city] = (regionCities[c.city] || 0) + 1;
+      }
+    });
+    var numRegionCities = Object.keys(regionCities).length || 1;
+    var avgPerCity = Math.round(regionTotal / numRegionCities);
+    if (deep.useCity && regionTotal > deep.totalCases + 10) {
+      var ratioText = deep.totalCases > avgPerCity ? '高于' : (deep.totalCases < avgPerCity ? '低于' : '持平于');
+      var gap = Math.abs(deep.totalCases - avgPerCity);
+      html += '<div style="margin-bottom:8px;"><span style="color:var(--accent2);font-weight:700;">' + insightIdx++ + '.</span> 区域对标：' + city + '签约' + deep.totalCases + '户，' + ratioText + region + '城市均值（' + avgPerCity + '户/城）。';
+      if (deep.totalCases < avgPerCity && gap > 5) {
+        html += '与同区域城市相比仍有<strong>' + gap + '户</strong>的差距，对标区域标杆城市仍有追赶空间。';
+      } else if (deep.totalCases >= avgPerCity) {
+        html += '签约量在区域中表现较好，可继续保持当前节奏。';
       }
       html += '</div>';
     }
 
-    // Monthly trend insight
-    var m5n = deep.monthly['5月'].n, m6n = deep.monthly['6月'].n, m7n = deep.monthly['7月'].n;
-    if (m5n + m6n + m7n > 0) {
-      var trendText = '';
-      if (deep.trendPct > 20) trendText = '签约量呈<strong>明显上升</strong>趋势，市场拓展加速。';
-      else if (deep.trendPct > 0) trendText = '签约量<strong>稳中有升</strong>。';
-      else if (deep.trendPct < -20) trendText = '签约量出现<strong>回落</strong>，需关注市场疲软信号。';
-      else trendText = '签约量基本持平。';
-      html += '<div style="margin-bottom:8px;"><span style="color:var(--accent);font-weight:700;">' + insightIdx++ + '.</span> 月度趋势：5月' + m5n + '户 → 6月' + m6n + '户 → 7月' + m7n + '户，' + trendText + '</div>';
-    }
-
-    // DPV segment insight
+    // DPV segment insight (enhanced)
     var segs = deep.segments;
     if (segs.high.n > 0 && segs.low.n > 0) {
-      var segInsight = '高DPV商户（≥50）签约后DPV均提升+' + (segs.high.dp||0) + '%，低DPV商户（<15）提升+' + (segs.low.dp||0) + '%。';
-      if ((segs.low.dp||0) > (segs.high.dp||0)) segInsight += '低流量商户提升幅度更大，说明广告投放对冷启动效果显著。';
-      else segInsight += '高流量商户获益更大，基础流量越高广告杠杆效应越强。';
+      var segInsight = '按签约前日均DPV分层：高流量商户（DPV≥50，' + segs.high.n + '户）签约后DPV均提升<strong>+' + (segs.high.dp||0) + '%</strong>，GMV提升+' + (segs.high.gp||0) + '%；';
+      segInsight += '低流量商户（DPV<15，' + segs.low.n + '户）DPV提升<strong>+' + (segs.low.dp||0) + '%</strong>，GMV提升+' + (segs.low.gp||0) + '%。';
+      if ((segs.low.dp||0) > (segs.high.dp||0)) {
+        segInsight += '<strong>低流量商户提升幅度更大</strong>，广告投放对冷启动效果显著——用"小商户逆袭"案例说服犹豫客户。';
+      } else {
+        segInsight += '<strong>高流量商户绝对获益更大</strong>，基础流量越高广告杠杆效应越强——优先锁定高DPV商户签约。';
+      }
+      if (segs.mid.n > 0) {
+        segInsight += '中等流量商户（' + segs.mid.n + '户，DPV 15-50）DPV+' + (segs.mid.dp||0) + '%，GMV+' + (segs.mid.gp||0) + '%，是投放性价比最高的区间。';
+      }
       html += '<div style="margin-bottom:8px;"><span style="color:var(--accent2);font-weight:700;">' + insightIdx++ + '.</span> ' + segInsight + '</div>';
     }
 
-    // Conversion opportunity
+    // Conversion opportunity (enhanced with potential)
     if (deep.catConversion.length > 0) {
       var lowConv = deep.catConversion.filter(function(c){return c.total >= 3 && c.rate < 5;}).slice(0,3);
       if (lowConv.length > 0) {
-        html += '<div style="margin-bottom:8px;"><span style="color:var(--red);font-weight:700;">' + insightIdx++ + '.</span> 低转化蓝海：「<strong>' + lowConv.map(function(c){return c.cat + '（' + c.total + '户仅签' + c.signed + '户）';}).join('」「') + '</strong>」等类目池子大但签约率极低，是重点突破方向。</div>';
+        var totalPotential = lowConv.reduce(function(s,c){ return s + Math.round(c.total * 0.03); }, 0);
+        html += '<div style="margin-bottom:8px;"><span style="color:var(--red);font-weight:700;">' + insightIdx++ + '.</span> 低转化蓝海：「<strong>' + lowConv.map(function(c){return c.cat + '（' + c.total + '户仅签' + c.signed + '户，转化率' + c.rate + '%）';}).join('」「') + '</strong>」等类目池子大但签约率极低。';
+        html += '仅这' + lowConv.length + '个类目合计<strong>' + lowConv.reduce(function(s,c){return s + c.total - c.signed;},0) + '户</strong>待签，即使提升到3%转化率也可新增约<strong>' + totalPotential + '户</strong>签约，是当前最明确的增量空间。';
+        html += '</div>';
+      }
+      // High-conversion "proof" categories
+      var highConv = deep.catConversion.filter(function(c){return c.total >= 5 && c.rate >= 10;}).sort(function(a,b){return b.rate - a.rate;}).slice(0,2);
+      if (highConv.length > 0) {
+        html += '<div style="margin-bottom:8px;"><span style="color:var(--green);font-weight:700;">' + insightIdx++ + '.</span> 已验证高转化类目：「<strong>' + highConv.map(function(c){return c.cat + '（' + c.total + '户签' + c.signed + '户，转化率' + c.rate + '%）';}).join('」「') + '</strong>」——这些类目商户接受度高、签约阻力小，可作为日常扫街优先目标。';
+        html += '</div>';
       }
     }
 
