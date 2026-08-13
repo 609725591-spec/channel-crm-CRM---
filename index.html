@@ -1418,9 +1418,7 @@ function renderAnalysis() {
   $('analysisStats').innerHTML =
     '<div class="stat-card"><div class="label">商业化PID</div><div class="value blue">' + fmt(totalPIDs) + '</div><div class="sub">覆盖 ' + cities.length + ' 个城市</div></div>' +
     '<div class="stat-card"><div class="label">已签约PID</div><div class="value green">' + fmt(providerSigned) + '</div><div class="sub">转化率 ' + convRate + '%</div></div>' +
-    '<div class="stat-card"><div class="label">待签约PID</div><div class="value amber">' + fmt(pendingPIDs) + '</div><div class="sub">待拓展空间</div></div>' +
-    '<div class="stat-card"><div class="label">已签约效广</div><div class="value green">' + fmt(signedXg) + '</div><div class="sub">品广' + fmt(signedPg) + ' 智能体' + fmt(signedZnt) + '</div></div>' +
-    '<div class="stat-card"><div class="label">签约DPV均提升</div><div class="value green">' + (avgLift > 0 ? '+' : '') + fmt(avgLift) + '</div><div class="sub">日均曝光绝对增量</div></div>';
+    '<div class="stat-card"><div class="label">待签约PID</div><div class="value amber">' + fmt(pendingPIDs) + '</div><div class="sub">待拓展空间</div></div>';
 
   // === Section 2: Historical Signing Analysis (by product × category) ===
   renderSigningAnalysis(data, cities);
