@@ -909,27 +909,24 @@ async function doLogin() {
     onLoginSuccess();
     return;
   }
-  if (code === CONFIG.adminCode) {
-    STATE.user = Object.assign({}, DEMO.admin);
-    onLoginSuccess();
-    return;
-  }
-  // Management dashboard
-  if (code === CONFIG.mgmtCode) {
+  if (code === CONFIG.adminCode || code === CONFIG.mgmtCode) {
     STATE.user = {
-      provider_id: 'MGMT',
-      provider_name: '管理驾驶舱',
-      role: '管理层',
-      is_admin: false,
-      is_mgmt: true,
-      cities: []
+      provider_id: 'ADMIN',
+      provider_name: '系统管理员',
+      region: '全国',
+      channel_manager: '',
+      cities: [],
+      role: '管理员',
+      is_admin: true,
+      is_mgmt: true
     };
     $('loginPage').style.display = 'none';
     localStorage.setItem('crm_session', JSON.stringify({ user: STATE.user, code: code, ts: Date.now() }));
-    logUsage('mgmt_login');
+    logUsage('admin_login');
     $('appShell').classList.add('active');
+    $('navAdmin').style.display = 'flex';
     $('navMgmt').style.display = 'flex';
-    $('headerUser').textContent = '管理驾驶舱';
+    $('headerUser').textContent = '系统管理员 · 管理员';
     $('headerCity').textContent = '全国 ▾';
     STATE.currentPage = 'mgmt';
     await loadMgmtData();
@@ -1005,6 +1002,7 @@ function doLogout() {
   $('empPrompt').style.display = 'none';
   if ($('headerEmpCombo')) $('headerEmpCombo').style.display = 'none';
   if ($('navMgmt')) $('navMgmt').style.display = 'none';
+  if ($('navAdmin')) $('navAdmin').style.display = 'none';
   $('loginPage').style.display = 'flex';
   $('loginCode').value = '';
   $('loginError').textContent = '';
@@ -5353,7 +5351,8 @@ document.addEventListener('keydown', function(e) {
         $('loginPage').style.display = 'none';
         $('appShell').classList.add('active');
         $('navMgmt').style.display = 'flex';
-        $('headerUser').textContent = '管理驾驶舱';
+        if (session.user.is_admin) $('navAdmin').style.display = 'flex';
+        $('headerUser').textContent = '系统管理员 · 管理员';
         $('headerCity').textContent = '全国 ▾';
         STATE.currentPage = 'mgmt';
         loadMgmtData().then(function(){ navigate('mgmt'); });
