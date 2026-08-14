@@ -334,7 +334,7 @@ a { color:var(--accent2); text-decoration:none; }
         <span class="nav-icon">📊</span>城市分析
       </div>
       <div class="nav-item" data-page="commercial" onclick="navigate('commercial')">
-        <span class="nav-icon">🏪</span>名下-高优商业化
+        <span class="nav-icon">🏪</span>在约-高优商业化
       </div>
       <div class="nav-item" data-page="leads" onclick="navigate('leads')">
         <span class="nav-icon">📋</span>公海-高优开店
@@ -373,9 +373,9 @@ a { color:var(--accent2); text-decoration:none; }
         <div id="analysisSigning" style="margin-bottom:24px;"></div>
       </div>
 
-      <!-- ===== PAGE: 名下-高优商业化 ===== -->
+      <!-- ===== PAGE: 在约-高优商业化 ===== -->
       <div id="page-commercial" class="page">
-        <h2 class="page-title">名下-高优商业化</h2>
+        <h2 class="page-title">在约-高优商业化</h2>
         <p class="page-desc">在约门店中尚未签约商业化的PID，按优先级排序</p>
         <div id="commercialStats" class="stats-row"></div>
         <div class="filter-bar" id="commercialFilters">
@@ -2246,7 +2246,7 @@ function renderCategoryTable(data, cities) {
 }
 
 /* =============================================
-   PAGE: 名下-高优商业化
+   PAGE: 在约-高优商业化
    ============================================= */
 function renderCommercial() {
   filterCommercial();
@@ -2258,7 +2258,7 @@ function renderCommercial() {
   var a2 = data.filter(function(d){return d.tier==='A2';}).length;
 
   $('commercialStats').innerHTML =
-    '<div class="stat-card"><div class="label">未签约PID</div><div class="value blue">' + fmt(total) + '</div><div class="sub">待名下-高优商业化</div></div>' +
+    '<div class="stat-card"><div class="label">未签约PID</div><div class="value blue">' + fmt(total) + '</div><div class="sub">待在约-高优商业化</div></div>' +
     '<div class="stat-card"><div class="label">A1头部</div><div class="value">' + fmt(a1) + '</div><div class="sub">占比' + (total?(a1/total*100).toFixed(1):0) + '%</div></div>' +
     '<div class="stat-card"><div class="label">A2头部</div><div class="value">' + fmt(a2) + '</div><div class="sub">占比' + (total?(a2/total*100).toFixed(1):0) + '%</div></div>';
 }
@@ -4126,7 +4126,7 @@ async function loadMgmtData() {
       var batch = providers.slice(i, i + BATCH);
       var promises = [];
       batch.forEach(function(p) {
-        // 名下-高优商业化底池 = 全量分层PID
+        // 在约-高优商业化底池 = 全量分层PID
         promises.push(sb.from('crm_pids').select('pid',{count:'exact',head:true}).eq('provider_id',p.provider_id));
       });
       var results = await Promise.all(promises);
@@ -4236,11 +4236,11 @@ function renderMgmtDashboard() {
   });
   var natSigned = data.nationalPidSigned||0;
 
-  $('mgmtDesc').textContent = '全渠道名下-高优商业化作业进度 · ' + (dim === 'region' ? '按大区' : (dim === 'channel' ? '按渠道经理' : '按服务商'));
+  $('mgmtDesc').textContent = '全渠道在约-高优商业化作业进度 · ' + (dim === 'region' ? '按大区' : (dim === 'channel' ? '按渠道经理' : '按服务商'));
 
   // Stats cards
   $('mgmtStats').innerHTML =
-    '<div class="stat-card"><div class="label">名下-高优商业化池</div><div class="value blue">' + natTotal + '</div><div class="sub">' + natProviders + '家服务商</div></div>' +
+    '<div class="stat-card"><div class="label">在约-高优商业化池</div><div class="value blue">' + natTotal + '</div><div class="sub">' + natProviders + '家服务商</div></div>' +
     '<div class="stat-card"><div class="label">已跟进</div><div class="value amber">' + natFollowed + '</div><div class="sub">跟进率 ' + pct(natFollowed, natTotal) + '</div></div>' +
     '<div class="stat-card"><div class="label">待跟进</div><div class="value purple">' + (natTotal - natFollowed) + '</div><div class="sub">占比 ' + pct(natTotal - natFollowed, natTotal) + '</div></div>' +
     '<div class="stat-card"><div class="label">签约转化率</div><div class="value green">' + pct(natSigned, natTotal) + '</div><div class="sub">已转化 ' + natSigned + '</div></div>';
@@ -4552,7 +4552,7 @@ function exportCommercial() {
     if (d.is_signed_brand) signed.push('品广');
     lines.push([d.pid, csvEscape(d.store_name), d.city, d.district, d.category_l2, d.tier, d.dpv_30d, d.gmv_90d, d.store_count, signed.join('+')||'未签约'].join(','));
   });
-  downloadCSV(lines.join('\n'), '名下-高优商业化_' + STATE.cities.join('-') + '.csv');
+  downloadCSV(lines.join('\n'), '在约-高优商业化_' + STATE.cities.join('-') + '.csv');
 }
 
 function exportLeads() {
@@ -4733,7 +4733,7 @@ function downloadTemplate(type) {
       ['张亮麻辣烫（朝阳路店）', '12345678', '南宁', '快餐', 3, '张老板', '13800138000'],
       ['海底捞火锅', '87654321', '厦门', '火锅', 5, '李总', '13900139000']
     ];
-    filename = '名下-高优商业化导入模板';
+    filename = '在约-高优商业化导入模板';
   } else {
     headers = ['POI名称*', '城市*', '类目*', '联系人', '联系电话', '备注'];
     examples = [
@@ -5096,7 +5096,7 @@ function renderMyPool() {
   if (items.length === 0) {
     html += '<tr><td colspan="8" style="text-align:center;padding:40px;color:var(--text3);">' +
       '<div style="font-size:15px;margin-bottom:8px;">🎯</div>' +
-      '<div>做工池为空，去「' + (tab==='commercial'?'名下-高优商业化':'公海-高优开店') + '」页面添加商户到你的做工池</div></td></tr>';
+      '<div>做工池为空，去「' + (tab==='commercial'?'在约-高优商业化':'公海-高优开店') + '」页面添加商户到你的做工池</div></td></tr>';
   } else {
     items.forEach(function(p) {
       var d = dataMap[p.target_id] || {};
