@@ -340,7 +340,7 @@ a { color:var(--accent2); text-decoration:none; }
         <span class="nav-icon">📋</span>公海-高优开店
       </div>
       <div class="nav-item" data-page="topics" onclick="navigate('topics')">
-        <span class="nav-icon">🔥</span>专题高优商机
+        <span class="nav-icon">🔥</span>专项高优商机
       </div>
       <div class="nav-item" data-page="mypool" onclick="navigate('mypool')">
         <span class="nav-icon">🎯</span>我的做工
@@ -442,9 +442,9 @@ a { color:var(--accent2); text-decoration:none; }
         <div id="leadsTableWrap"></div>
       </div>
 
-      <!-- ===== PAGE: 专题高优商机 ===== -->
+      <!-- ===== PAGE: 专项高优商机 ===== -->
       <div id="page-topics" class="page">
-        <h2 class="page-title">专题高优商机</h2>
+        <h2 class="page-title">专项高优商机</h2>
         <p class="page-desc" id="topicsDesc">管理员分配的专题商机列表，按专题维度查看和跟进</p>
         <div id="topicsTabs" class="tab-bar"></div>
         <div id="topicStats" class="stats-row" style="margin-top:16px;"></div>
@@ -546,7 +546,7 @@ a { color:var(--accent2); text-decoration:none; }
         </div>
 
         <div class="admin-section">
-          <h4>🔥 专题高优商机管理</h4>
+          <h4>🔥 专项高优商机管理</h4>
           <p style="font-size:13px;color:var(--text2);margin-bottom:12px;">创建专题并上传Excel，系统按服务商自动拆分，服务商端即可查看和跟进</p>
           <div style="display:flex;gap:8px;margin-bottom:16px;align-items:flex-end;">
             <input id="newTopicName" placeholder="专题名称（如：品牌广告专项）" style="flex:1;padding:8px 12px;border:1px solid var(--border);border-radius:8px;font-size:13px;">
@@ -1296,7 +1296,7 @@ function initSearchSelect(selectId, inputId, ddId) {
 }
 
 /* =============================================
-   PAGE: 专题高优商机
+   PAGE: 专项高优商机
    ============================================= */
 
 async function loadTopics() {
