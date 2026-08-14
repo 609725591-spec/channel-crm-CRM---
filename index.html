@@ -339,6 +339,9 @@ a { color:var(--accent2); text-decoration:none; }
       <div class="nav-item" data-page="leads" onclick="navigate('leads')">
         <span class="nav-icon">📋</span>公海-高优开店
       </div>
+      <div class="nav-item" data-page="topics" onclick="navigate('topics')">
+        <span class="nav-icon">🔥</span>专题高优商机
+      </div>
       <div class="nav-item" data-page="mypool" onclick="navigate('mypool')">
         <span class="nav-icon">🎯</span>我的做工
       </div>
@@ -439,6 +442,28 @@ a { color:var(--accent2); text-decoration:none; }
         <div id="leadsTableWrap"></div>
       </div>
 
+      <!-- ===== PAGE: 专题高优商机 ===== -->
+      <div id="page-topics" class="page">
+        <h2 class="page-title">专题高优商机</h2>
+        <p class="page-desc" id="topicsDesc">管理员分配的专题商机列表，按专题维度查看和跟进</p>
+        <div id="topicsTabs" class="tab-bar"></div>
+        <div id="topicStats" class="stats-row" style="margin-top:16px;"></div>
+        <div class="filter-bar" id="topicFilters">
+          <input id="tfSearch" placeholder="搜索商户名/PID/电话" oninput="filterTopicLeads()">
+          <select id="tfCategory" onchange="filterTopicLeads()"><option value="">全部类目</option></select>
+          <select id="tfCity" onchange="filterTopicLeads()"><option value="">全部城市</option></select>
+          <select id="tfStatus" onchange="filterTopicLeads()">
+            <option value="">全部状态</option>
+            <option value="new">未跟进</option>
+            <option value="contacted">已联系</option>
+            <option value="interested">有意向</option>
+            <option value="signed">已签约</option>
+            <option value="rejected">暂不考虑</option>
+          </select>
+        </div>
+        <div id="topicTableWrap"></div>
+      </div>
+
       <!-- ===== PAGE: 我的做工 ===== -->
       <div id="page-mypool" class="page">
         <h2 class="page-title">我的做工</h2>
@@ -518,6 +543,17 @@ a { color:var(--accent2); text-decoration:none; }
           <h4>📈 使用统计</h4>
           <div id="usageStats" class="stats-row" style="margin-bottom:12px;"></div>
           <div id="usageTable"></div>
+        </div>
+
+        <div class="admin-section">
+          <h4>🔥 专题高优商机管理</h4>
+          <p style="font-size:13px;color:var(--text2);margin-bottom:12px;">创建专题并上传Excel，系统按服务商自动拆分，服务商端即可查看和跟进</p>
+          <div style="display:flex;gap:8px;margin-bottom:16px;align-items:flex-end;">
+            <input id="newTopicName" placeholder="专题名称（如：品牌广告专项）" style="flex:1;padding:8px 12px;border:1px solid var(--border);border-radius:8px;font-size:13px;">
+            <input id="newTopicDesc" placeholder="描述（可选）" style="flex:1;padding:8px 12px;border:1px solid var(--border);border-radius:8px;font-size:13px;">
+            <button class="btn btn-primary btn-sm" onclick="createTopic()">+ 创建专题</button>
+          </div>
+          <div id="topicListAdmin"></div>
         </div>
       </div>
 
@@ -721,6 +757,10 @@ var STATE = {
   occupancy: [],     // occupancy data for current cities
   allSignedPids: [], // all signed PIDs across all providers (for same-city cases)
   signedCases: [],   // signed merchant cases from crm_cases table (with before/after metrics)
+  topics: [],        // topic list from crm_topics
+  topicLeads: [],    // leads for current topic
+  topicLeadsFiltered: [],
+  currentTopicId: null,
   myPool: [],        // current employee's work pool items
   myPoolTab: 'commercial', // current tab in my pool page
   mgmtDimension: 'region', // management dashboard: region|channel|provider
@@ -1042,6 +1082,7 @@ function navigate(page) {
     case 'jobs': renderJobs(); break;
     case 'occupancy': renderOccupancy(); break;
     case 'admin': renderAdmin(); break;
+    case 'topics': renderTopicsPage(); break;
     case 'mgmt': renderMgmtDashboard(); break;
   }
 }
@@ -1254,6 +1295,353 @@ function initSearchSelect(selectId, inputId, ddId) {
   });
 
   render('');
+}
+
+/* =============================================
+   PAGE: 专题高优商机
+   ============================================= */
+
+async function loadTopics() {
+  if (!sb) return [];
+  try {
+    var res = await fetchAll(sb.from('crm_topics').select('*').order('created_at', {ascending: false}));
+    STATE.topics = res.data || [];
+  } catch(e) {
+    console.warn('loadTopics failed:', e);
+    STATE.topics = [];
+  }
+  return STATE.topics;
+}
+
+async function renderTopicsPage() {
+  await loadTopics();
+  renderTopicTabs();
+  if (STATE.topics.length > 0) {
+    if (!STATE.currentTopicId || !STATE.topics.find(function(t){return t.id===STATE.currentTopicId;})) {
+      STATE.currentTopicId = STATE.topics[0].id;
+    }
+    loadTopicLeads(STATE.currentTopicId);
+  } else {
+    $('topicStats').innerHTML = '';
+    $('topicTableWrap').innerHTML = '<div class="empty-state" style="margin-top:40px;"><div class="icon">📋</div><div class="msg">暂无专题商机</div><div class="sub">管理员可在后台创建专题并上传Excel分配商机</div></div>';
+  }
+}
+
+function renderTopicTabs() {
+  var html = '';
+  STATE.topics.forEach(function(t) {
+    var active = t.id === STATE.currentTopicId ? ' active' : '';
+    html += '<button class="tab-btn' + active + '" onclick="switchTopicTab(' + t.id + ')">' + t.name + '</button>';
+  });
+  $('topicsTabs').innerHTML = html;
+}
+
+function switchTopicTab(topicId) {
+  STATE.currentTopicId = topicId;
+  renderTopicTabs();
+  loadTopicLeads(topicId);
+}
+
+async function loadTopicLeads(topicId) {
+  if (!sb) { renderTopicLeads(); return; }
+  try {
+    var query = sb.from('crm_topic_leads').select('*').eq('topic_id', topicId);
+    if (STATE.user && !STATE.user.is_admin) {
+      query = query.eq('provider_id', STATE.user.provider_id);
+    }
+    query = query.order('created_at', {ascending: false});
+    var res = await fetchAll(query);
+    STATE.topicLeads = res.data || [];
+  } catch(e) {
+    console.warn('loadTopicLeads failed:', e);
+    STATE.topicLeads = [];
+  }
+  // Populate filter options
+  var cats = {}, cities = {};
+  STATE.topicLeads.forEach(function(d) {
+    if (d.category) cats[d.category] = 1;
+    if (d.city) cities[d.city] = 1;
+  });
+  var catSel = $('tfCategory');
+  catSel.innerHTML = '<option value="">全部类目</option>';
+  Object.keys(cats).sort().forEach(function(c) { catSel.innerHTML += '<option value="' + c + '">' + c + '</option>'; });
+  var citySel = $('tfCity');
+  citySel.innerHTML = '<option value="">全部城市</option>';
+  Object.keys(cities).sort().forEach(function(c) { citySel.innerHTML += '<option value="' + c + '">' + c + '</option>'; });
+
+  filterTopicLeads();
+}
+
+function filterTopicLeads() {
+  var search = ($('tfSearch').value || '').toLowerCase();
+  var cat = $('tfCategory').value;
+  var city = $('tfCity').value;
+  var status = $('tfStatus').value;
+
+  STATE.topicLeadsFiltered = STATE.topicLeads.filter(function(d) {
+    if (search) {
+      var haystack = ((d.store_name||'') + (d.pid||'') + (d.phone||'')).toLowerCase();
+      if (haystack.indexOf(search) < 0) return false;
+    }
+    if (cat && d.category !== cat) return false;
+    if (city && d.city !== city) return false;
+    if (status && d.status !== status) return false;
+    return true;
+  });
+  renderTopicLeads();
+}
+
+var TOPIC_STATUS_MAP = {
+  'new': {label:'未跟进', color:'#6b7280', bg:'#f3f4f6'},
+  'contacted': {label:'已联系', color:'#2563eb', bg:'#eff6ff'},
+  'interested': {label:'有意向', color:'#d97706', bg:'#fffbeb'},
+  'signed': {label:'已签约', color:'#059669', bg:'#ecfdf5'},
+  'rejected': {label:'暂不考虑', color:'#dc2626', bg:'#fef2f2'}
+};
+
+function renderTopicLeads() {
+  var data = STATE.topicLeadsFiltered;
+  var total = STATE.topicLeads.length;
+  var newCount = STATE.topicLeads.filter(function(d){return d.status==='new';}).length;
+  var signedCount = STATE.topicLeads.filter(function(d){return d.status==='signed';}).length;
+  var interestedCount = STATE.topicLeads.filter(function(d){return d.status==='interested';}).length;
+
+  $('topicStats').innerHTML =
+    '<div class="stat-card"><div class="label">商机总数</div><div class="value blue">' + total + '</div></div>' +
+    '<div class="stat-card"><div class="label">未跟进</div><div class="value amber">' + newCount + '</div></div>' +
+    '<div class="stat-card"><div class="label">有意向</div><div class="value" style="color:#d97706;">' + interestedCount + '</div></div>' +
+    '<div class="stat-card"><div class="label">已签约</div><div class="value green">' + signedCount + '</div><div class="sub">转化率' + (total ? (signedCount/total*100).toFixed(1) : 0) + '%</div></div>';
+
+  if (data.length === 0) {
+    $('topicTableWrap').innerHTML = '<div class="empty-state" style="margin-top:24px;"><div class="icon">🔍</div><div class="msg">暂无匹配的商机</div></div>';
+    return;
+  }
+
+  var html = '<table><thead><tr>' +
+    '<th>商户名</th><th>PID</th><th>城市</th><th>类目</th><th>电话</th>' +
+    '<th>DPV</th><th>门店数</th><th>状态</th><th>备注</th><th>操作</th>' +
+    '</tr></thead><tbody>';
+
+  data.forEach(function(d) {
+    var st = TOPIC_STATUS_MAP[d.status] || TOPIC_STATUS_MAP['new'];
+    html += '<tr>' +
+      '<td><strong>' + (d.store_name||'-') + '</strong></td>' +
+      '<td style="font-family:monospace;font-size:12px;">' + (d.pid||'-') + '</td>' +
+      '<td>' + (d.city||'-') + '</td>' +
+      '<td>' + (d.category||'-') + '</td>' +
+      '<td style="font-family:monospace;font-size:12px;">' + (d.phone||'-') + '</td>' +
+      '<td class="num">' + fmt(d.dpv||0) + '</td>' +
+      '<td class="num">' + (d.store_count||1) + '</td>' +
+      '<td><span style="display:inline-block;padding:2px 10px;border-radius:12px;font-size:12px;font-weight:600;color:' + st.color + ';background:' + st.bg + ';">' + st.label + '</span></td>' +
+      '<td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="' + (d.follow_notes||'').replace(/"/g,'&quot;') + '">' + (d.follow_notes||'-') + '</td>' +
+      '<td style="white-space:nowrap;">' +
+        '<select onchange="updateTopicLeadStatus(' + d.id + ',this.value)" style="font-size:12px;padding:2px 6px;border:1px solid var(--border);border-radius:6px;">' +
+          '<option value="">改状态</option>' +
+          '<option value="contacted">已联系</option>' +
+          '<option value="interested">有意向</option>' +
+          '<option value="signed">已签约</option>' +
+          '<option value="rejected">暂不考虑</option>' +
+        '</select> ' +
+        '<button class="btn btn-sm" onclick="promptTopicNote(' + d.id + ')" style="font-size:12px;padding:2px 8px;">📝</button>' +
+      '</td>' +
+      '</tr>';
+  });
+  html += '</tbody></table>';
+  $('topicTableWrap').innerHTML = html;
+}
+
+async function updateTopicLeadStatus(id, status) {
+  if (!status) return;
+  // Update locally
+  var lead = STATE.topicLeads.find(function(d){return d.id===id;});
+  if (lead) lead.status = status;
+  filterTopicLeads();
+  // Update Supabase
+  if (sb) {
+    try {
+      await sb.from('crm_topic_leads').update({status: status, updated_at: new Date().toISOString()}).eq('id', id);
+    } catch(e) { console.warn('updateTopicLeadStatus failed:', e); }
+  }
+}
+
+function promptTopicNote(id) {
+  var lead = STATE.topicLeads.find(function(d){return d.id===id;});
+  var existing = lead ? (lead.follow_notes||'') : '';
+  var note = prompt('输入跟进备注：', existing);
+  if (note === null) return;
+  addTopicFollowNote(id, note);
+}
+
+async function addTopicFollowNote(id, note) {
+  var lead = STATE.topicLeads.find(function(d){return d.id===id;});
+  if (lead) lead.follow_notes = note;
+  filterTopicLeads();
+  if (sb) {
+    try {
+      await sb.from('crm_topic_leads').update({follow_notes: note, updated_at: new Date().toISOString()}).eq('id', id);
+    } catch(e) { console.warn('addTopicFollowNote failed:', e); }
+  }
+}
+
+/* --- Admin: Topic Management --- */
+
+async function createTopic() {
+  var name = $('newTopicName').value.trim();
+  if (!name) { alert('请输入专题名称'); return; }
+  var desc = $('newTopicDesc').value.trim();
+  if (sb) {
+    try {
+      var res = await sb.from('crm_topics').insert({name: name, description: desc}).select().single();
+      if (res.data) {
+        STATE.topics.unshift(res.data);
+      }
+    } catch(e) {
+      alert('创建失败：' + e.message); return;
+    }
+  } else {
+    var demoTopic = {id: Date.now(), name: name, description: desc, created_at: new Date().toISOString()};
+    STATE.topics.unshift(demoTopic);
+  }
+  $('newTopicName').value = '';
+  $('newTopicDesc').value = '';
+  renderTopicListAdmin();
+}
+
+async function deleteTopic(id) {
+  if (!confirm('确认删除此专题及其所有商机？')) return;
+  if (sb) {
+    try {
+      await sb.from('crm_topic_leads').delete().eq('topic_id', id);
+      await sb.from('crm_topics').delete().eq('id', id);
+    } catch(e) {
+      alert('删除失败：' + e.message); return;
+    }
+  }
+  STATE.topics = STATE.topics.filter(function(t){return t.id!==id;});
+  renderTopicListAdmin();
+}
+
+function renderTopicListAdmin() {
+  if (STATE.topics.length === 0) {
+    $('topicListAdmin').innerHTML = '<div style="text-align:center;padding:24px;color:var(--text2);font-size:13px;">暂无专题，请先创建</div>';
+    return;
+  }
+  var html = '<div style="display:flex;flex-direction:column;gap:12px;">';
+  STATE.topics.forEach(function(t) {
+    var dt = new Date(t.created_at);
+    var dateStr = dt.getFullYear() + '-' + String(dt.getMonth()+1).padStart(2,'0') + '-' + String(dt.getDate()).padStart(2,'0');
+    html += '<div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:16px;">' +
+      '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">' +
+        '<div><strong style="font-size:15px;">' + t.name + '</strong>' +
+        (t.description ? ' <span style="font-size:12px;color:var(--text2);">· ' + t.description + '</span>' : '') +
+        '</div>' +
+        '<div style="display:flex;gap:8px;align-items:center;">' +
+          '<label class="btn btn-sm" style="cursor:pointer;padding:4px 12px;font-size:12px;">📎 上传Excel' +
+            '<input type="file" accept=".xlsx,.xls,.csv" style="display:none;" onchange="uploadTopicExcel(' + t.id + ',this.files[0])">' +
+          '</label>' +
+          '<button class="btn btn-sm" style="font-size:12px;padding:4px 12px;color:var(--red);" onclick="deleteTopic(' + t.id + ')">删除</button>' +
+        '</div>' +
+      '</div>' +
+      '<div style="font-size:12px;color:var(--text2);">创建于 ' + dateStr + ' · <span id="topicCount_' + t.id + '">加载中...</span></div>' +
+    '</div>';
+  });
+  html += '</div>';
+  $('topicListAdmin').innerHTML = html;
+  // Load lead counts per topic
+  STATE.topics.forEach(function(t) {
+    loadTopicLeadCount(t.id);
+  });
+}
+
+async function loadTopicLeadCount(topicId) {
+  if (!sb) { $('topicCount_' + topicId).textContent = 'Demo模式'; return; }
+  try {
+    var res = await sb.from('crm_topic_leads').select('id', {count: 'exact', head: true}).eq('topic_id', topicId);
+    var count = res.count || 0;
+    $('topicCount_' + topicId).textContent = count + ' 条商机';
+  } catch(e) {
+    $('topicCount_' + topicId).textContent = '查询失败';
+  }
+}
+
+async function uploadTopicExcel(topicId, file) {
+  if (!file) return;
+  var ext = file.name.split('.').pop().toLowerCase();
+  if (['xlsx','xls','csv'].indexOf(ext) < 0) { alert('请上传 .xlsx / .xls / .csv 文件'); return; }
+
+  try {
+    var data = await file.arrayBuffer();
+    var wb = XLSX.read(data, {type: 'array'});
+    var ws = wb.Sheets[wb.SheetNames[0]];
+    var rows = XLSX.utils.sheet_to_json(ws, {defval: ''});
+    if (rows.length === 0) { alert('Excel为空'); return; }
+
+    // Map columns (flexible matching)
+    var headers = Object.keys(rows[0]);
+    function findCol(keywords) {
+      for (var i = 0; i < headers.length; i++) {
+        var h = headers[i].toLowerCase();
+        for (var k = 0; k < keywords.length; k++) {
+          if (h.indexOf(keywords[k]) >= 0) return headers[i];
+        }
+      }
+      return null;
+    }
+    var colMap = {
+      provider_id: findCol(['provider_id','服务商id','服务商编号']),
+      store_name: findCol(['store_name','商户名','门店名','poi名','poi_name','店名']),
+      pid: findCol(['pid','商户id','poi_id','poi编号']),
+      city: findCol(['city','城市']),
+      category: findCol(['category','类目','品类','行业']),
+      phone: findCol(['phone','电话','手机','联系方式','tel']),
+      dpv: findCol(['dpv','浏览量','曝光']),
+      store_count: findCol(['store_count','门店数','数量']),
+      remark: findCol(['remark','备注','说明','remark'])
+    };
+
+    var leads = [];
+    rows.forEach(function(r) {
+      var lead = {
+        topic_id: topicId,
+        provider_id: (colMap.provider_id ? r[colMap.provider_id] : '') || '',
+        store_name: (colMap.store_name ? r[colMap.store_name] : '') || '',
+        pid: (colMap.pid ? String(r[colMap.pid]) : '') || '',
+        city: (colMap.city ? r[colMap.city] : '') || '',
+        category: (colMap.category ? r[colMap.category] : '') || '',
+        phone: (colMap.phone ? String(r[colMap.phone]) : '') || '',
+        dpv: parseFloat(colMap.dpv ? r[colMap.dpv] : 0) || 0,
+        store_count: parseInt(colMap.store_count ? r[colMap.store_count] : 1) || 1,
+        remark: (colMap.remark ? r[colMap.remark] : '') || '',
+        status: 'new'
+      };
+      if (lead.store_name || lead.pid) leads.push(lead);
+    });
+
+    if (leads.length === 0) { alert('未解析到有效数据行。\n\nExcel列名需包含：商户名/PID/城市/类目/电话等'); return; }
+
+    if (!confirm('解析到 ' + leads.length + ' 条商机，确认导入？')) return;
+
+    // Batch insert to Supabase (chunks of 100)
+    if (sb) {
+      var batchSize = 100;
+      var successCount = 0;
+      for (var i = 0; i < leads.length; i += batchSize) {
+        var batch = leads.slice(i, i + batchSize);
+        try {
+          await sb.from('crm_topic_leads').insert(batch);
+          successCount += batch.length;
+        } catch(e) {
+          console.warn('Batch insert failed at offset ' + i + ':', e);
+        }
+      }
+      alert('成功导入 ' + successCount + ' / ' + leads.length + ' 条商机');
+    } else {
+      alert('Demo模式：数据未持久化（需连接Supabase）');
+    }
+    renderTopicListAdmin();
+  } catch(e) {
+    alert('Excel解析失败：' + e.message);
+  }
 }
 
 /* =============================================
@@ -3644,6 +4032,9 @@ function renderAdmin() {
 
   // Usage table - show real data summary
   $('usageTable').innerHTML = '<div class="empty-state" style="margin-top:16px;"><div class="icon">📊</div><div class="msg">使用统计功能开发中</div></div>';
+
+  // Load topics for admin management
+  loadTopics().then(function() { renderTopicListAdmin(); });
 }
 
 function uploadData(type, file) {
