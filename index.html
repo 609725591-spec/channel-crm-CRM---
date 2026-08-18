@@ -2136,7 +2136,6 @@ function renderAnalysis() {
       : allLeads;
     var total = filtered.length;
     var highDPV = filtered.filter(function(d){return d.dpv_30d >= 100;}).length;
-    var avgDPV = total > 0 ? Math.round(filtered.reduce(function(s,d){return s+(d.dpv_30d||0);},0)/total) : 0;
 
     $('analysisLeadsStats').innerHTML =
       '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;padding:0 4px;">' +
@@ -2149,7 +2148,6 @@ function renderAnalysis() {
       '<div class="stats-row">' +
       '<div class="stat-card"><div class="label">城市待开店高优leads总数</div><div class="value purple">' + fmt(total) + '</div><div class="sub">' + (filter === 'high_dpv' ? '已筛选高DPV' : '覆盖当前城市') + '</div></div>' +
       '<div class="stat-card"><div class="label">高DPV(100+)</div><div class="value amber">' + fmt(highDPV) + '</div><div class="sub">占比' + (total?(highDPV/total*100).toFixed(1):0) + '%</div></div>' +
-      '<div class="stat-card"><div class="label">平均DPV</div><div class="value blue">' + fmt(avgDPV) + '</div><div class="sub">' + (filter === 'high_dpv' ? '筛选后均值' : '整体均值') + '</div></div>' +
       '</div>';
   }
   updateLeadsStats('all');
