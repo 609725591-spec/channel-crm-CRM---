@@ -6013,50 +6013,48 @@ document.addEventListener('keydown', function(e) {
   /* Hint tooltip above the orb */
   .orb-hint {
     position: fixed;
-    left: 20px;
-    bottom: 80px;
-    z-index: 9998;
+    left: 12px;
+    bottom: 88px;
+    z-index: 99999;
     display: flex;
     align-items: center;
     gap: 6px;
-    background: linear-gradient(135deg, #6366f1, #8b5cf6);
+    background: linear-gradient(135deg, #f59e0b, #f97316);
     color: #fff;
-    font-size: 13px;
-    font-weight: 600;
-    padding: 8px 14px;
-    border-radius: 20px;
-    box-shadow: 0 4px 16px rgba(99,102,241,.4);
+    font-size: 14px;
+    font-weight: 700;
+    padding: 10px 16px;
+    border-radius: 22px;
+    box-shadow: 0 0 0 0 rgba(245,158,11,.6);
     pointer-events: none;
-    animation: orbHintBounce 2s ease-in-out infinite, orbHintFadeIn .6s ease-out;
     white-space: nowrap;
+    animation: orbHintPulse 2.5s ease-in-out infinite;
   }
   .orb-hint .finger {
     display: inline-block;
-    font-size: 16px;
+    font-size: 20px;
     animation: orbFingerBounce 1s ease-in-out infinite;
   }
   .orb-hint::after {
     content: '';
     position: absolute;
-    bottom: -6px;
-    left: 18px;
-    width: 12px;
-    height: 12px;
-    background: #7c5cf6;
+    bottom: -7px;
+    left: 20px;
+    width: 14px;
+    height: 14px;
+    background: #f97316;
     transform: rotate(45deg);
     border-radius: 2px;
   }
-  @keyframes orbHintBounce {
-    0%, 100% { transform: translateY(0); }
-    50% { transform: translateY(-6px); }
+  @keyframes orbHintPulse {
+    0% { box-shadow: 0 0 0 0 rgba(245,158,11,.6); transform: translateY(0); }
+    40% { box-shadow: 0 0 0 12px rgba(245,158,11,0); transform: translateY(-4px); }
+    60% { box-shadow: 0 0 0 12px rgba(245,158,11,0); transform: translateY(-4px); }
+    100% { box-shadow: 0 0 0 0 rgba(245,158,11,.6); transform: translateY(0); }
   }
   @keyframes orbFingerBounce {
     0%, 100% { transform: translateY(0); }
-    50% { transform: translateY(4px); }
-  }
-  @keyframes orbHintFadeIn {
-    from { opacity: 0; transform: translateY(10px); }
-    to { opacity: 1; transform: translateY(0); }
+    50% { transform: translateY(5px); }
   }
 </style>
 <div class="orb-hint"><span>问题可咨询小助手</span><span class="finger">👇</span></div>
