@@ -391,6 +391,35 @@ a { color:var(--accent2); text-decoration:none; }
 .search-select-item { padding:6px 10px; cursor:pointer; font-size:13px; color:var(--text1); white-space:nowrap; }
 .search-select-item:hover, .search-select-item.active { background:var(--blue); color:#fff; }
 .search-select-item.selected { font-weight:600; }
+/* ===== Case Library ===== */
+.cl-tab { padding:10px 20px; font-size:14px; font-weight:600; border:none; background:none; cursor:pointer; color:var(--text2); border-bottom:2px solid transparent; margin-bottom:-2px; transition:all var(--transition); }
+.cl-tab:hover { color:var(--accent); }
+.cl-tab.active { color:var(--accent); border-bottom-color:var(--accent); }
+.cl-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(320px,1fr)); gap:16px; }
+.cl-card { background:var(--card); border:1px solid var(--border); border-radius:12px; padding:16px; transition:box-shadow .2s; }
+.cl-card:hover { box-shadow:0 4px 16px rgba(0,0,0,.08); }
+.cl-card-head { display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; }
+.cl-card-city { font-size:13px; font-weight:700; color:var(--accent); background:var(--blue-light); padding:2px 10px; border-radius:10px; }
+.cl-card-score { font-size:11px; color:var(--gold); font-weight:600; }
+.cl-card-cat { font-size:12px; color:var(--text2); margin-bottom:6px; }
+.cl-card-prod { display:inline-block; font-size:11px; background:rgba(124,58,237,.1); color:var(--accent2); padding:2px 8px; border-radius:8px; margin-bottom:8px; font-weight:500; }
+.cl-card-hl { font-size:13px; color:var(--text1); line-height:1.6; margin-bottom:10px; }
+.cl-metrics { display:grid; grid-template-columns:repeat(3,1fr); gap:6px; }
+.cl-metric { text-align:center; padding:6px 4px; background:var(--bg2); border-radius:8px; }
+.cl-metric-val { font-size:14px; font-weight:700; color:var(--green); }
+.cl-metric-label { font-size:10px; color:var(--text3); margin-top:2px; }
+/* Script cards */
+.script-section { margin-bottom:20px; }
+.script-cat-title { font-size:16px; font-weight:700; color:var(--text); margin-bottom:12px; padding-bottom:6px; border-bottom:1px solid var(--border); }
+.script-type { margin-bottom:12px; }
+.script-type-label { font-size:12px; font-weight:600; color:var(--accent2); margin-bottom:6px; display:flex; align-items:center; gap:6px; }
+.script-item { background:var(--card); border:1px solid var(--border); border-radius:10px; padding:12px 14px; margin-bottom:8px; cursor:pointer; transition:all .2s; }
+.script-item:hover { border-color:var(--accent); }
+.script-item .s-label { font-size:12px; font-weight:600; color:var(--text); margin-bottom:4px; }
+.script-item .s-text { font-size:12px; color:var(--text2); line-height:1.7; display:none; }
+.script-item.open .s-text { display:block; }
+.script-item .s-arrow { float:right; color:var(--text3); transition:transform .2s; font-size:11px; }
+.script-item.open .s-arrow { transform:rotate(90deg); }
 </style>
 </head>
 <body>
@@ -475,6 +504,9 @@ a { color:var(--accent2); text-decoration:none; }
       </div>
       <div class="nav-item" data-page="occupancy" onclick="navigate('occupancy')">
         <span class="nav-icon">🗺️</span>占量地图
+      </div>
+      <div class="nav-item" data-page="caseLib" onclick="navigate('caseLib')">
+        <span class="nav-icon">📚</span>商业化案例库
       </div>
       <div class="nav-divider"></div>
       <div class="nav-item" data-page="admin" onclick="navigate('admin')" id="navAdmin" style="display:none">
@@ -723,6 +755,54 @@ a { color:var(--accent2); text-decoration:none; }
           </div>
           <div id="mgmtUsageStats" class="stats-row" style="margin-bottom:16px;"></div>
           <div id="mgmtUsageDetail"></div>
+        </div>
+      </div>
+
+      <!-- ===== PAGE: 商业化案例库 ===== -->
+      <div id="page-caseLib" class="page">
+        <h2 class="page-title">商业化案例库</h2>
+
+        <!-- Tabs -->
+        <div style="display:flex;gap:0;margin-bottom:16px;border-bottom:2px solid var(--border);">
+          <button class="cl-tab active" data-tab="cases" onclick="switchCaseLibTab('cases')">📈 成功案例</button>
+          <button class="cl-tab" data-tab="scripts" onclick="switchCaseLibTab('scripts')">💬 话术库</button>
+        </div>
+
+        <!-- Cases Tab -->
+        <div id="clCases">
+          <div class="filter-bar" style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px;">
+            <select id="clProdFilter" onchange="renderCaseCards()">
+              <option value="">全部产品</option>
+              <option value="OCPC">OCPC</option>
+              <option value="CPC">CPC</option>
+              <option value="顶展">顶展</option>
+              <option value="扫街榜">扫街榜</option>
+            </select>
+            <select id="clCityFilter" onchange="renderCaseCards()">
+              <option value="">全部城市</option>
+            </select>
+            <select id="clCatFilter" onchange="renderCaseCards()">
+              <option value="">全部类目</option>
+            </select>
+            <span id="clCaseCount" style="font-size:12px;color:var(--text2);display:flex;align-items:center;margin-left:auto;"></span>
+          </div>
+          <div id="clCaseGrid" class="cl-grid"></div>
+        </div>
+
+        <!-- Scripts Tab -->
+        <div id="clScripts" style="display:none;">
+          <div class="filter-bar" style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px;">
+            <select id="clScriptCatFilter" onchange="renderScriptCards()">
+              <option value="">全部品类</option>
+              <option value="general">通用话术</option>
+              <option value="中餐">中餐</option>
+              <option value="烧烤">烧烤</option>
+              <option value="火锅">火锅</option>
+              <option value="小龙虾">小龙虾</option>
+              <option value="水产海鲜">水产海鲜</option>
+            </select>
+          </div>
+          <div id="clScriptGrid"></div>
         </div>
       </div>
 
@@ -1217,6 +1297,7 @@ function navigate(page) {
     case 'mypool': renderMyPool(); break;
     case 'jobs': renderJobs(); break;
     case 'occupancy': renderOccupancy(); break;
+    case 'caseLib': renderCaseLib(); break;
     case 'admin': renderAdmin(); break;
     case 'topics': renderTopicsPage(); break;
     case 'mgmt': renderMgmtDashboard(); break;
@@ -5997,6 +6078,194 @@ document.addEventListener('keydown', function(e) {
     localStorage.removeItem('crm_session');
   }
 })();
+
+// ===== 商业化案例库 =====
+var CASE_LIB_DATA = [
+  {city:'上海',cat:'中餐',subcat:'中餐',products:'OCPC-GMV+CPC',roi:'3',gmv:'+72.67%',orders:'+94.74%',visit:'+201%',highlight:'投放半月GMV+72.67%，到店率+201%，4.6分认证+扫街券补贴40元',score:'4.6'},
+  {city:'杭州',cat:'烧烤',subcat:'烧烤',products:'OCPC+CPC(节假日)',roi:'7.7',gmv:'预估8775元',orders:'19个',visit:'246次到店',highlight:'ROI 7.7，单次到店成本7.7元，V6扫街榜节假日定向投放',score:'V6'},
+  {city:'杭州',cat:'中餐',subcat:'中餐',products:'CPC+OCPC',roi:'3',gmv:'3679元',orders:'10个',visit:'客资37个',highlight:'食仙榜认证，客资成本32元，ROI 3，稳定续充',score:'V6'},
+  {city:'厦门',cat:'水产海鲜',subcat:'海鲜',products:'OCPX月度投放',roi:'5.9',gmv:'10977元',orders:'预约151',visit:'25.2万+访问',highlight:'LV6五星，ROI 5.9，到店242次成本7元，下单+325%',score:'LV6'},
+  {city:'百色',cat:'火锅',subcat:'火锅',products:'OCPX月度投放',roi:'2.3',gmv:'2242元',orders:'预约214',visit:'曝光6.7万',highlight:'LV5五星，到店921次成本仅1元，投放952元撬动高转化',score:'LV5'},
+  {city:'珠海',cat:'火锅',subcat:'火锅',products:'OCPX月度投放',roi:'4',gmv:'3500+元',orders:'到店118',visit:'19.4万+访问',highlight:'LV6五星，ROI 4，到店成本7元，互动+173%',score:'LV6'},
+  {city:'苏州',cat:'中餐',subcat:'江浙菜',products:'CPC+OCPC',roi:'—',gmv:'—',orders:'预定+83',visit:'曝光+7.3万',highlight:'4.7分扫街榜，曝光+651%，预定到店+822%，电话+800%，客单>250',score:'4.7'},
+  {city:'乐山',cat:'中餐',subcat:'川菜',products:'扫街榜投放',roi:'—',gmv:'—',orders:'预约+194%',visit:'电话+150%',highlight:'扫街榜川菜，5月环比全面爆发，规划到店+95%',score:'—'},
+  {city:'徐州',cat:'烧烤',subcat:'烧烤',products:'CPC+OCPC',roi:'—',gmv:'—',orders:'预约+166%',visit:'曝光+97%',highlight:'4.6分烟火小店，二十年老店，预约+166%电话+98%',score:'4.6'},
+  {city:'盱眙',cat:'水产海鲜',subcat:'小龙虾',products:'CPC',roi:'—',gmv:'—',orders:'预约+332%',visit:'曝光+457%',highlight:'五星扫街榜，曝光+457%访问+812%，打破流量瓶颈',score:'五星'},
+  {city:'淄博',cat:'烧烤',subcat:'烧烤',products:'OCPC',roi:'3',gmv:'—',orders:'预约+180%',visit:'曝光+95%',highlight:'4.7分扫街榜第1，旅游城市排队实拍，商品成交+300%',score:'4.7'},
+  {city:'南京',cat:'水产海鲜',subcat:'小龙虾',products:'CPC+OCPC',roi:'—',gmv:'—',orders:'预约+11200%',visit:'曝光+1406%',highlight:'4.6分回头客第1，曝光+1406%访问+896%，从无到有爆发',score:'4.6'},
+  {city:'襄阳',cat:'水产海鲜',subcat:'小龙虾',products:'顶展+有效到店',roi:'—',gmv:'—',orders:'预约+438%',visit:'曝光+276%',highlight:'4.7分小龙虾榜第2，顶展+精准词包，代金券策略',score:'4.7'},
+  {city:'上海',cat:'中餐',subcat:'安徽菜',products:'OCPC-客资',roi:'—',gmv:'消耗2765',orders:'提升114%',visit:'转化成本-6.53%',highlight:'OCPC客资起步→升级客资+GMV双投，预计4000+ GMV',score:'—'},
+  {city:'—',cat:'水产海鲜',subcat:'海鲜辽菜',products:'OCPC-GMV',roi:'2.9',gmv:'消耗1966',orders:'提升91%',visit:'ROI稳定2.9',highlight:'头图素材测试年夜饭卖点，拉升点击率',score:'—'},
+  {city:'—',cat:'水产海鲜',subcat:'海鲜自助',products:'OCPC-GMV',roi:'9.81',gmv:'2.9万',orders:'消耗3000',visit:'双旦活动',highlight:'双旦期间ROI 9.81，配合店转活动GMV爆发',score:'—'}
+];
+
+var SCRIPT_LIB_DATA = {
+  general: {
+    label: '通用话术',
+    open: [
+      {label:'政策利好型', text:'"老板你好，我是高德地图的XX。政策出来了，正常充值返点是5%，但现在可以送20%，预存6000送1200，广告金不过期，可以按效果慢慢消耗。"'},
+      {label:'回访服务型', text:'"老板你好，我高德XX，之前跟您联系过/您去年在我们这签约入住过。我看您之前的XX已经到期了/需要升级了，想跟您对接一下。"'},
+      {label:'免费服务切入', text:'"老板您好，我们是高德地图的，可以帮您进行免费的线上引流/免费帮您升级团购页面/免费帮您优化门店信息，您看需要吗？"'},
+      {label:'季节节点型', text:'"老板，马上五一/旺季到了，高德这边有出行节活动，到时候选几款商品报名参加，就能享受平台红包补贴。想问一下您有没有线上推广计划？"'}
+    ],
+    close: [
+      {label:'充值返点促单', text:'"预存广告金不过期，按效果消耗。现在充值6000送1200（20%返点），相当于打8折。这个活动力度是最大的，后面不一定有。"'},
+      {label:'限时紧迫型', text:'"这个政策到这个月底就截止了，而且一个城市一个类目只招一家，名额有限，不一定能抢到第二轮排期。"'},
+      {label:'低门槛试水', text:'"最少一天100的预算，一个月3000。不好使随时可以停，广告金不过期。先试一个月看看效果。"'}
+    ],
+    obj: [
+      {label:'预算有限', response:'"不用一步到位，最低日预算100起，先小额测试效果。广告金不过期，可以按照效果慢慢消耗，没有压力。"'},
+      {label:'之前做过没效果', response:'"现在高德跟以前不一样了，业务线扩大了好几千人，导航市场占到70-80%了。产品也升级了，OCPC按成交付费，ROI有保障。"'},
+      {label:'不需要/没用', response:'"您隔壁XX店做了排名提升，搜索「附近美食」能优先展示。高德的用户是真的在路上要吃饭的人，到店转化率远高于其他平台。"'}
+    ]
+  },
+  '中餐': {
+    label: '中餐话术',
+    open: [
+      {label:'排名对比型', text:'"老板，我帮你看了一下——你这条街搜「附近中餐」你排第几位？排前面的都做了广告。你的菜不比他们差，但线上展示输给他们了。"'},
+      {label:'团购升级型', text:'"老板，咱们现在上的团购我看了一下，马上旺季了，有没有需要更新的？现在上面有X个品，我帮您看看怎么优化一下。"'}
+    ],
+    close: [
+      {label:'充值方案型', text:'"预存1万送2000，预存6000送1200，看您选哪个档位。广告金不过期，按月消耗。赠送的部分有有效期，但广告金永远在。"'},
+      {label:'商务通续约型', text:'"您之前的商务通已经到期了，现在显示蓝V。建议续上，配合广告效果更好。商务通+推广通组合，一个管展示一个管获客。"'}
+    ],
+    obj: [
+      {label:'竞品在做', response:'"就是因为竞品在做，你才更要做。你不做，客人就被他们接走了。做了之后你的菜比他们好吃，展示不输给他们，客人自然选你。"'}
+    ]
+  },
+  '烧烤': {
+    label: '烧烤话术',
+    open: [
+      {label:'OCPC产品推荐', text:'"老板，我们高德出了一个OCPC产品，说白了就是顾客到店了才扣费，没到店不花钱。比你之前的CPC更精准，ROI更有保障。"'},
+      {label:'旺季备流量', text:'"老板，夏天是烧烤旺季，现在备流量正好。高德上搜「附近烧烤」的人越来越多，您做了推广的话，这些客人直接就导航过来了。"'}
+    ],
+    close: [
+      {label:'返点+旺季', text:'"现在充值有20%返点，加上旺季流量大，两个叠加效果最好。旺季不投，等淡季再投就晚了，ROI差好几倍。"'}
+    ],
+    obj: [
+      {label:'效果怎么样', response:'"OCPC是到了才扣费，不白花钱。您这个品类在高德上搜索量很大，做了之后导航到店、电话预定都会有明显提升。先试一个月看数据。"'}
+    ]
+  },
+  '小龙虾': {
+    label: '小龙虾话术',
+    open: [
+      {label:'免费引流型', text:'"老板，我们可以帮您进行免费的线上引流，等您这边准备好了就给您推客人过来，您看需要吗？"'},
+      {label:'历史服务型', text:'"老板，上次您说XX问题，我帮您问了/处理了。现在刚好旺季到了，咱们可以把广告续起来，现在也有活动。"'}
+    ],
+    close: [
+      {label:'旺季紧迫型', text:'"现在刚好到了旺季，门店也营业了，可以把会员和广告续一下。像咱们两个店都是到期的，现在续正好赶上旺季流量。"'},
+      {label:'性价比型', text:'"比去年多存1300，但给你返1000，就是多了2300。这是性价比最高的活动，我们认识这么多年了，给你按最低折扣。"'}
+    ],
+    obj: [
+      {label:'导航定位免费', response:'"所有的导航定位都是免费的，就怕您不小心被别人收了钱。好的老板说搞定位还花了几百块呢，这些我都可以免费帮您弄。"'}
+    ]
+  },
+  '火锅': {
+    label: '火锅话术',
+    open: [
+      {label:'回访升级型', text:'"老板您好，我高德XX，给您回访一下。您之前在高德做的XX/团购最近掉了，需要帮您重新弄一下/升级一下。"'},
+      {label:'新客价引导型', text:'"老板，您在高德后台点「全部」，有一个「新客价」进去看有没有看到？平台活动里有个待确认的，我帮您设置一下。"'}
+    ],
+    close: [
+      {label:'旺季备流量型', text:'"火锅旺季就是秋冬春三季，现在备流量正好。OCPC按到店付费，不白花钱。先试一个月看导航到店和电话预定的数据。"'}
+    ],
+    obj: [
+      {label:'冬天淡季', response:'"火锅旺季就是秋冬春三季，现在备流量正好。等天冷了再投就晚了，竞争会更激烈，成本也更高。"'}
+    ]
+  },
+  '水产海鲜': {
+    label: '水产海鲜话术',
+    open: [
+      {label:'关键词排名型', text:'"老板，有顾客在您门店周边搜索「海鲜」「家常菜」这种关键词，您的门店可以获得优先推送。就像隔壁XX一样做了排名提升。"'},
+      {label:'城市独家型', text:'"高德针对美食开放了品牌指定广告位，一个城市一个类目只招一家，搜索关键词您的门店都能置顶第一位，时间段只招一个商家。"'}
+    ],
+    close: [
+      {label:'景区旺季型', text:'"旺季4-10月游客多，搜索「附近海鲜」的人暴增。做了推广这些客人直接就导航过来了，游客客单价高，不挑价格。"'},
+      {label:'折扣锁定型', text:'"指定广告位原价5000/月，3个月起合作。现在第二轮合作最低5折/75折，打完折1万多三个月。不一定能抢到排期。"'}
+    ],
+    obj: [
+      {label:'太贵了', response:'"按点击扣费，只有顾客点进来查看详情才扣费，光是看到不扣钱。日预算最低100，先看效果再决定加不加。"'}
+    ]
+  }
+};
+
+var _caseLibInited = false;
+function renderCaseLib() {
+  if (!_caseLibInited) {
+    // Populate city filter
+    var cities = {};
+    CASE_LIB_DATA.forEach(function(c) { if (c.city && c.city !== '—') cities[c.city] = true; });
+    var citySel = $('clCityFilter');
+    Object.keys(cities).sort().forEach(function(c) { var o = document.createElement('option'); o.value = c; o.textContent = c; citySel.appendChild(o); });
+    // Populate category filter
+    var cats = {};
+    CASE_LIB_DATA.forEach(function(c) { cats[c.cat] = true; });
+    var catSel = $('clCatFilter');
+    Object.keys(cats).sort().forEach(function(c) { var o = document.createElement('option'); o.value = c; o.textContent = c; catSel.appendChild(o); });
+    _caseLibInited = true;
+  }
+  renderCaseCards();
+  renderScriptCards();
+}
+
+function switchCaseLibTab(tab) {
+  document.querySelectorAll('.cl-tab').forEach(function(el) { el.classList.toggle('active', el.dataset.tab === tab); });
+  $('clCases').style.display = tab === 'cases' ? '' : 'none';
+  $('clScripts').style.display = tab === 'scripts' ? '' : 'none';
+}
+
+function renderCaseCards() {
+  var prod = $('clProdFilter').value;
+  var city = $('clCityFilter').value;
+  var cat = $('clCatFilter').value;
+  var filtered = CASE_LIB_DATA.filter(function(c) {
+    if (prod && c.products.indexOf(prod) < 0) return false;
+    if (city && c.city !== city) return false;
+    if (cat && c.cat !== cat) return false;
+    return true;
+  });
+  $('clCaseCount').textContent = '共 ' + filtered.length + ' 条案例';
+  var html = '';
+  filtered.forEach(function(c) {
+    html += '<div class="cl-card">';
+    html += '<div class="cl-card-head"><span class="cl-card-city">' + (c.city || '—') + '</span><span class="cl-card-score">' + (c.score !== '—' ? '⭐ ' + c.score : '') + '</span></div>';
+    html += '<div class="cl-card-cat">' + c.cat + ' · ' + c.subcat + '</div>';
+    html += '<div class="cl-card-prod">' + c.products + '</div>';
+    html += '<div class="cl-card-hl">' + c.highlight + '</div>';
+    html += '<div class="cl-metrics">';
+    html += '<div class="cl-metric"><div class="cl-metric-val">' + (c.gmv !== '—' ? c.gmv : '—') + '</div><div class="cl-metric-label">GMV</div></div>';
+    html += '<div class="cl-metric"><div class="cl-metric-val">' + c.orders + '</div><div class="cl-metric-label">订单/预约</div></div>';
+    html += '<div class="cl-metric"><div class="cl-metric-val">' + c.visit + '</div><div class="cl-metric-label">到店/曝光</div></div>';
+    html += '</div></div>';
+  });
+  $('clCaseGrid').innerHTML = html || '<div style="text-align:center;padding:40px;color:var(--text3);">暂无匹配案例</div>';
+}
+
+function renderScriptCards() {
+  var catFilter = $('clScriptCatFilter').value;
+  var keys = Object.keys(SCRIPT_LIB_DATA);
+  if (catFilter) keys = keys.filter(function(k) { return k === catFilter; });
+  var typeLabels = {open: '🎯 开场话术', close: '🤝 促单话术', obj: '🛡️ 异议处理'};
+  var html = '';
+  keys.forEach(function(key) {
+    var s = SCRIPT_LIB_DATA[key];
+    html += '<div class="script-section"><div class="script-cat-title">' + s.label + '</div>';
+    ['open', 'close', 'obj'].forEach(function(type) {
+      if (!s[type] || !s[type].length) return;
+      html += '<div class="script-type"><div class="script-type-label">' + typeLabels[type] + '</div>';
+      s[type].forEach(function(item, i) {
+        var text = item.text || item.response || '';
+        html += '<div class="script-item" onclick="this.classList.toggle(\'open\')">';
+        html += '<div class="s-label"><span class="s-arrow">▶</span> ' + item.label + '</div>';
+        html += '<div class="s-text">' + text + '</div>';
+        html += '</div>';
+      });
+      html += '</div>';
+    });
+    html += '</div>';
+  });
+  $('clScriptGrid').innerHTML = html || '<div style="text-align:center;padding:40px;color:var(--text3);">暂无匹配话术</div>';
+}
 </script>
 
 <!-- DingTalk AI Assistant (Floating Ball) -->
