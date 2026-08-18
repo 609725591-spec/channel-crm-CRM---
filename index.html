@@ -2660,8 +2660,9 @@ function renderSigningAnalysis(data, cities) {
   // Chart 6: Product × Product cross-signing heatmap (co-occurrence matrix)
   var heatmapEl = document.getElementById('crossAnalysisHeatmap');
   if (heatmapEl) {
-    var prodNames = {xg:'效果广告', znt:'品牌智能体', dz:'顶展', zx:'钻展', dj:'导结', pg:'品广'};
-    var prodKeys = ['xg','znt','dz','zx','dj','pg'];
+    // 5-7月报告：品广是父类，含顶展(699单)+钻展(88单)；crm_cases中统一存为"品广"
+    var prodNames = {xg:'效果广告', znt:'品牌智能体', pg:'品广(顶展/钻展)', dj:'导结'};
+    var prodKeys = ['xg','znt','pg','dj'];
     var prodNameMap = {};
     Object.keys(prodNames).forEach(function(k) { prodNameMap[prodNames[k]] = k; });
     // Add variant product names
@@ -2669,6 +2670,8 @@ function renderSigningAnalysis(data, cities) {
     prodNameMap['品牌智能体品专版'] = 'znt';
     prodNameMap['品牌广告'] = 'pg';
     prodNameMap['品专版'] = 'znt';
+    prodNameMap['顶展'] = 'pg';
+    prodNameMap['钻展'] = 'pg';
 
     // Build pid → product set from signed cases (try city first)
     var cases = STATE.signedCases || [];
@@ -2750,7 +2753,7 @@ function renderSigningAnalysis(data, cities) {
     hmHtml += '</tbody></table>';
 
     // Add summary note
-    hmHtml += '<div style="margin-top:10px;font-size:11px;color:var(--text3);">数据范围：' + dataScope + ' · 共' + totalPids + '个签约商户 · 对角线=该产品签约总数 · 非对角线=同时签约两产品的商户数（重叠率=共签数÷较小产品签约数）</div>';
+    hmHtml += '<div style="margin-top:10px;font-size:11px;color:var(--text3);">数据范围：' + dataScope + ' · 共' + totalPids + '个签约商户 · 品广含顶展+钻展（crm_cases统一归类） · 对角线=该产品签约总数 · 非对角线=同时签约两产品的商户数（重叠率=共签数÷较小产品签约数）</div>';
     heatmapEl.innerHTML = hmHtml;
   }
 }
