@@ -449,8 +449,8 @@ a { color:var(--accent2); text-decoration:none; }
         <div id="topicsTabs" class="tab-bar"></div>
         <div id="topicStats" class="stats-row" style="margin-top:16px;"></div>
         <div class="filter-bar" id="topicFilters">
-          <input id="tfSearch" placeholder="搜索商户名/PID/电话" oninput="filterTopicLeads()">
-          <select id="tfCategory" onchange="filterTopicLeads()"><option value="">全部类目</option></select>
+          <input id="tfSearch" placeholder="搜索关键词" oninput="filterTopicLeads()">
+          <select id="tfCategory" onchange="filterTopicLeads()"><option value="">全部</option></select>
           <select id="tfCity" onchange="filterTopicLeads()"><option value="">全部城市</option></select>
           <select id="tfStatus" onchange="filterTopicLeads()">
             <option value="">全部状态</option>
@@ -1354,18 +1354,53 @@ async function loadTopicLeads(topicId) {
     console.warn('loadTopicLeads failed:', e);
     STATE.topicLeads = [];
   }
-  // Populate filter options
-  var cats = {}, cities = {};
+  // Populate city filter from data
+  var cities = {};
   STATE.topicLeads.forEach(function(d) {
-    if (d.category) cats[d.category] = 1;
     if (d.city) cities[d.city] = 1;
   });
-  var catSel = $('tfCategory');
-  catSel.innerHTML = '<option value="">全部类目</option>';
-  Object.keys(cats).sort().forEach(function(c) { catSel.innerHTML += '<option value="' + c + '">' + c + '</option>'; });
   var citySel = $('tfCity');
   citySel.innerHTML = '<option value="">全部城市</option>';
   Object.keys(cities).sort().forEach(function(c) { citySel.innerHTML += '<option value="' + c + '">' + c + '</option>'; });
+
+  // Discover dynamic filter columns from extra_data
+  var dynCols = {};
+  STATE.topicLeads.forEach(function(d) {
+    if (d.extra_data && typeof d.extra_data === 'object') {
+      Object.keys(d.extra_data).forEach(function(k) { dynCols[k] = 1; });
+    }
+  });
+  // Update category filter to show first string-type extra_data column (if any)
+  var catSel = $('tfCategory');
+  catSel.innerHTML = '<option value="">全部</option>';
+  STATE._topicDynCols = Object.keys(dynCols);
+  // Use first column with few distinct values as a "category-like" filter
+  var bestFilterCol = null;
+  var bestDistinct = 999;
+  STATE._topicDynCols.forEach(function(k) {
+    var vals = {};
+    STATE.topicLeads.forEach(function(d) {
+      var v = d.extra_data[k];
+      if (v !== undefined && v !== null && v !== '') vals[v] = 1;
+    });
+    var n = Object.keys(vals).length;
+    if (n >= 2 && n <= 30 && n < bestDistinct) { bestDistinct = n; bestFilterCol = k; }
+  });
+  if (bestFilterCol) {
+    STATE._topicFilterCol = bestFilterCol;
+    catSel.parentElement.querySelector('label[for=tfCategory]') || (catSel.previousElementSibling && catSel.previousElementSibling.textContent);
+    var filterVals = {};
+    STATE.topicLeads.forEach(function(d) {
+      var v = d.extra_data[bestFilterCol];
+      if (v !== undefined && v !== null && v !== '') filterVals[v] = 1;
+    });
+    Object.keys(filterVals).sort().forEach(function(v) { catSel.innerHTML += '<option value="' + v + '">' + v + '</option>'; });
+    // Update placeholder
+    catSel.options[0].textContent = '全部' + bestFilterCol;
+  } else {
+    STATE._topicFilterCol = null;
+    catSel.options[0].textContent = '全部';
+  }
 
   filterTopicLeads();
 }
@@ -1378,10 +1413,19 @@ function filterTopicLeads() {
 
   STATE.topicLeadsFiltered = STATE.topicLeads.filter(function(d) {
     if (search) {
-      var haystack = ((d.store_name||'') + (d.pid||'') + (d.phone||'')).toLowerCase();
+      // Search across city + all extra_data values
+      var haystack = (d.city || '').toLowerCase();
+      if (d.extra_data && typeof d.extra_data === 'object') {
+        Object.values(d.extra_data).forEach(function(v) {
+          haystack += ' ' + String(v).toLowerCase();
+        });
+      }
       if (haystack.indexOf(search) < 0) return false;
     }
-    if (cat && d.category !== cat) return false;
+    if (cat && STATE._topicFilterCol) {
+      var v = d.extra_data ? d.extra_data[STATE._topicFilterCol] : '';
+      if (String(v) !== cat) return false;
+    }
     if (city && d.city !== city) return false;
     if (status && d.status !== status) return false;
     return true;
@@ -1415,36 +1459,51 @@ function renderTopicLeads() {
     return;
   }
 
-  var html = '<table><thead><tr>' +
-    '<th>商户名</th><th>PID</th><th>城市</th><th>类目</th><th>电话</th>' +
-    '<th>DPV</th><th>门店数</th><th>状态</th><th>备注</th><th>操作</th>' +
-    '</tr></thead><tbody>';
+  // Discover dynamic columns from extra_data
+  var dynamicCols = [];
+  var colSet = {};
+  data.forEach(function(d) {
+    if (d.extra_data && typeof d.extra_data === 'object') {
+      Object.keys(d.extra_data).forEach(function(k) {
+        if (!colSet[k]) { colSet[k] = 1; dynamicCols.push(k); }
+      });
+    }
+  });
+
+  // Build table header: city (always) + dynamic cols + status + notes + action
+  var html = '<div style="overflow-x:auto;"><table><thead><tr><th>城市</th>';
+  dynamicCols.forEach(function(col) {
+    html += '<th>' + col + '</th>';
+  });
+  html += '<th>状态</th><th>备注</th><th>操作</th></tr></thead><tbody>';
 
   data.forEach(function(d) {
     var st = TOPIC_STATUS_MAP[d.status] || TOPIC_STATUS_MAP['new'];
-    html += '<tr>' +
-      '<td><strong>' + (d.store_name||'-') + '</strong></td>' +
-      '<td style="font-family:monospace;font-size:12px;">' + (d.pid||'-') + '</td>' +
-      '<td>' + (d.city||'-') + '</td>' +
-      '<td>' + (d.category||'-') + '</td>' +
-      '<td style="font-family:monospace;font-size:12px;">' + (d.phone||'-') + '</td>' +
-      '<td class="num">' + fmt(d.dpv||0) + '</td>' +
-      '<td class="num">' + (d.store_count||1) + '</td>' +
-      '<td><span style="display:inline-block;padding:2px 10px;border-radius:12px;font-size:12px;font-weight:600;color:' + st.color + ';background:' + st.bg + ';">' + st.label + '</span></td>' +
-      '<td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="' + (d.follow_notes||'').replace(/"/g,'&quot;') + '">' + (d.follow_notes||'-') + '</td>' +
-      '<td style="white-space:nowrap;">' +
-        '<select onchange="updateTopicLeadStatus(' + d.id + ',this.value)" style="font-size:12px;padding:2px 6px;border:1px solid var(--border);border-radius:6px;">' +
-          '<option value="">改状态</option>' +
-          '<option value="contacted">已联系</option>' +
-          '<option value="interested">有意向</option>' +
-          '<option value="signed">已签约</option>' +
-          '<option value="rejected">暂不考虑</option>' +
-        '</select> ' +
-        '<button class="btn btn-sm" onclick="promptTopicNote(' + d.id + ')" style="font-size:12px;padding:2px 8px;">📝</button>' +
-      '</td>' +
-      '</tr>';
+    var extra = (d.extra_data && typeof d.extra_data === 'object') ? d.extra_data : {};
+    html += '<tr>';
+    html += '<td>' + (d.city||'-') + '</td>';
+    dynamicCols.forEach(function(col) {
+      var v = extra[col];
+      if (v === undefined || v === null || v === '') v = '-';
+      var style = '';
+      if (typeof v === 'number' || (!isNaN(parseFloat(v)) && v !== '')) style = ' class="num"';
+      html += '<td' + style + '>' + v + '</td>';
+    });
+    html += '<td><span style="display:inline-block;padding:2px 10px;border-radius:12px;font-size:12px;font-weight:600;color:' + st.color + ';background:' + st.bg + ';">' + st.label + '</span></td>';
+    html += '<td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="' + (d.follow_notes||'').replace(/"/g,'&quot;') + '">' + (d.follow_notes||'-') + '</td>';
+    html += '<td style="white-space:nowrap;">' +
+      '<select onchange="updateTopicLeadStatus(' + d.id + ',this.value)" style="font-size:12px;padding:2px 6px;border:1px solid var(--border);border-radius:6px;">' +
+        '<option value="">改状态</option>' +
+        '<option value="contacted">已联系</option>' +
+        '<option value="interested">有意向</option>' +
+        '<option value="signed">已签约</option>' +
+        '<option value="rejected">暂不考虑</option>' +
+      '</select> ' +
+      '<button class="btn btn-sm" onclick="promptTopicNote(' + d.id + ')" style="font-size:12px;padding:2px 8px;">📝</button>' +
+    '</td>';
+    html += '</tr>';
   });
-  html += '</tbody></table>';
+  html += '</tbody></table></div>';
   $('topicTableWrap').innerHTML = html;
 }
 
@@ -1575,8 +1634,9 @@ async function uploadTopicExcel(topicId, file) {
     var rows = XLSX.utils.sheet_to_json(ws, {defval: ''});
     if (rows.length === 0) { alert('Excel为空'); return; }
 
-    // Map columns (flexible matching)
     var headers = Object.keys(rows[0]);
+
+    // Auto-detect city column
     function findCol(keywords) {
       for (var i = 0; i < headers.length; i++) {
         var h = headers[i].toLowerCase();
@@ -1586,51 +1646,71 @@ async function uploadTopicExcel(topicId, file) {
       }
       return null;
     }
-    var colMap = {
-      provider_id: findCol(['provider_id','服务商id','服务商编号']),
-      store_name: findCol(['store_name','商户名','门店名','poi名','poi_name','店名']),
-      pid: findCol(['pid','商户id','poi_id','poi编号']),
-      city: findCol(['city','城市']),
-      category: findCol(['category','类目','品类','行业']),
-      phone: findCol(['phone','电话','手机','联系方式','tel']),
-      dpv: findCol(['dpv','浏览量','曝光']),
-      store_count: findCol(['store_count','门店数','数量']),
-      remark: findCol(['remark','备注','说明','remark'])
-    };
+    var cityCol = findCol(['city','城市','作业城市','所在城','地区']);
 
+    if (!cityCol) {
+      alert('未找到城市列。\n\nExcel中需要有一列包含"城市"关键词，用于按服务商分配商机。\n\n当前列名：' + headers.join(', '));
+      return;
+    }
+
+    // Build city → provider_id mapping from crm_providers
+    var cityProviderMap = {};
+    if (sb) {
+      try {
+        var provRes = await fetchAll(sb.from('crm_providers').select('provider_id,cities'));
+        (provRes.data || []).forEach(function(p) {
+          var cities = p.cities || [];
+          if (typeof cities === 'string') { try { cities = JSON.parse(cities); } catch(e) { cities = []; } }
+          cities.forEach(function(c) {
+            cityProviderMap[c] = p.provider_id;
+          });
+        });
+      } catch(e) { console.warn('Failed to load provider cities:', e); }
+    }
+
+    // Build leads: city for assignment, everything else goes to extra_data
     var leads = [];
+    var extraKeys = headers.filter(function(h) { return h !== cityCol; });
     rows.forEach(function(r) {
-      var lead = {
+      var city = String(r[cityCol] || '').trim();
+      var providerId = cityProviderMap[city] || cityProviderMap[city.replace(/市$/, '')] || '';
+      var extra = {};
+      extraKeys.forEach(function(k) {
+        var v = r[k];
+        if (v !== '' && v !== null && v !== undefined) extra[k] = v;
+      });
+      leads.push({
         topic_id: topicId,
-        provider_id: (colMap.provider_id ? r[colMap.provider_id] : '') || '',
-        store_name: (colMap.store_name ? r[colMap.store_name] : '') || '',
-        pid: (colMap.pid ? String(r[colMap.pid]) : '') || '',
-        city: (colMap.city ? r[colMap.city] : '') || '',
-        category: (colMap.category ? r[colMap.category] : '') || '',
-        phone: (colMap.phone ? String(r[colMap.phone]) : '') || '',
-        dpv: parseFloat(colMap.dpv ? r[colMap.dpv] : 0) || 0,
-        store_count: parseInt(colMap.store_count ? r[colMap.store_count] : 1) || 1,
-        remark: (colMap.remark ? r[colMap.remark] : '') || '',
-        status: 'new'
-      };
-      if (lead.store_name || lead.pid) leads.push(lead);
+        provider_id: providerId,
+        city: city,
+        status: 'new',
+        extra_data: extra
+      });
     });
 
-    if (leads.length === 0) { alert('未解析到有效数据行。\n\nExcel列名需包含：商户名/PID/城市/类目/电话等'); return; }
+    if (leads.length === 0) { alert('未解析到有效数据行'); return; }
 
-    if (!confirm('解析到 ' + leads.length + ' 条商机，确认导入？')) return;
+    // Count assignment stats
+    var assigned = leads.filter(function(l){return l.provider_id;}).length;
+    var unassigned = leads.length - assigned;
 
-    // Batch insert to Supabase (chunks of 100)
+    if (!confirm('解析到 ' + leads.length + ' 条商机\n' +
+      '城市列: ' + cityCol + '\n' +
+      '已匹配服务商: ' + assigned + ' 条\n' +
+      '未匹配(管理员可见): ' + unassigned + ' 条\n\n' +
+      '其他 ' + extraKeys.length + ' 列将作为自定义字段展示\n\n确认导入？')) return;
+
+    // Batch insert to Supabase (chunks of 50 for JSONB safety)
     if (sb) {
-      var batchSize = 100;
+      var batchSize = 50;
       var successCount = 0;
       for (var i = 0; i < leads.length; i += batchSize) {
         var batch = leads.slice(i, i + batchSize);
-        try {
-          await sb.from('crm_topic_leads').insert(batch);
+        var res = await sb.from('crm_topic_leads').insert(batch);
+        if (res.error) {
+          console.warn('Batch insert failed at offset ' + i + ':', res.error);
+        } else {
           successCount += batch.length;
-        } catch(e) {
-          console.warn('Batch insert failed at offset ' + i + ':', e);
         }
       }
       alert('成功导入 ' + successCount + ' / ' + leads.length + ' 条商机');
