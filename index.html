@@ -2120,10 +2120,19 @@ function renderAnalysis() {
   });
   var avgLift = liftCnt > 0 ? Math.round(liftSum / liftCnt) : 0;
 
+  // Leads stats for 公海-高优开店
+  var leadsTotal = leads.length;
+  var leadsHighPriority = leads.filter(function(d){return d.is_high_priority;}).length;
+  var leadsHighDPV = leads.filter(function(d){return d.dpv_30d >= 100;}).length;
+
   $('analysisStats').innerHTML =
-    '<div class="stat-card"><div class="label">高优商业化PID</div><div class="value blue">' + fmt(totalPIDs) + '</div><div class="sub">覆盖 ' + cities.length + ' 个城市</div></div>' +
+    '<div class="stat-card"><div class="label">在约-高优商业化PID</div><div class="value blue">' + fmt(totalPIDs) + '</div><div class="sub">覆盖 ' + cities.length + ' 个城市</div></div>' +
     '<div class="stat-card"><div class="label">已签约PID</div><div class="value green">' + fmt(providerSigned) + '</div><div class="sub">转化率 ' + convRate + '%</div></div>' +
-    '<div class="stat-card"><div class="label">待签约PID</div><div class="value amber">' + fmt(pendingPIDs) + '</div><div class="sub">待拓展空间</div></div>';
+    '<div class="stat-card"><div class="label">待签约PID</div><div class="value amber">' + fmt(pendingPIDs) + '</div><div class="sub">待拓展空间</div></div>' +
+    '</div><div class="stats-row" style="margin-top:-8px;">' +
+    '<div class="stat-card"><div class="label">公海-高优开店</div><div class="value purple">' + fmt(leadsTotal) + '</div><div class="sub">公海POI待开发</div></div>' +
+    '<div class="stat-card"><div class="label">城市高优</div><div class="value green">' + fmt(leadsHighPriority) + '</div><div class="sub">占比' + (leadsTotal?(leadsHighPriority/leadsTotal*100).toFixed(1):0) + '%</div></div>' +
+    '<div class="stat-card"><div class="label">高DPV(100+)</div><div class="value amber">' + fmt(leadsHighDPV) + '</div><div class="sub">高流量潜力</div></div>';
 
   // === Section 2: Historical Signing Analysis (by product × category) ===
   renderSigningAnalysis(data, cities);
