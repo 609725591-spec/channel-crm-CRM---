@@ -2161,6 +2161,10 @@ function renderSigningAnalysis(data, cities) {
   var prodNames = {xg:'效果广告', znt:'品牌智能体', dz:'顶展', zx:'钻展', dj:'导结', pg:'品广'};
   var prodNameMap = {};
   Object.keys(prodNames).forEach(function(k) { prodNameMap[prodNames[k]] = k; });
+  prodNameMap['智能体'] = 'znt';
+  prodNameMap['品牌智能体品专版'] = 'znt';
+  prodNameMap['品牌广告'] = 'pg';
+  prodNameMap['品专版'] = 'znt';
 
   var citySignedCount = 0;
   if (STATE.signedCases && STATE.signedCases.length > 0) {
@@ -2660,6 +2664,11 @@ function renderSigningAnalysis(data, cities) {
     var prodKeys = ['xg','znt','dz','zx','dj','pg'];
     var prodNameMap = {};
     Object.keys(prodNames).forEach(function(k) { prodNameMap[prodNames[k]] = k; });
+    // Add variant product names
+    prodNameMap['智能体'] = 'znt';
+    prodNameMap['品牌智能体品专版'] = 'znt';
+    prodNameMap['品牌广告'] = 'pg';
+    prodNameMap['品专版'] = 'znt';
 
     // Build pid → product set from signed cases (try city first)
     var cases = STATE.signedCases || [];
