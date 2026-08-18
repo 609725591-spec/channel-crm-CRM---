@@ -1231,7 +1231,7 @@ async function doLogin() {
 
 function onLoginSuccess() {
   $('loginPage').style.display = 'none';
-  $('headerUser').textContent = STATE.user.provider_name + ' · ' + (STATE.user.role || '操盘手');
+  $('headerUser').textContent = STATE.user.provider_name;
   if (STATE.user.is_admin) { $('navAdmin').style.display = 'flex'; }
 
   // Save session to localStorage for auto-login on refresh
