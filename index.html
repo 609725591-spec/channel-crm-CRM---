@@ -581,6 +581,9 @@ a { color:var(--accent2); text-decoration:none; }
       <div class="nav-item" data-page="caseLib" onclick="navigate('caseLib')">
         <span class="nav-icon">📚</span>商业化案例库
       </div>
+      <div class="nav-item" data-page="training" onclick="navigate('training')">
+        <span class="nav-icon">🎓</span>培训专区
+      </div>
       <div class="nav-divider"></div>
       <div class="nav-item" data-page="admin" onclick="navigate('admin')" id="navAdmin" style="display:none">
         <span class="nav-icon">⚙️</span>管理后台
@@ -856,6 +859,28 @@ a { color:var(--accent2); text-decoration:none; }
           <div id="clCaseGrid" class="cl-grid"></div>
         </div>
 
+      </div>
+
+      <!-- ===== PAGE: 培训专区 ===== -->
+      <div id="page-training" class="page">
+        <h2 class="page-title">培训专区</h2>
+        <p class="page-desc">产品培训资料与视频课程，帮助服务商快速掌握商业化产品知识</p>
+        <div class="training-tabs" style="display:flex;gap:0;margin-bottom:24px;border-bottom:1px solid var(--border);">
+          <div class="training-tab active" data-tab="product" onclick="switchTrainingTab('product')" style="padding:10px 24px;cursor:pointer;font-size:14px;font-weight:600;color:var(--accent2);border-bottom:2px solid var(--accent);transition:all .2s;">商业化产品培训</div>
+          <div class="training-tab" data-tab="video" onclick="switchTrainingTab('video')" style="padding:10px 24px;cursor:pointer;font-size:14px;color:var(--text2);border-bottom:2px solid transparent;transition:all .2s;">视频讲解课程</div>
+        </div>
+        <div id="training-product" class="training-panel">
+          <div style="text-align:center;padding:60px 20px;color:var(--text3);">
+            <div style="font-size:48px;margin-bottom:16px;">📖</div>
+            <div style="font-size:15px;">商业化产品培训资料即将上线，敬请期待</div>
+          </div>
+        </div>
+        <div id="training-video" class="training-panel" style="display:none;">
+          <div style="text-align:center;padding:60px 20px;color:var(--text3);">
+            <div style="font-size:48px;margin-bottom:16px;">🎬</div>
+            <div style="font-size:15px;">视频讲解课程即将上线，敬请期待</div>
+          </div>
+        </div>
       </div>
 
     </main>
@@ -1351,6 +1376,7 @@ function navigate(page) {
     case 'jobs': renderJobs(); break;
     case 'occupancy': renderOccupancy(); break;
     case 'caseLib': renderCaseLib(); break;
+    case 'training': renderTraining(); break;
     case 'admin': renderAdmin(); break;
     case 'topics': renderTopicsPage(); break;
     case 'mgmt': renderMgmtDashboard(); break;
@@ -6195,6 +6221,25 @@ function renderCaseCards() {
     html += '</div></div>';
   });
   $('clCaseGrid').innerHTML = html || '<div style="text-align:center;padding:40px;color:var(--text3);">暂无匹配案例</div>';
+}
+
+// ===== 培训专区 =====
+function renderTraining() {
+  // 默认显示第一个tab，无需额外初始化
+}
+function switchTrainingTab(tab) {
+  document.querySelectorAll('.training-tab').forEach(function(el) {
+    var isActive = el.getAttribute('data-tab') === tab;
+    el.classList.toggle('active', isActive);
+    el.style.color = isActive ? 'var(--accent2)' : 'var(--text2)';
+    el.style.fontWeight = isActive ? '600' : '400';
+    el.style.borderBottomColor = isActive ? 'var(--accent)' : 'transparent';
+  });
+  document.querySelectorAll('.training-panel').forEach(function(el) {
+    el.style.display = 'none';
+  });
+  var target = $('training-' + tab);
+  if (target) target.style.display = 'block';
 }
 
 /* =============================================
