@@ -561,6 +561,10 @@ a { color:var(--accent2); text-decoration:none; }
             <option value="">全部</option>
             <option value="high">城市高优</option>
           </select>
+          <select id="lfDpv" onchange="filterLeads()">
+            <option value="">全部DPV</option>
+            <option value="high">高DPV(100+)</option>
+          </select>
           <button class="btn btn-outline btn-sm" onclick="exportLeads()">📥 导出</button>
         </div>
         <div id="leadsTableWrap"></div>
@@ -3019,24 +3023,24 @@ function renderLeads() {
 
   var data = STATE.leadsData;
   var total = data.length;
-  var highPriority = data.filter(function(d){return d.is_high_priority;}).length;
   var highDPV = data.filter(function(d){return d.dpv_30d >= 100;}).length;
 
   $('leadsStats').innerHTML =
-    '<div class="stat-card"><div class="label">leads总数</div><div class="value blue">' + fmt(total) + '</div></div>' +
-    '<div class="stat-card"><div class="label">城市高优</div><div class="value green">' + fmt(highPriority) + '</div><div class="sub">占比' + (total?(highPriority/total*100).toFixed(1):0) + '%</div></div>' +
-    '<div class="stat-card"><div class="label">高DPV(100+)</div><div class="value amber">' + fmt(highDPV) + '</div></div>';
+    '<div class="stat-card"><div class="label">城市待开店高优leads总数</div><div class="value blue">' + fmt(total) + '</div></div>' +
+    '<div class="stat-card"><div class="label">高DPV(100+)</div><div class="value amber">' + fmt(highDPV) + '</div><div class="sub">占比' + (total?(highDPV/total*100).toFixed(1):0) + '%</div></div>';
 }
 
 function filterLeads() {
   var search = ($('lfSearch').value || '').toLowerCase();
   var cat = $('lfCategory').value;
   var priority = $('lfPriority').value;
+  var dpv = $('lfDpv').value;
 
   STATE.leadsFiltered = STATE.leadsData.filter(function(d) {
     if (search && (d.poi_name||'').toLowerCase().indexOf(search) < 0 && (d.poi_id||'').indexOf(search) < 0) return false;
     if (cat && d.category_l2 !== cat) return false;
     if (priority === 'high' && !d.is_high_priority) return false;
+    if (dpv === 'high' && (d.dpv_30d || 0) < 100) return false;
     return true;
   });
 
