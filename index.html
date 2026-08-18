@@ -2467,17 +2467,17 @@ function renderSigningAnalysis(data, cities) {
   if (deep.monthly && (deep.monthly.m5 || deep.monthly.m6 || deep.monthly.m7)) {
     chartHtml += '<div class="chart-card"><div class="chart-title">月度签约趋势（5-7月）</div><div class="chart-canvas-wrap"><canvas id="chartMonthLine"></canvas></div></div>';
   }
-  // Chart 4: Channel distribution doughnut
-  if (deep.channels && Object.keys(deep.channels).length > 0) {
-    chartHtml += '<div class="chart-card"><div class="chart-title">签约渠道分布</div><div class="chart-canvas-wrap"><canvas id="chartChannelDonut"></canvas></div></div>';
+  // Chart 4: Golden combo ranking (category × product best pairs)
+  if (deep.catProdList && deep.catProdList.length > 0) {
+    chartHtml += '<div class="chart-card"><div class="chart-title">黄金组合推荐（类目×产品 · 按综合效果得分排序）</div><div class="chart-canvas-wrap"><canvas id="chartComboRank"></canvas></div></div>';
   }
   // Chart 5: DPV segment bar
   if (deep.segments && (deep.segments.high.n > 0 || deep.segments.mid.n > 0 || deep.segments.low.n > 0)) {
     chartHtml += '<div class="chart-card"><div class="chart-title">DPV分层签约效果</div><div class="chart-canvas-wrap"><canvas id="chartSegBar"></canvas></div></div>';
   }
-  // Chart 6: Category conversion rate horizontal bar
+  // Chart 6: Priority target matrix (pool size vs signed, colored by remaining potential)
   if (deep.catConversion && deep.catConversion.length > 0) {
-    chartHtml += '<div class="chart-card"><div class="chart-title">类目签约转化率（已签/池子总量，柱顶数字）</div><div class="chart-canvas-wrap"><canvas id="chartConvBar"></canvas></div></div>';
+    chartHtml += '<div class="chart-card"><div class="chart-title">待签约优先级（池子大小 vs 已签约 · 柱顶=待签数）</div><div class="chart-canvas-wrap"><canvas id="chartPriority"></canvas></div></div>';
   }
 
   chartsEl.innerHTML = chartHtml;
@@ -2552,24 +2552,39 @@ function renderSigningAnalysis(data, cities) {
     });
   }
 
-  // Chart 4: Channel doughnut
-  if (deep.channels && document.getElementById('chartChannelDonut')) {
-    var chKeys = Object.keys(deep.channels);
-    var chLabels = chKeys.map(function(k){ return k === '直营' ? '直营' : k === '渠道' ? '渠道' : k === '电销' ? '电销' : k; });
-    var chData = chKeys.map(function(k){ return deep.channels[k].n || 0; });
-    STATE.charts.analysisChannel = new Chart(document.getElementById('chartChannelDonut'), {
-      type: 'doughnut',
+  // Chart 4: Golden combo ranking (horizontal bar, sorted by combined score)
+  if (deep.catProdList && deep.catProdList.length > 0 && document.getElementById('chartComboRank')) {
+    var combos = deep.catProdList.filter(function(c){ return c.n >= 2 && c.dp > 0 && c.gp > 0 && c.dp <= 500 && c.gp <= 500; })
+      .map(function(c){ return { label: c.cat + ' × ' + c.prod, n: c.n, dp: c.dp, gp: c.gp, score: Math.round((c.dp + c.gp) * Math.sqrt(c.n)) }; })
+      .sort(function(a,b){ return b.score - a.score; })
+      .slice(0, 10);
+    var comboLabels = combos.map(function(c){ return c.label; }).reverse();
+    var comboScores = combos.map(function(c){ return c.score; }).reverse();
+    var comboColors = combos.map(function(c){
+      if (c.score >= 200) return '#10b981';
+      if (c.score >= 80) return '#3b82f6';
+      return '#94a3b8';
+    }).reverse();
+    STATE.charts.analysisCombo = new Chart(document.getElementById('chartComboRank'), {
+      type: 'bar',
       data: {
-        labels: chLabels,
-        datasets: [{ data: chData, backgroundColor: ['#3b82f6','#10b981','#f59e0b'], borderWidth: 0 }]
+        labels: comboLabels,
+        datasets: [{ label: '综合效果得分', data: comboScores, backgroundColor: comboColors.map(function(c){ return c + '80'; }), borderColor: comboColors, borderWidth: 1, borderRadius: 4 }]
       },
       options: {
+        indexAxis: 'y',
         responsive: true, maintainAspectRatio: false,
         plugins: {
-          legend: { position: 'right', labels: { color: darkText, font: {size:11}, padding: 12 } },
-          tooltip: { callbacks: { label: function(ctx) { var total = chData.reduce(function(s,v){return s+v;},0); return ctx.label + ': ' + ctx.parsed + '户 (' + (total > 0 ? Math.round(ctx.parsed / total * 100) : 0) + '%)'; } } }
+          legend: { display: false },
+          tooltip: { callbacks: {
+            title: function(items) { var c = combos[combos.length - 1 - items[0].dataIndex]; return c.label; },
+            label: function(ctx) { var c = combos[combos.length - 1 - ctx.dataIndex]; return ['签约' + c.n + '户', 'DPV+' + c.dp + '%，GMV+' + c.gp + '%', '综合得分: ' + c.score]; }
+          } }
         },
-        cutout: '55%'
+        scales: {
+          x: { ticks: { color: darkText }, grid: { color: darkGrid }, beginAtZero: true },
+          y: { ticks: { color: darkText, font: {size:10} }, grid: { display: false } }
+        }
       }
     });
   }
@@ -2603,49 +2618,53 @@ function renderSigningAnalysis(data, cities) {
     });
   }
 
-  // Chart 6: Category conversion rate bar (vertical, sorted high→low)
-  if (deep.catConversion && deep.catConversion.length > 0 && document.getElementById('chartConvBar')) {
-    var convData = deep.catConversion.filter(function(c){ return c.total >= 3; }).sort(function(a,b){ return b.rate - a.rate; }).slice(0, 12);
-    var convColors = convData.map(function(c) {
-      if (c.rate >= 10) return '#10b981';
-      if (c.rate >= 3) return '#f59e0b';
-      return '#3b82f6';
-    });
-    STATE.charts.analysisConv = new Chart(document.getElementById('chartConvBar'), {
+  // Chart 6: Priority target matrix (pool vs signed, sorted by remaining potential)
+  if (deep.catConversion && deep.catConversion.length > 0 && document.getElementById('chartPriority')) {
+    var prioData = deep.catConversion
+      .filter(function(c){ return c.total >= 5; })
+      .map(function(c){ return { cat: c.cat, total: c.total, signed: c.signed, remain: c.total - c.signed, rate: c.rate }; })
+      .sort(function(a,b){ return b.remain - a.remain; })
+      .slice(0, 12);
+    STATE.charts.analysisPriority = new Chart(document.getElementById('chartPriority'), {
       type: 'bar',
       data: {
-        labels: convData.map(function(c){ return c.cat; }),
-        datasets: [{ label: '转化率%', data: convData.map(function(c){ return c.rate; }), backgroundColor: convColors.map(function(c){ return c + '80'; }), borderColor: convColors, borderWidth: 1, borderRadius: 4 }]
+        labels: prioData.map(function(c){ return c.cat; }),
+        datasets: [
+          { label: '池子总量', data: prioData.map(function(c){ return c.total; }), backgroundColor: '#33415580', borderColor: '#475569', borderWidth: 1, borderRadius: 4, order: 2 },
+          { label: '已签约', data: prioData.map(function(c){ return c.signed; }), backgroundColor: '#10b98180', borderColor: '#10b981', borderWidth: 1, borderRadius: 4, order: 1 }
+        ]
       },
       options: {
         responsive: true, maintainAspectRatio: false,
         plugins: {
-          legend: { display: false },
+          legend: { labels: { color: darkText, font: {size:11} } },
           tooltip: { callbacks: {
-            title: function(items) { var c = convData[items[0].dataIndex]; return c.cat + ' · 转化率 ' + c.rate + '%'; },
-            label: function(ctx) { var c = convData[ctx.dataIndex]; return '已签约 ' + c.signed + ' / 池子 ' + c.total + '户'; },
-            afterLabel: function(ctx) { var c = convData[ctx.dataIndex]; var remain = c.total - c.signed; return '待签约空间: ' + remain + '户'; }
+            title: function(items) { var c = prioData[items[0].dataIndex]; return c.cat; },
+            label: function(ctx) {
+              var c = prioData[ctx.dataIndex];
+              if (ctx.datasetIndex === 0) return '池子: ' + c.total + '户';
+              return '已签: ' + c.signed + '户 · 待签: ' + c.remain + '户 · 转化率' + c.rate + '%';
+            }
           } }
         },
         scales: {
-          x: { ticks: { color: darkText, font: {size:10}, maxRotation: 30 }, grid: { display: false } },
-          y: { ticks: { color: darkText, callback: function(v){return v+'%';} }, grid: { color: darkGrid }, beginAtZero: true }
+          x: { ticks: { color: darkText, font: {size:10}, maxRotation: 30 }, grid: { display: false }, stacked: false },
+          y: { ticks: { color: darkText }, grid: { color: darkGrid }, beginAtZero: true }
         }
       },
       plugins: [{
-        id: 'convLabels',
+        id: 'prioLabels',
         afterDatasetsDraw: function(chart) {
           var ctx = chart.ctx;
-          chart.data.datasets[0].data.forEach(function(val, i) {
-            var meta = chart.getDatasetMeta(0);
-            var bar = meta.data[i];
+          var meta1 = chart.getDatasetMeta(1);
+          prioData.forEach(function(c, i) {
+            var bar = meta1.data[i];
             if (!bar) return;
             ctx.save();
-            ctx.fillStyle = '#94a3b8';
-            ctx.font = '10px sans-serif';
+            ctx.fillStyle = '#f59e0b';
+            ctx.font = 'bold 10px sans-serif';
             ctx.textAlign = 'center';
-            var c = convData[i];
-            ctx.fillText(c.signed + '/' + c.total, bar.x, bar.y - 6);
+            ctx.fillText('待签' + c.remain, bar.x, bar.y - 6);
             ctx.restore();
           });
         }
