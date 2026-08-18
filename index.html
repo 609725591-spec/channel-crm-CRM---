@@ -211,6 +211,7 @@ a { color:var(--accent2); text-decoration:none; }
 .chart-grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:20px; }
 .chart-card { background:var(--card); border:1px solid var(--border); border-radius:var(--radius-lg); padding:18px 20px; }
 .chart-title { font-size:13px; font-weight:600; color:var(--text2); margin-bottom:12px; letter-spacing:.3px; }
+.chart-canvas-wrap { position:relative; height:200px; }
 .chart-box { background:var(--card); border:1px solid var(--border); border-radius:var(--radius); padding:16px; }
 .chart-box.full { grid-column:1/-1; }
 .chart-box h4 { font-size:13px; font-weight:600; margin-bottom:10px; }
@@ -2442,27 +2443,27 @@ function renderSigningAnalysis(data, cities) {
 
   // Chart 1: Category DPV/GMV comparison bar
   if (top8.length > 0) {
-    chartHtml += '<div class="chart-card"><div class="chart-title">签约类目效果对比</div><canvas id="chartCatBar" height="220"></canvas></div>';
+    chartHtml += '<div class="chart-card"><div class="chart-title">签约类目效果对比</div><div class="chart-canvas-wrap"><canvas id="chartCatBar"></canvas></div></div>';
   }
   // Chart 2: Product distribution doughnut
   if (prodList.length > 0) {
-    chartHtml += '<div class="chart-card"><div class="chart-title">产品签约分布</div><canvas id="chartProdDonut" height="220"></canvas></div>';
+    chartHtml += '<div class="chart-card"><div class="chart-title">产品签约分布</div><div class="chart-canvas-wrap"><canvas id="chartProdDonut"></canvas></div></div>';
   }
   // Chart 3: Monthly trend line
   if (deep.monthly && (deep.monthly.m5 || deep.monthly.m6 || deep.monthly.m7)) {
-    chartHtml += '<div class="chart-card"><div class="chart-title">月度签约趋势（5-7月）</div><canvas id="chartMonthLine" height="220"></canvas></div>';
+    chartHtml += '<div class="chart-card"><div class="chart-title">月度签约趋势（5-7月）</div><div class="chart-canvas-wrap"><canvas id="chartMonthLine"></canvas></div></div>';
   }
   // Chart 4: Channel distribution doughnut
   if (deep.channels && Object.keys(deep.channels).length > 0) {
-    chartHtml += '<div class="chart-card"><div class="chart-title">签约渠道分布</div><canvas id="chartChannelDonut" height="220"></canvas></div>';
+    chartHtml += '<div class="chart-card"><div class="chart-title">签约渠道分布</div><div class="chart-canvas-wrap"><canvas id="chartChannelDonut"></canvas></div></div>';
   }
   // Chart 5: DPV segment bar
   if (deep.segments && (deep.segments.high.n > 0 || deep.segments.mid.n > 0 || deep.segments.low.n > 0)) {
-    chartHtml += '<div class="chart-card"><div class="chart-title">DPV分层签约效果</div><canvas id="chartSegBar" height="220"></canvas></div>';
+    chartHtml += '<div class="chart-card"><div class="chart-title">DPV分层签约效果</div><div class="chart-canvas-wrap"><canvas id="chartSegBar"></canvas></div></div>';
   }
   // Chart 6: Category conversion rate horizontal bar
   if (deep.catConversion && deep.catConversion.length > 0) {
-    chartHtml += '<div class="chart-card"><div class="chart-title">类目签约转化率（PID池→签约）</div><canvas id="chartConvBar" height="220"></canvas></div>';
+    chartHtml += '<div class="chart-card"><div class="chart-title">类目签约转化率（PID池→签约）</div><div class="chart-canvas-wrap"><canvas id="chartConvBar"></canvas></div></div>';
   }
 
   chartsEl.innerHTML = chartHtml;
