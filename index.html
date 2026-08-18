@@ -209,6 +209,8 @@ a { color:var(--accent2); text-decoration:none; }
 
 /* Chart containers */
 .chart-grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:20px; }
+.chart-card { background:var(--card); border:1px solid var(--border); border-radius:var(--radius-lg); padding:18px 20px; }
+.chart-title { font-size:13px; font-weight:600; color:var(--text2); margin-bottom:12px; letter-spacing:.3px; }
 .chart-box { background:var(--card); border:1px solid var(--border); border-radius:var(--radius); padding:16px; }
 .chart-box.full { grid-column:1/-1; }
 .chart-box h4 { font-size:13px; font-weight:600; margin-bottom:10px; }
@@ -474,6 +476,7 @@ a { color:var(--accent2); text-decoration:none; }
         <h2 class="page-title">城市签约分析</h2>
         <p class="page-desc" id="analysisDesc">基于5-7月签约数据 · 当前选中城市加载中...</p>
         <div id="analysisStats" class="stats-row"></div>
+        <div id="analysisCharts" class="chart-grid" style="margin-bottom:24px;"></div>
         <div id="analysisSigning" style="margin-bottom:24px;"></div>
       </div>
 
@@ -2424,6 +2427,195 @@ function renderSigningAnalysis(data, cities) {
   html += '</div>';
 
   container.innerHTML = html;
+
+  // === CHARTS ===
+  var chartsEl = $('analysisCharts');
+  if (!chartsEl) return;
+  // Destroy existing chart instances
+  if (STATE.charts) {
+    Object.keys(STATE.charts).forEach(function(k) {
+      if (k.indexOf('analysis') === 0 && STATE.charts[k]) { try { STATE.charts[k].destroy(); } catch(e){} }
+    });
+  } else { STATE.charts = {}; }
+
+  var chartHtml = '';
+
+  // Chart 1: Category DPV/GMV comparison bar
+  if (top8.length > 0) {
+    chartHtml += '<div class="chart-card"><div class="chart-title">签约类目效果对比</div><canvas id="chartCatBar" height="220"></canvas></div>';
+  }
+  // Chart 2: Product distribution doughnut
+  if (prodList.length > 0) {
+    chartHtml += '<div class="chart-card"><div class="chart-title">产品签约分布</div><canvas id="chartProdDonut" height="220"></canvas></div>';
+  }
+  // Chart 3: Monthly trend line
+  if (deep.monthly && (deep.monthly.m5 || deep.monthly.m6 || deep.monthly.m7)) {
+    chartHtml += '<div class="chart-card"><div class="chart-title">月度签约趋势（5-7月）</div><canvas id="chartMonthLine" height="220"></canvas></div>';
+  }
+  // Chart 4: Channel distribution doughnut
+  if (deep.channels && Object.keys(deep.channels).length > 0) {
+    chartHtml += '<div class="chart-card"><div class="chart-title">签约渠道分布</div><canvas id="chartChannelDonut" height="220"></canvas></div>';
+  }
+  // Chart 5: DPV segment bar
+  if (deep.segments && (deep.segments.high.n > 0 || deep.segments.mid.n > 0 || deep.segments.low.n > 0)) {
+    chartHtml += '<div class="chart-card"><div class="chart-title">DPV分层签约效果</div><canvas id="chartSegBar" height="220"></canvas></div>';
+  }
+  // Chart 6: Category conversion rate horizontal bar
+  if (deep.catConversion && deep.catConversion.length > 0) {
+    chartHtml += '<div class="chart-card"><div class="chart-title">类目签约转化率（PID池→签约）</div><canvas id="chartConvBar" height="220"></canvas></div>';
+  }
+
+  chartsEl.innerHTML = chartHtml;
+
+  var darkGrid = '#334155';
+  var darkText = '#94a3b8';
+  var palette = ['#3b82f6','#10b981','#f59e0b','#ef4444','#8b5cf6','#ec4899','#06b6d4','#f97316'];
+
+  // Chart 1: Category bar
+  if (top8.length > 0 && document.getElementById('chartCatBar')) {
+    STATE.charts.analysisCat = new Chart(document.getElementById('chartCatBar'), {
+      type: 'bar',
+      data: {
+        labels: top8.map(function(c){ return c.cat; }),
+        datasets: [
+          { label: 'DPV提升%', data: top8.map(function(c){ return c.dp; }), backgroundColor: '#3b82f680', borderColor: '#3b82f6', borderWidth: 1, borderRadius: 4 },
+          { label: 'GMV提升%', data: top8.map(function(c){ return c.gp; }), backgroundColor: '#10b98180', borderColor: '#10b981', borderWidth: 1, borderRadius: 4 }
+        ]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { labels: { color: darkText, font: {size:11} } } },
+        scales: {
+          x: { ticks: { color: darkText, font: {size:11}, maxRotation: 30 }, grid: { color: darkGrid } },
+          y: { ticks: { color: darkText, callback: function(v){return v+'%';} }, grid: { color: darkGrid }, beginAtZero: true }
+        }
+      }
+    });
+  }
+
+  // Chart 2: Product doughnut
+  if (prodList.length > 0 && document.getElementById('chartProdDonut')) {
+    STATE.charts.analysisProd = new Chart(document.getElementById('chartProdDonut'), {
+      type: 'doughnut',
+      data: {
+        labels: prodList.map(function(p){ return p.name; }),
+        datasets: [{ data: prodList.map(function(p){ return p.n; }), backgroundColor: palette.slice(0, prodList.length), borderWidth: 0 }]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: {
+          legend: { position: 'right', labels: { color: darkText, font: {size:11}, padding: 12 } },
+          tooltip: { callbacks: { label: function(ctx) { return ctx.label + ': ' + ctx.parsed + '户 (' + Math.round(ctx.parsed / prodList.reduce(function(s,p){return s+p.n;},0) * 100) + '%)'; } } }
+        },
+        cutout: '55%'
+      }
+    });
+  }
+
+  // Chart 3: Monthly trend line
+  if (deep.monthly && document.getElementById('chartMonthLine')) {
+    var months = ['5月', '6月', '7月'];
+    var mCounts = [deep.monthly.m5 || 0, deep.monthly.m6 || 0, deep.monthly.m7 || 0];
+    STATE.charts.analysisMonth = new Chart(document.getElementById('chartMonthLine'), {
+      type: 'line',
+      data: {
+        labels: months,
+        datasets: [{
+          label: '签约户数', data: mCounts,
+          borderColor: '#3b82f6', backgroundColor: 'rgba(59,130,246,.15)', fill: true, tension: 0.3,
+          pointBackgroundColor: '#3b82f6', pointRadius: 5, pointHoverRadius: 7
+        }]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { labels: { color: darkText } } },
+        scales: {
+          x: { ticks: { color: darkText }, grid: { color: darkGrid } },
+          y: { ticks: { color: darkText }, grid: { color: darkGrid }, beginAtZero: true }
+        }
+      }
+    });
+  }
+
+  // Chart 4: Channel doughnut
+  if (deep.channels && document.getElementById('chartChannelDonut')) {
+    var chKeys = Object.keys(deep.channels);
+    var chLabels = chKeys.map(function(k){ return k === '直营' ? '直营' : k === '渠道' ? '渠道' : k === '电销' ? '电销' : k; });
+    var chData = chKeys.map(function(k){ return deep.channels[k].n || 0; });
+    STATE.charts.analysisChannel = new Chart(document.getElementById('chartChannelDonut'), {
+      type: 'doughnut',
+      data: {
+        labels: chLabels,
+        datasets: [{ data: chData, backgroundColor: ['#3b82f6','#10b981','#f59e0b'], borderWidth: 0 }]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: {
+          legend: { position: 'right', labels: { color: darkText, font: {size:11}, padding: 12 } },
+          tooltip: { callbacks: { label: function(ctx) { var total = chData.reduce(function(s,v){return s+v;},0); return ctx.label + ': ' + ctx.parsed + '户 (' + (total > 0 ? Math.round(ctx.parsed / total * 100) : 0) + '%)'; } } }
+        },
+        cutout: '55%'
+      }
+    });
+  }
+
+  // Chart 5: DPV segment bar
+  if (deep.segments && document.getElementById('chartSegBar')) {
+    var segLabels = ['高流量(≥50)', '中流量(15-50)', '低流量(<15)'];
+    var segDpv = [(deep.segments.high.dp||0), (deep.segments.mid.dp||0), (deep.segments.low.dp||0)];
+    var segGmv = [(deep.segments.high.gp||0), (deep.segments.mid.gp||0), (deep.segments.low.gp||0)];
+    var segN = [deep.segments.high.n, deep.segments.mid.n, deep.segments.low.n];
+    STATE.charts.analysisSeg = new Chart(document.getElementById('chartSegBar'), {
+      type: 'bar',
+      data: {
+        labels: segLabels,
+        datasets: [
+          { label: 'DPV提升%', data: segDpv, backgroundColor: '#3b82f680', borderColor: '#3b82f6', borderWidth: 1, borderRadius: 4 },
+          { label: 'GMV提升%', data: segGmv, backgroundColor: '#10b98180', borderColor: '#10b981', borderWidth: 1, borderRadius: 4 }
+        ]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: {
+          legend: { labels: { color: darkText, font: {size:11} } },
+          tooltip: { callbacks: { afterLabel: function(ctx) { return '样本: ' + segN[ctx.dataIndex] + '户'; } } }
+        },
+        scales: {
+          x: { ticks: { color: darkText, font: {size:11} }, grid: { color: darkGrid } },
+          y: { ticks: { color: darkText, callback: function(v){return v+'%';} }, grid: { color: darkGrid }, beginAtZero: true }
+        }
+      }
+    });
+  }
+
+  // Chart 6: Category conversion rate horizontal bar
+  if (deep.catConversion && deep.catConversion.length > 0 && document.getElementById('chartConvBar')) {
+    var convData = deep.catConversion.filter(function(c){ return c.total >= 3; }).sort(function(a,b){ return a.rate - b.rate; }).slice(0, 10);
+    var convColors = convData.map(function(c) {
+      if (c.rate >= 10) return '#10b981';
+      if (c.rate >= 5) return '#f59e0b';
+      return '#ef4444';
+    });
+    STATE.charts.analysisConv = new Chart(document.getElementById('chartConvBar'), {
+      type: 'bar',
+      data: {
+        labels: convData.map(function(c){ return c.cat + ' (' + c.total + '户)'; }),
+        datasets: [{ label: '转化率%', data: convData.map(function(c){ return c.rate; }), backgroundColor: convColors.map(function(c){ return c + '80'; }), borderColor: convColors, borderWidth: 1, borderRadius: 4 }]
+      },
+      options: {
+        indexAxis: 'y',
+        responsive: true, maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: { callbacks: { label: function(ctx) { var c = convData[ctx.dataIndex]; return '转化率: ' + c.rate + '% (' + c.signed + '/' + c.total + ')'; } } }
+        },
+        scales: {
+          x: { ticks: { color: darkText, callback: function(v){return v+'%';} }, grid: { color: darkGrid }, beginAtZero: true },
+          y: { ticks: { color: darkText, font: {size:11} }, grid: { display: false } }
+        }
+      }
+    });
+  }
 }
 
 function renderProductRow(product, n, db, da, dp, gb, ga, gp) {
