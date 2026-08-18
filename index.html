@@ -1662,31 +1662,35 @@ async function uploadTopicExcel(topicId, file) {
           var cities = p.cities || [];
           if (typeof cities === 'string') { try { cities = JSON.parse(cities); } catch(e) { cities = []; } }
           cities.forEach(function(c) {
-            cityProviderMap[c] = p.provider_id;
-            cityProviderMap[c.replace(/市$/, '')] = p.provider_id;
-            cityProviderMap[c.replace(/县$/, '')] = p.provider_id;
+            [c, c.replace(/市$/, ''), c.replace(/县$/, '')].forEach(function(k) {
+              if (!cityProviderMap[k]) cityProviderMap[k] = [];
+              if (cityProviderMap[k].indexOf(p.provider_id) < 0) cityProviderMap[k].push(p.provider_id);
+            });
           });
         });
       } catch(e) { console.warn('Failed to load provider cities:', e); }
     }
 
     // Build leads: city for assignment, everything else goes to extra_data
+    // If a city matches multiple providers, create one lead per provider
     var leads = [];
     var extraKeys = headers.filter(function(h) { return h !== cityCol; });
     rows.forEach(function(r) {
       var city = String(r[cityCol] || '').trim();
-      var providerId = cityProviderMap[city] || cityProviderMap[city.replace(/市$/, '')] || cityProviderMap[city + '市'] || cityProviderMap[city + '县'] || '';
+      var providerIds = cityProviderMap[city] || cityProviderMap[city.replace(/市$/, '')] || cityProviderMap[city + '市'] || cityProviderMap[city + '县'] || [''];
       var extra = {};
       extraKeys.forEach(function(k) {
         var v = r[k];
         if (v !== '' && v !== null && v !== undefined) extra[k] = v;
       });
-      leads.push({
-        topic_id: topicId,
-        provider_id: providerId,
-        city: city,
-        status: 'new',
-        extra_data: extra
+      providerIds.forEach(function(pid) {
+        leads.push({
+          topic_id: topicId,
+          provider_id: pid,
+          city: city,
+          status: 'new',
+          extra_data: extra
+        });
       });
     });
 
