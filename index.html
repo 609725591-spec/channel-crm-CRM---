@@ -1663,6 +1663,8 @@ async function uploadTopicExcel(topicId, file) {
           if (typeof cities === 'string') { try { cities = JSON.parse(cities); } catch(e) { cities = []; } }
           cities.forEach(function(c) {
             cityProviderMap[c] = p.provider_id;
+            cityProviderMap[c.replace(/市$/, '')] = p.provider_id;
+            cityProviderMap[c.replace(/县$/, '')] = p.provider_id;
           });
         });
       } catch(e) { console.warn('Failed to load provider cities:', e); }
@@ -1673,7 +1675,7 @@ async function uploadTopicExcel(topicId, file) {
     var extraKeys = headers.filter(function(h) { return h !== cityCol; });
     rows.forEach(function(r) {
       var city = String(r[cityCol] || '').trim();
-      var providerId = cityProviderMap[city] || cityProviderMap[city.replace(/市$/, '')] || '';
+      var providerId = cityProviderMap[city] || cityProviderMap[city.replace(/市$/, '')] || cityProviderMap[city + '市'] || cityProviderMap[city + '县'] || '';
       var extra = {};
       extraKeys.forEach(function(k) {
         var v = r[k];
