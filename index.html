@@ -2675,11 +2675,12 @@ function renderSigningAnalysis(data, cities) {
     var pidProducts = {};
     var city = cities[0] || '';
     cases.forEach(function(c) {
-      if (c.city !== city || !c.pid) return;
+      var pid = c.metrics && c.metrics.pid;
+      if (c.city !== city || !pid) return;
       var pk = prodNameMap[c.product] || c.product;
       if (!prodNames[pk]) return;
-      if (!pidProducts[c.pid]) pidProducts[c.pid] = {};
-      pidProducts[c.pid][pk] = true;
+      if (!pidProducts[pid]) pidProducts[pid] = {};
+      pidProducts[pid][pk] = true;
     });
 
     // If city data too sparse (<5 unique pids), use all signed cases (region scope)
@@ -2689,11 +2690,12 @@ function renderSigningAnalysis(data, cities) {
       pidProducts = {};
       dataScope = region;
       cases.forEach(function(c) {
-        if (!c.pid) return;
+        var pid = c.metrics && c.metrics.pid;
+        if (!pid) return;
         var pk = prodNameMap[c.product] || c.product;
         if (!prodNames[pk]) return;
-        if (!pidProducts[c.pid]) pidProducts[c.pid] = {};
-        pidProducts[c.pid][pk] = true;
+        if (!pidProducts[pid]) pidProducts[pid] = {};
+        pidProducts[pid][pk] = true;
       });
     }
 
