@@ -6013,18 +6013,18 @@ document.addEventListener('keydown', function(e) {
   /* Hint tooltip above the orb */
   .orb-hint {
     position: fixed;
-    left: 12px;
-    bottom: 88px;
+    left: 16px;
+    bottom: 82px;
     z-index: 99999;
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: 3px;
     background: linear-gradient(135deg, #f59e0b, #f97316);
     color: #fff;
-    font-size: 14px;
-    font-weight: 700;
-    padding: 10px 16px;
-    border-radius: 22px;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 5px 10px;
+    border-radius: 14px;
     box-shadow: 0 0 0 0 rgba(245,158,11,.6);
     pointer-events: none;
     white-space: nowrap;
@@ -6032,16 +6032,16 @@ document.addEventListener('keydown', function(e) {
   }
   .orb-hint .finger {
     display: inline-block;
-    font-size: 20px;
+    font-size: 13px;
     animation: orbFingerBounce 1s ease-in-out infinite;
   }
   .orb-hint::after {
     content: '';
     position: absolute;
-    bottom: -7px;
-    left: 20px;
-    width: 14px;
-    height: 14px;
+    bottom: -5px;
+    left: 14px;
+    width: 10px;
+    height: 10px;
     background: #f97316;
     transform: rotate(45deg);
     border-radius: 2px;
@@ -6057,7 +6057,7 @@ document.addEventListener('keydown', function(e) {
     50% { transform: translateY(5px); }
   }
 </style>
-<div class="orb-hint"><span>问题可咨询小助手</span><span class="finger">👇</span></div>
+<div class="orb-hint"><span class="finger">👇</span><span>问题可咨询小助手</span></div>
 <script>
   window.dingtalkAgentConfig = {
     code: 'OgJyztv4Q6',
