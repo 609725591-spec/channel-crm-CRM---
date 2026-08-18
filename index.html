@@ -491,6 +491,7 @@ a { color:var(--accent2); text-decoration:none; }
         <h2 class="page-title">城市签约分析</h2>
         <p class="page-desc" id="analysisDesc">当前选中城市加载中...</p>
         <div id="analysisStats" class="stats-row"></div>
+        <div id="analysisLeadsStats" style="margin-top:16px;"></div>
         <div id="analysisChartHeader" style="margin-bottom:12px;"></div>
         <div id="analysisCharts" class="chart-grid" style="margin-bottom:24px;"></div>
         <div id="analysisSigning" style="margin-bottom:24px;"></div>
@@ -2128,11 +2129,15 @@ function renderAnalysis() {
   $('analysisStats').innerHTML =
     '<div class="stat-card"><div class="label">在约-高优商业化PID</div><div class="value blue">' + fmt(totalPIDs) + '</div><div class="sub">覆盖 ' + cities.length + ' 个城市</div></div>' +
     '<div class="stat-card"><div class="label">已签约PID</div><div class="value green">' + fmt(providerSigned) + '</div><div class="sub">转化率 ' + convRate + '%</div></div>' +
-    '<div class="stat-card"><div class="label">待签约PID</div><div class="value amber">' + fmt(pendingPIDs) + '</div><div class="sub">待拓展空间</div></div>' +
-    '</div><div class="stats-row" style="margin-top:-8px;">' +
-    '<div class="stat-card"><div class="label">公海-高优开店</div><div class="value purple">' + fmt(leadsTotal) + '</div><div class="sub">公海POI待开发</div></div>' +
+    '<div class="stat-card"><div class="label">待签约PID</div><div class="value amber">' + fmt(pendingPIDs) + '</div><div class="sub">待拓展空间</div></div>';
+
+  $('analysisLeadsStats').innerHTML =
+    '<div style="font-size:12px;color:var(--text3);margin-bottom:8px;padding-left:4px;">公海-高优开店</div>' +
+    '<div class="stats-row">' +
+    '<div class="stat-card"><div class="label">公海POI总数</div><div class="value purple">' + fmt(leadsTotal) + '</div><div class="sub">公海待开发</div></div>' +
     '<div class="stat-card"><div class="label">城市高优</div><div class="value green">' + fmt(leadsHighPriority) + '</div><div class="sub">占比' + (leadsTotal?(leadsHighPriority/leadsTotal*100).toFixed(1):0) + '%</div></div>' +
-    '<div class="stat-card"><div class="label">高DPV(100+)</div><div class="value amber">' + fmt(leadsHighDPV) + '</div><div class="sub">高流量潜力</div></div>';
+    '<div class="stat-card"><div class="label">高DPV(100+)</div><div class="value amber">' + fmt(leadsHighDPV) + '</div><div class="sub">高流量潜力</div></div>' +
+    '</div>';
 
   // === Section 2: Historical Signing Analysis (by product × category) ===
   renderSigningAnalysis(data, cities);
