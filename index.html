@@ -2477,7 +2477,7 @@ function renderSigningAnalysis(data, cities) {
   }
   // Chart 6: Category conversion rate horizontal bar
   if (deep.catConversion && deep.catConversion.length > 0) {
-    chartHtml += '<div class="chart-card"><div class="chart-title">类目签约转化率（PID池→签约）</div><div class="chart-canvas-wrap"><canvas id="chartConvBar"></canvas></div></div>';
+    chartHtml += '<div class="chart-card"><div class="chart-title">类目签约转化率（已签/池子总量，柱顶数字）</div><div class="chart-canvas-wrap"><canvas id="chartConvBar"></canvas></div></div>';
   }
 
   chartsEl.innerHTML = chartHtml;
@@ -2603,32 +2603,53 @@ function renderSigningAnalysis(data, cities) {
     });
   }
 
-  // Chart 6: Category conversion rate horizontal bar
+  // Chart 6: Category conversion rate bar (vertical, sorted high→low)
   if (deep.catConversion && deep.catConversion.length > 0 && document.getElementById('chartConvBar')) {
-    var convData = deep.catConversion.filter(function(c){ return c.total >= 3; }).sort(function(a,b){ return a.rate - b.rate; }).slice(0, 10);
+    var convData = deep.catConversion.filter(function(c){ return c.total >= 3; }).sort(function(a,b){ return b.rate - a.rate; }).slice(0, 12);
     var convColors = convData.map(function(c) {
       if (c.rate >= 10) return '#10b981';
-      if (c.rate >= 5) return '#f59e0b';
-      return '#ef4444';
+      if (c.rate >= 3) return '#f59e0b';
+      return '#3b82f6';
     });
     STATE.charts.analysisConv = new Chart(document.getElementById('chartConvBar'), {
       type: 'bar',
       data: {
-        labels: convData.map(function(c){ return c.cat + ' (' + c.total + '户)'; }),
+        labels: convData.map(function(c){ return c.cat; }),
         datasets: [{ label: '转化率%', data: convData.map(function(c){ return c.rate; }), backgroundColor: convColors.map(function(c){ return c + '80'; }), borderColor: convColors, borderWidth: 1, borderRadius: 4 }]
       },
       options: {
-        indexAxis: 'y',
         responsive: true, maintainAspectRatio: false,
         plugins: {
           legend: { display: false },
-          tooltip: { callbacks: { label: function(ctx) { var c = convData[ctx.dataIndex]; return '转化率: ' + c.rate + '% (' + c.signed + '/' + c.total + ')'; } } }
+          tooltip: { callbacks: {
+            title: function(items) { var c = convData[items[0].dataIndex]; return c.cat + ' · 转化率 ' + c.rate + '%'; },
+            label: function(ctx) { var c = convData[ctx.dataIndex]; return '已签约 ' + c.signed + ' / 池子 ' + c.total + '户'; },
+            afterLabel: function(ctx) { var c = convData[ctx.dataIndex]; var remain = c.total - c.signed; return '待签约空间: ' + remain + '户'; }
+          } }
         },
         scales: {
-          x: { ticks: { color: darkText, callback: function(v){return v+'%';} }, grid: { color: darkGrid }, beginAtZero: true },
-          y: { ticks: { color: darkText, font: {size:11} }, grid: { display: false } }
+          x: { ticks: { color: darkText, font: {size:10}, maxRotation: 30 }, grid: { display: false } },
+          y: { ticks: { color: darkText, callback: function(v){return v+'%';} }, grid: { color: darkGrid }, beginAtZero: true }
         }
-      }
+      },
+      plugins: [{
+        id: 'convLabels',
+        afterDatasetsDraw: function(chart) {
+          var ctx = chart.ctx;
+          chart.data.datasets[0].data.forEach(function(val, i) {
+            var meta = chart.getDatasetMeta(0);
+            var bar = meta.data[i];
+            if (!bar) return;
+            ctx.save();
+            ctx.fillStyle = '#94a3b8';
+            ctx.font = '10px sans-serif';
+            ctx.textAlign = 'center';
+            var c = convData[i];
+            ctx.fillText(c.signed + '/' + c.total, bar.x, bar.y - 6);
+            ctx.restore();
+          });
+        }
+      }]
     });
   }
 }
