@@ -5668,8 +5668,14 @@ document.addEventListener('keydown', function(e) {
 
 <!-- DingTalk AI Assistant (Floating Ball) -->
 <style>
-  #magicOrbContainer, .magic-orb-wrap, [class*="magicOrb"], [class*="magic-orb"] {
-    left: 20px !important; right: auto !important;
+  /* Move floating orb to bottom-left */
+  .dingtalk-open-copilot-container {
+    left: 16px !important;
+    right: unset !important;
+  }
+  .dingtalk-copilot-iframe-outter-container {
+    left: 0 !important;
+    right: unset !important;
   }
 </style>
 <script>
