@@ -2489,8 +2489,8 @@ function renderSigningAnalysis(data, cities) {
   if (deep.segments && (deep.segments.high.n > 0 || deep.segments.mid.n > 0 || deep.segments.low.n > 0)) {
     chartHtml += '<div class="chart-card"><div class="chart-title">DPV分层签约效果</div><div class="chart-canvas-wrap"><canvas id="chartSegBar"></canvas></div></div>';
   }
-  // Chart 6: Product cross-analysis heatmap (full width)
-  if (deep.catProdList && deep.catProdList.length > 0) {
+  // Chart 6: Product cross-analysis heatmap (full width) - always shown, supplemented by REAL_CASES
+  {
     chartHtml += '<div class="chart-card" style="grid-column:1/-1;"><div class="chart-title">产品×类目交叉分析（签约户数 / DPV提升% / GMV提升%）</div><div id="crossAnalysisHeatmap" style="overflow-x:auto;"></div></div>';
   }
 
@@ -2634,16 +2634,41 @@ function renderSigningAnalysis(data, cities) {
 
   // Chart 6: Product × Category cross-analysis heatmap (HTML table)
   var heatmapEl = document.getElementById('crossAnalysisHeatmap');
-  if (heatmapEl && deep.catProdList && deep.catProdList.length > 0) {
+  if (heatmapEl) {
     // Build cross matrix: rows=categories, cols=products
     var prodNames = {xg:'效果广告', znt:'品牌智能体', dz:'顶展', zx:'钻展', dj:'导结', pg:'品广'};
     var prodKeys = ['xg','znt','dz','zx','dj','pg'];
+    var prodNameMap = {};
+    Object.keys(prodNames).forEach(function(k) { prodNameMap[prodNames[k]] = k; });
     var catProdMap = {};
-    deep.catProdList.forEach(function(c) {
-      if (c.n < 2) return;
-      if (!catProdMap[c.cat]) catProdMap[c.cat] = {};
-      catProdMap[c.cat][c.prod] = { n: c.n, dp: c.dp, gp: c.gp };
+
+    // Step 1: City-level data from catProdList (threshold n>=1)
+    if (deep.catProdList) {
+      deep.catProdList.forEach(function(c) {
+        if (c.n < 1) return;
+        if (!catProdMap[c.cat]) catProdMap[c.cat] = {};
+        var pk = prodNameMap[c.prod] || c.prod;
+        catProdMap[c.cat][pk] = { n: c.n, dp: c.dp, gp: c.gp, src: 'city' };
+      });
+    }
+
+    // Step 2: Supplement from REAL_CASES regional data for missing product×category
+    prodKeys.forEach(function(pk) {
+      var pool = REAL_CASES[pk];
+      if (!pool || !pool[region]) return;
+      Object.keys(pool[region]).forEach(function(cat) {
+        var d = pool[region][cat];
+        if (!d || d.n < 2) return;
+        if (!catProdMap[cat]) catProdMap[cat] = {};
+        if (!catProdMap[cat][pk]) {
+          var dp = d.db > 0 ? Math.round((d.da - d.db) / d.db * 100) : 0;
+          var gp = d.gb > 0 ? Math.round((d.ga - d.gb) / d.gb * 100) : 0;
+          catProdMap[cat][pk] = { n: d.n, dp: dp, gp: gp, src: 'region' };
+        }
+      });
     });
+
+    // Sort categories by total signing count desc, top 15
     var cats = Object.keys(catProdMap).sort(function(a,b) {
       var na = 0, nb = 0;
       Object.values(catProdMap[a]).forEach(function(v){ na += v.n; });
@@ -2658,8 +2683,7 @@ function renderSigningAnalysis(data, cities) {
     cats.forEach(function(cat) {
       hmHtml += '<tr><td class="hm-cat">' + cat + '</td>';
       prodKeys.forEach(function(pk) {
-        var prodName = prodNames[pk];
-        var d = catProdMap[cat] ? catProdMap[cat][prodName] : null;
+        var d = catProdMap[cat] ? catProdMap[cat][pk] : null;
         if (!d) {
           hmHtml += '<td class="hm-empty">-</td>';
         } else {
@@ -2669,8 +2693,8 @@ function renderSigningAnalysis(data, cities) {
           else if (score >= 80) { bg = 'rgba(16,185,129,.2)'; textColor = '#34d399'; }
           else if (score >= 30) { bg = 'rgba(59,130,246,.15)'; textColor = '#60a5fa'; }
           else { bg = 'rgba(100,116,139,.1)'; textColor = '#94a3b8'; }
-          hmHtml += '<td class="hm-cell" style="background:' + bg + ';color:' + textColor + ';" title="' + cat + ' × ' + prodName + '&#10;签约' + d.n + '户&#10;DPV+' + d.dp + '% GMV+' + d.gp + '%">';
-          hmHtml += '<div class="hm-n">' + d.n + '户</div>';
+          hmHtml += '<td class="hm-cell" style="background:' + bg + ';color:' + textColor + ';" title="' + cat + ' × ' + prodNames[pk] + '&#10;签约' + d.n + '户&#10;DPV+' + d.dp + '% GMV+' + d.gp + '%' + (d.src === 'region' ? '&#10;(大区数据)' : '') + '">';
+          hmHtml += '<div class="hm-n">' + d.n + '户' + (d.src === 'region' ? '<span style="font-size:9px;opacity:.5;margin-left:2px;">区</span>' : '') + '</div>';
           hmHtml += '<div class="hm-dp">DPV<span class="' + (d.dp >= 0 ? 'pos' : 'neg') + '">' + (d.dp >= 0 ? '+' : '') + d.dp + '%</span></div>';
           hmHtml += '<div class="hm-gp">GMV<span class="' + (d.gp >= 0 ? 'pos' : 'neg') + '">' + (d.gp >= 0 ? '+' : '') + d.gp + '%</span></div>';
           hmHtml += '</td>';
