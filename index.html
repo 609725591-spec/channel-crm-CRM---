@@ -6375,15 +6375,17 @@ function endTour() {
   if (_tourEls.spotlight) _tourEls.spotlight.remove();
   if (_tourEls.bubble) _tourEls.bubble.remove();
   _tourEls = {};
-  // Mark tour as seen
-  if (STATE.user && STATE.user.provider_id) {
-    localStorage.setItem('crm_tour_done_' + STATE.user.provider_id, '1');
+  // Mark tour as seen per employee
+  var emp = STATE.currentEmployee || STATE.user.provider_id;
+  if (emp) {
+    localStorage.setItem('crm_tour_done_' + emp, '1');
   }
 }
 
 function maybeStartTour() {
   if (!STATE.user || !STATE.user.provider_id) return;
-  var key = 'crm_tour_done_' + STATE.user.provider_id;
+  var emp = STATE.currentEmployee || STATE.user.provider_id;
+  var key = 'crm_tour_done_' + emp;
   if (!localStorage.getItem(key)) {
     setTimeout(startTour, 600);
   }
