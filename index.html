@@ -230,6 +230,110 @@ a { color:var(--accent2); text-decoration:none; }
 .empty-state .icon { font-size:40px; margin-bottom:12px; }
 .empty-state .msg { font-size:14px; }
 
+/* ===== TOPIC LEADS PAGE ENHANCEMENTS ===== */
+.topic-stats .stat-card {
+  position:relative; overflow:hidden;
+  background:linear-gradient(135deg, var(--card) 0%, rgba(30,41,59,.8) 100%);
+  border:1px solid var(--border); border-radius:var(--radius-lg);
+  padding:18px 20px; transition:border-color var(--transition);
+}
+.topic-stats .stat-card:hover { border-color:var(--border2); }
+.topic-stats .stat-card::before {
+  content:''; position:absolute; top:0; left:0; right:0; height:3px;
+  border-radius:var(--radius-lg) var(--radius-lg) 0 0;
+}
+.topic-stats .stat-card:nth-child(1)::before { background:var(--accent2); }
+.topic-stats .stat-card:nth-child(2)::before { background:var(--amber); }
+.topic-stats .stat-card:nth-child(3)::before { background:#f97316; }
+.topic-stats .stat-card:nth-child(4)::before { background:var(--green); }
+.topic-stats .stat-card .label { font-size:12px; color:var(--text2); font-weight:500; letter-spacing:.5px; }
+.topic-stats .stat-card .value { font-size:28px; font-weight:800; margin-top:4px; }
+
+.topic-filter-bar {
+  background:var(--card); border:1px solid var(--border); border-radius:var(--radius-lg);
+  padding:12px 16px; margin-bottom:16px;
+}
+.topic-filter-bar input, .topic-filter-bar select {
+  background:var(--bg); border:1px solid var(--border); border-radius:6px;
+  padding:7px 12px; color:var(--text); font-size:13px; outline:none;
+  transition:border-color var(--transition);
+}
+.topic-filter-bar input:focus, .topic-filter-bar select:focus { border-color:var(--accent); }
+.topic-toolbar { display:flex; align-items:center; gap:8px; margin-left:auto; }
+.sel-count {
+  font-size:12px; color:var(--accent2); font-weight:600;
+  background:rgba(59,130,246,.12); padding:4px 10px; border-radius:6px;
+}
+.btn-topic-action {
+  padding:6px 14px; font-size:12px; font-weight:600;
+  background:var(--accent); color:#fff; border:none; border-radius:6px;
+  cursor:pointer; transition:background var(--transition);
+}
+.btn-topic-action:hover { background:#2563eb; }
+.btn-topic-export {
+  padding:6px 14px; font-size:12px; font-weight:600;
+  background:rgba(16,185,129,.12); color:var(--green); border:1px solid rgba(16,185,129,.25);
+  border-radius:6px; cursor:pointer; transition:all var(--transition);
+}
+.btn-topic-export:hover { background:rgba(16,185,129,.2); border-color:var(--green); }
+
+/* Topic data table */
+.topic-table-wrap {
+  background:var(--card); border:1px solid var(--border); border-radius:var(--radius-lg);
+  overflow:hidden;
+}
+.topic-table { width:100%; border-collapse:collapse; font-size:13px; }
+.topic-table thead { position:sticky; top:0; z-index:2; }
+.topic-table th {
+  background:var(--bg2); padding:11px 14px; text-align:left;
+  font-weight:600; font-size:12px; color:var(--text2);
+  letter-spacing:.3px; text-transform:none;
+  border-bottom:2px solid var(--border); white-space:nowrap;
+}
+.topic-table td {
+  padding:10px 14px; border-bottom:1px solid rgba(51,65,85,.5);
+  vertical-align:middle;
+}
+.topic-table tr { transition:background var(--transition); }
+.topic-table tbody tr:hover { background:var(--card-hover); }
+.topic-table tbody tr.selected { background:rgba(59,130,246,.08); }
+.topic-table .num { text-align:right; font-variant-numeric:tabular-nums; }
+.topic-table .td-city { font-weight:600; color:var(--accent2); white-space:nowrap; }
+.topic-table .td-notes {
+  max-width:160px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+  color:var(--text3); font-size:12px;
+}
+.topic-table .td-actions { white-space:nowrap; display:flex; gap:6px; align-items:center; }
+
+/* Checkbox styling */
+.topic-cb { width:16px; height:16px; accent-color:var(--accent); cursor:pointer; }
+.topic-cb-wrap { display:flex; align-items:center; justify-content:center; }
+
+/* Status badge */
+.status-badge {
+  display:inline-flex; align-items:center; gap:4px;
+  padding:3px 12px; border-radius:20px; font-size:12px; font-weight:600;
+  line-height:1.4;
+}
+.status-badge::before {
+  content:''; display:inline-block; width:6px; height:6px;
+  border-radius:50%; background:currentColor; opacity:.6;
+}
+
+/* Inline status select */
+.inline-status-sel {
+  font-size:12px; padding:3px 8px; border:1px solid var(--border);
+  border-radius:6px; background:var(--bg); color:var(--text);
+  outline:none; cursor:pointer; transition:border-color var(--transition);
+}
+.inline-status-sel:hover { border-color:var(--border2); }
+.note-btn {
+  width:28px; height:28px; display:inline-flex; align-items:center; justify-content:center;
+  background:transparent; border:1px solid var(--border); border-radius:6px;
+  cursor:pointer; font-size:13px; transition:all var(--transition);
+}
+.note-btn:hover { background:var(--bg3); border-color:var(--border2); }
+
 /* Mobile */
 @media(max-width:768px) {
   .menu-toggle { display:block; }
@@ -447,9 +551,9 @@ a { color:var(--accent2); text-decoration:none; }
         <h2 class="page-title">专项高优商机</h2>
         <p class="page-desc" id="topicsDesc">管理员分配的专题商机列表，按专题维度查看和跟进</p>
         <div id="topicsTabs" class="tab-bar"></div>
-        <div id="topicStats" class="stats-row" style="margin-top:16px;"></div>
-        <div class="filter-bar" id="topicFilters">
-          <input id="tfSearch" placeholder="搜索关键词" oninput="filterTopicLeads()">
+        <div id="topicStats" class="stats-row topic-stats" style="margin-top:16px;"></div>
+        <div class="filter-bar topic-filter-bar" id="topicFilters">
+          <input id="tfSearch" placeholder="搜索关键词..." oninput="filterTopicLeads()">
           <select id="tfCategory" onchange="filterTopicLeads()"><option value="">全部</option></select>
           <select id="tfCity" onchange="filterTopicLeads()"><option value="">全部城市</option></select>
           <select id="tfStatus" onchange="filterTopicLeads()">
@@ -460,6 +564,11 @@ a { color:var(--accent2); text-decoration:none; }
             <option value="signed">已签约</option>
             <option value="rejected">暂不考虑</option>
           </select>
+          <div class="topic-toolbar">
+            <span id="topicSelCount" class="sel-count" style="display:none;"></span>
+            <button id="topicBatchStatusBtn" class="btn-topic-action" style="display:none;" onclick="batchUpdateTopicStatus()">批量改状态</button>
+            <button class="btn-topic-export" onclick="exportTopicLeads()">导出Excel</button>
+          </div>
         </div>
         <div id="topicTableWrap"></div>
       </div>
@@ -1341,6 +1450,7 @@ function switchTopicTab(topicId) {
 }
 
 async function loadTopicLeads(topicId) {
+  _topicSelected = {};
   if (!sb) { renderTopicLeads(); return; }
   try {
     var query = sb.from('crm_topic_leads').select('*').eq('topic_id', topicId);
@@ -1434,12 +1544,111 @@ function filterTopicLeads() {
 }
 
 var TOPIC_STATUS_MAP = {
-  'new': {label:'未跟进', color:'#6b7280', bg:'#f3f4f6'},
-  'contacted': {label:'已联系', color:'#2563eb', bg:'#eff6ff'},
-  'interested': {label:'有意向', color:'#d97706', bg:'#fffbeb'},
-  'signed': {label:'已签约', color:'#059669', bg:'#ecfdf5'},
-  'rejected': {label:'暂不考虑', color:'#dc2626', bg:'#fef2f2'}
+  'new': {label:'未跟进', color:'#6b7280', bg:'rgba(107,114,128,.12)'},
+  'contacted': {label:'已联系', color:'#3b82f6', bg:'rgba(59,130,246,.12)'},
+  'interested': {label:'有意向', color:'#f59e0b', bg:'rgba(245,158,11,.12)'},
+  'signed': {label:'已签约', color:'#10b981', bg:'rgba(16,185,129,.12)'},
+  'rejected': {label:'暂不考虑', color:'#ef4444', bg:'rgba(239,68,68,.12)'}
 };
+
+// Selection state for topic leads
+var _topicSelected = {};  // {leadId: true}
+
+function toggleTopicSelect(id) {
+  if (_topicSelected[id]) delete _topicSelected[id];
+  else _topicSelected[id] = true;
+  updateTopicSelUI();
+}
+function toggleTopicSelectAll(cb) {
+  var data = STATE.topicLeadsFiltered || [];
+  if (cb.checked) data.forEach(function(d){ _topicSelected[d.id] = true; });
+  else _topicSelected = {};
+  // Update individual checkboxes
+  var cbs = document.querySelectorAll('.topic-row-cb');
+  cbs.forEach(function(c){ c.checked = cb.checked; });
+  var rows = document.querySelectorAll('.topic-table tbody tr');
+  rows.forEach(function(r){ if (cb.checked) r.classList.add('selected'); else r.classList.remove('selected'); });
+  updateTopicSelUI();
+}
+function updateTopicSelUI() {
+  var n = Object.keys(_topicSelected).length;
+  var countEl = $('topicSelCount');
+  var batchBtn = $('topicBatchStatusBtn');
+  if (n > 0) {
+    countEl.textContent = '已选 ' + n + ' 条';
+    countEl.style.display = 'inline-block';
+    batchBtn.style.display = 'inline-block';
+  } else {
+    countEl.style.display = 'none';
+    batchBtn.style.display = 'none';
+  }
+}
+function rowSelectChanged(cb, id) {
+  if (cb.checked) _topicSelected[id] = true;
+  else delete _topicSelected[id];
+  var tr = cb.closest('tr');
+  if (tr) { if (cb.checked) tr.classList.add('selected'); else tr.classList.remove('selected'); }
+  updateTopicSelUI();
+  // Update "select all" checkbox
+  var allCb = document.querySelector('.topic-select-all');
+  if (allCb) {
+    var total = document.querySelectorAll('.topic-row-cb').length;
+    var checked = document.querySelectorAll('.topic-row-cb:checked').length;
+    allCb.checked = checked === total && total > 0;
+    allCb.indeterminate = checked > 0 && checked < total;
+  }
+}
+
+function batchUpdateTopicStatus() {
+  var ids = Object.keys(_topicSelected).map(Number);
+  if (ids.length === 0) return;
+  var status = prompt('批量修改状态（输入数字）：\n1=已联系 2=有意向 3=已签约 4=暂不考虑');
+  var map = {'1':'contacted','2':'interested','3':'signed','4':'rejected'};
+  if (!map[status]) return;
+  ids.forEach(function(id) { updateTopicLeadStatus(id, map[status]); });
+  _topicSelected = {};
+  updateTopicSelUI();
+  setTimeout(function(){ filterTopicLeads(); }, 300);
+}
+
+function exportTopicLeads() {
+  var data = STATE.topicLeadsFiltered;
+  if (!data || data.length === 0) { alert('暂无数据可导出'); return; }
+  // Check if any selected — export selected only
+  var selIds = Object.keys(_topicSelected);
+  var exportData = selIds.length > 0 ? data.filter(function(d){ return _topicSelected[d.id]; }) : data;
+
+  // Discover dynamic cols
+  var dynamicCols = [];
+  var colSet = {};
+  exportData.forEach(function(d) {
+    if (d.extra_data && typeof d.extra_data === 'object') {
+      Object.keys(d.extra_data).forEach(function(k) {
+        if (!colSet[k]) { colSet[k] = 1; dynamicCols.push(k); }
+      });
+    }
+  });
+
+  var rows = [];
+  var header = ['城市'];
+  dynamicCols.forEach(function(c){ header.push(c); });
+  header.push('状态', '备注');
+  rows.push(header);
+
+  exportData.forEach(function(d) {
+    var st = TOPIC_STATUS_MAP[d.status] || TOPIC_STATUS_MAP['new'];
+    var extra = (d.extra_data && typeof d.extra_data === 'object') ? d.extra_data : {};
+    var row = [d.city || ''];
+    dynamicCols.forEach(function(c){ row.push(extra[c] !== undefined && extra[c] !== null ? extra[c] : ''); });
+    row.push(st.label, d.follow_notes || '');
+    rows.push(row);
+  });
+
+  var ws = XLSX.utils.aoa_to_sheet(rows);
+  var wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, '商机数据');
+  XLSX.writeFile(wb, '专项高优商机_' + (selIds.length > 0 ? '已选' + selIds.length + '条' : '全部') + '_' + new Date().toISOString().slice(0,10) + '.xlsx');
+}
 
 function renderTopicLeads() {
   var data = STATE.topicLeadsFiltered;
@@ -1451,8 +1660,8 @@ function renderTopicLeads() {
   $('topicStats').innerHTML =
     '<div class="stat-card"><div class="label">商机总数</div><div class="value blue">' + total + '</div></div>' +
     '<div class="stat-card"><div class="label">未跟进</div><div class="value amber">' + newCount + '</div></div>' +
-    '<div class="stat-card"><div class="label">有意向</div><div class="value" style="color:#d97706;">' + interestedCount + '</div></div>' +
-    '<div class="stat-card"><div class="label">已签约</div><div class="value green">' + signedCount + '</div><div class="sub">转化率' + (total ? (signedCount/total*100).toFixed(1) : 0) + '%</div></div>';
+    '<div class="stat-card"><div class="label">有意向</div><div class="value" style="color:#f97316;">' + interestedCount + '</div></div>' +
+    '<div class="stat-card"><div class="label">已签约</div><div class="value green">' + signedCount + '</div><div class="sub">转化率 ' + (total ? (signedCount/total*100).toFixed(1) : '0.0') + '%</div></div>';
 
   if (data.length === 0) {
     $('topicTableWrap').innerHTML = '<div class="empty-state" style="margin-top:24px;"><div class="icon">🔍</div><div class="msg">暂无匹配的商机</div></div>';
@@ -1470,41 +1679,45 @@ function renderTopicLeads() {
     }
   });
 
-  // Build table header: city (always) + dynamic cols + status + notes + action
-  var html = '<div style="overflow-x:auto;"><table><thead><tr><th>城市</th>';
-  dynamicCols.forEach(function(col) {
-    html += '<th>' + col + '</th>';
-  });
-  html += '<th>状态</th><th>备注</th><th>操作</th></tr></thead><tbody>';
+  // Build table
+  var html = '<div class="topic-table-wrap" style="overflow-x:auto;"><table class="topic-table"><thead><tr>';
+  html += '<th style="width:40px;text-align:center;"><input type="checkbox" class="topic-cb topic-select-all" onchange="toggleTopicSelectAll(this)"></th>';
+  html += '<th>城市</th>';
+  dynamicCols.forEach(function(col) { html += '<th>' + col + '</th>'; });
+  html += '<th>状态</th><th>备注</th><th>操作</th>';
+  html += '</tr></thead><tbody>';
 
   data.forEach(function(d) {
     var st = TOPIC_STATUS_MAP[d.status] || TOPIC_STATUS_MAP['new'];
     var extra = (d.extra_data && typeof d.extra_data === 'object') ? d.extra_data : {};
-    html += '<tr>';
-    html += '<td>' + (d.city||'-') + '</td>';
+    var isSel = !!_topicSelected[d.id];
+    html += '<tr class="' + (isSel ? 'selected' : '') + '">';
+    html += '<td class="topic-cb-wrap"><input type="checkbox" class="topic-cb topic-row-cb" ' + (isSel ? 'checked' : '') + ' onchange="rowSelectChanged(this,' + d.id + ')"></td>';
+    html += '<td class="td-city">' + (d.city||'-') + '</td>';
     dynamicCols.forEach(function(col) {
       var v = extra[col];
       if (v === undefined || v === null || v === '') v = '-';
-      var style = '';
-      if (typeof v === 'number' || (!isNaN(parseFloat(v)) && v !== '')) style = ' class="num"';
-      html += '<td' + style + '>' + v + '</td>';
+      var cls = '';
+      if (typeof v === 'number' || (!isNaN(parseFloat(v)) && v !== '' && v !== '-')) cls = ' class="num"';
+      html += '<td' + cls + '>' + v + '</td>';
     });
-    html += '<td><span style="display:inline-block;padding:2px 10px;border-radius:12px;font-size:12px;font-weight:600;color:' + st.color + ';background:' + st.bg + ';">' + st.label + '</span></td>';
-    html += '<td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="' + (d.follow_notes||'').replace(/"/g,'&quot;') + '">' + (d.follow_notes||'-') + '</td>';
-    html += '<td style="white-space:nowrap;">' +
-      '<select onchange="updateTopicLeadStatus(' + d.id + ',this.value)" style="font-size:12px;padding:2px 6px;border:1px solid var(--border);border-radius:6px;">' +
+    html += '<td><span class="status-badge" style="color:' + st.color + ';background:' + st.bg + ';">' + st.label + '</span></td>';
+    html += '<td class="td-notes" title="' + (d.follow_notes||'').replace(/"/g,'&quot;') + '">' + (d.follow_notes||'-') + '</td>';
+    html += '<td><div class="td-actions">' +
+      '<select class="inline-status-sel" onchange="updateTopicLeadStatus(' + d.id + ',this.value)">' +
         '<option value="">改状态</option>' +
         '<option value="contacted">已联系</option>' +
         '<option value="interested">有意向</option>' +
         '<option value="signed">已签约</option>' +
         '<option value="rejected">暂不考虑</option>' +
-      '</select> ' +
-      '<button class="btn btn-sm" onclick="promptTopicNote(' + d.id + ')" style="font-size:12px;padding:2px 8px;">📝</button>' +
-    '</td>';
+      '</select>' +
+      '<button class="note-btn" onclick="promptTopicNote(' + d.id + ')" title="添加备注">📝</button>' +
+    '</div></td>';
     html += '</tr>';
   });
   html += '</tbody></table></div>';
   $('topicTableWrap').innerHTML = html;
+  updateTopicSelUI();
 }
 
 async function updateTopicLeadStatus(id, status) {
