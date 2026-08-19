@@ -2589,12 +2589,15 @@ function renderSigningAnalysis(data, cities) {
 
   var prodList = Object.entries(prodAgg).map(function(e) {
     return {key:e[0], name:e[1].name || prodNames[e[0]] || e[0], n:e[1].n, dp:e[1].dp, gp:e[1].gp};
-  }).filter(function(p) {
-    // 产品级别放宽：至少一个指标正向且不超过500%即可（允许另一个指标为负）
-    var dpOk = p.dp > 0 && p.dp <= 500;
-    var gpOk = p.gp > 0 && p.gp <= 500;
-    return dpOk || gpOk;
-  }).sort(function(a,b){return b.n - a.n;});
+  });
+  if (!useCity) {
+    prodList = prodList.filter(function(p) {
+      var dpOk = p.dp > 0 && p.dp <= 500;
+      var gpOk = p.gp > 0 && p.gp <= 500;
+      return dpOk || gpOk;
+    });
+  }
+  prodList.sort(function(a,b){return b.n - a.n;});
 
   // 补齐：仅在城市数据不足时，缺数据的产品从大区REAL_CASES补回
   if (!useCity) {
