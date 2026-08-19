@@ -430,6 +430,9 @@ a { color:var(--accent2); text-decoration:none; }
 .train-video-info .title { font-size:14px; font-weight:600; color:var(--text); margin-bottom:6px; line-height:1.4; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
 .train-video-info .meta { font-size:12px; color:var(--text3); display:flex; gap:12px; align-items:center; }
 .train-video-info .tag { padding:2px 8px; background:var(--bg3); border-radius:4px; font-size:11px; color:var(--text2); }
+.train-filter-btn { padding:5px 14px; background:var(--bg3); border:1px solid var(--border); border-radius:20px; font-size:12px; color:var(--text2); cursor:pointer; transition:all .2s; white-space:nowrap; }
+.train-filter-btn:hover { border-color:var(--accent); color:var(--accent2); }
+.train-filter-btn.active { background:var(--accent); border-color:var(--accent); color:#fff; font-weight:600; }
 
 /* ===== Guided Tour ===== */
 .tour-overlay {
@@ -900,6 +903,7 @@ a { color:var(--accent2); text-decoration:none; }
           </div>
         </div>
         <div id="training-video" class="training-panel" style="display:none;">
+          <div id="trainVideoFilter" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;"></div>
           <div id="trainVideoGrid" class="train-video-grid"></div>
         </div>
       </div>
@@ -6356,11 +6360,32 @@ var TRAINING_CAT = {
   '休娱': {cls:'thumb-cat-leisure', icon:'🎮', label:'休娱'},
   '文旅大交通': {cls:'thumb-cat-travel', icon:'✈️', label:'文旅大交通'}
 };
+var _trainFilterTag = '';
+function renderTrainingVideoFilters() {
+  var bar = $('trainVideoFilter');
+  if (!bar) return;
+  var tags = {};
+  TRAINING_VIDEOS.forEach(function(v) { if (v.tag) tags[v.tag] = (tags[v.tag]||0)+1; });
+  var html = '<div class="train-filter-btn' + (!_trainFilterTag?' active':'') + '" onclick="filterTrainingVideos(\'\')">全部 (' + TRAINING_VIDEOS.length + ')</div>';
+  Object.keys(tags).forEach(function(t) {
+    var cat = TRAINING_CAT[t];
+    var icon = cat ? cat.icon + ' ' : '';
+    html += '<div class="train-filter-btn' + (_trainFilterTag===t?' active':'') + '" onclick="filterTrainingVideos(\'' + t + '\')">' + icon + t + ' (' + tags[t] + ')</div>';
+  });
+  bar.innerHTML = html;
+}
+function filterTrainingVideos(tag) {
+  _trainFilterTag = tag;
+  renderTrainingVideoFilters();
+  renderTrainingVideos();
+}
 function renderTrainingVideos() {
   var grid = $('trainVideoGrid');
   if (!grid) return;
+  renderTrainingVideoFilters();
+  var list = _trainFilterTag ? TRAINING_VIDEOS.filter(function(v) { return v.tag === _trainFilterTag; }) : TRAINING_VIDEOS;
   var html = '';
-  TRAINING_VIDEOS.forEach(function(v) {
+  list.forEach(function(v) {
     var cat = TRAINING_CAT[v.tag] || {cls:'thumb-cat-effect', icon:'🎬', label:v.tag||''};
     html += '<div class="train-video-card" onclick="window.open(\'' + v.url.replace(/'/g, "\\'") + '\',\'_blank\')">';
     html += '<div class="train-video-thumb ' + cat.cls + '">';
