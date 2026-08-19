@@ -708,6 +708,23 @@ a { color:var(--accent2); text-decoration:none; }
             <option value="">全部DPV</option>
             <option value="high">高DPV(100+)</option>
           </select>
+          <div class="search-select" id="lfBangdanWrap">
+            <input class="search-select-input" id="lfBangdanInput" placeholder="全部榜单" autocomplete="off" style="width:140px;">
+            <span class="search-select-arrow">▾</span>
+            <div class="search-select-dropdown" id="lfBangdanDD"></div>
+          </div>
+          <select id="lfBangdan" onchange="filterLeads()" style="display:none;"><option value="">全部榜单</option></select>
+          <select id="lfScenic" onchange="filterLeads()">
+            <option value="">是否景区</option>
+            <option value="yes">景区POI</option>
+            <option value="no">非景区</option>
+          </select>
+          <div class="search-select" id="lfRecProdWrap">
+            <input class="search-select-input" id="lfRecProdInput" placeholder="推荐产品" autocomplete="off" style="width:120px;">
+            <span class="search-select-arrow">▾</span>
+            <div class="search-select-dropdown" id="lfRecProdDD"></div>
+          </div>
+          <select id="lfRecProd" onchange="filterLeads()" style="display:none;"><option value="">推荐产品</option></select>
           <button class="btn btn-outline btn-sm" onclick="exportLeads()">📥 导出</button>
           <button class="btn btn-sm" onclick="window.open('https://xy.amap.com/','_blank')" style="background:#f59e0b;color:#000;font-weight:600;text-decoration:none;">进入轩辕系统</button>
         </div>
@@ -1550,11 +1567,51 @@ async function loadData() {
   }
   console.timeEnd('precompute recProducts');
 
+  // Pre-compute recommended products for leads (used by filter)
+  console.time('precompute leads recProducts');
+  for (var lri = 0; lri < STATE.leadsData.length; lri++) {
+    STATE.leadsData[lri].recProducts = getRecProducts(STATE.leadsData[lri]);
+  }
+  console.timeEnd('precompute leads recProducts');
+
   // Populate category filters
   populateCategoryFilter('cfCategory', STATE.commercialData, 'category_l2');
   populateCategoryFilter('lfCategory', STATE.leadsData, 'category_l2');
   initSearchSelect('cfCategory', 'cfCategoryInput', 'cfCategoryDD');
   initSearchSelect('lfCategory', 'lfCategoryInput', 'lfCategoryDD');
+
+  // Populate bangdan filter (combined bangdan_type + bangdan_sub)
+  var bangdanOpts = {};
+  STATE.leadsData.forEach(function(d) {
+    if (d.bangdan_type && d.bangdan_sub) {
+      bangdanOpts[d.bangdan_type + '-' + d.bangdan_sub] = true;
+    } else if (d.bangdan_type) {
+      bangdanOpts[d.bangdan_type] = true;
+    }
+  });
+  var lfBangdan = $('lfBangdan');
+  lfBangdan._allCats = Object.keys(bangdanOpts).sort();
+  lfBangdan._allLabel = '全部榜单';
+  lfBangdan._allCats.forEach(function(v) {
+    var opt = document.createElement('option');
+    opt.value = v; opt.textContent = v;
+    lfBangdan.appendChild(opt);
+  });
+  initSearchSelect('lfBangdan', 'lfBangdanInput', 'lfBangdanDD');
+
+  // Populate recProduct filter for leads
+  var prodNames = {znt:'品牌智能体',xg:'效果广告',dz:'顶展',zx:'钻展',dj:'导结',pz:'品专版'};
+  var lfRecProd = $('lfRecProd');
+  lfRecProd._allCats = Object.keys(prodNames).map(function(k){ return prodNames[k]; });
+  lfRecProd._allLabel = '推荐产品';
+  lfRecProd._prodKeyMap = {};
+  Object.keys(prodNames).forEach(function(k){ lfRecProd._prodKeyMap[prodNames[k]] = k; });
+  lfRecProd._allCats.forEach(function(v) {
+    var opt = document.createElement('option');
+    opt.value = v; opt.textContent = v;
+    lfRecProd.appendChild(opt);
+  });
+  initSearchSelect('lfRecProd', 'lfRecProdInput', 'lfRecProdDD');
 }
 
 function populateCategoryFilter(selectId, data, field) {
@@ -1575,11 +1632,12 @@ function populateCategoryFilter(selectId, data, field) {
 function initSearchSelect(selectId, inputId, ddId) {
   var sel = $(selectId), inp = $(inputId), dd = $(ddId);
   var allItems = sel._allCats || [];
+  var allLabel = sel._allLabel || '全部类目';
   var selected = '';
 
   function render(q) {
     q = (q || '').toLowerCase();
-    var html = '<div class="search-select-item' + (!selected ? ' selected' : '') + '" data-val="">全部类目</div>';
+    var html = '<div class="search-select-item' + (!selected ? ' selected' : '') + '" data-val="">' + allLabel + '</div>';
     allItems.forEach(function(cat) {
       if (q && cat.toLowerCase().indexOf(q) < 0) return;
       var cls = cat === selected ? ' selected' : '';
@@ -1594,7 +1652,7 @@ function initSearchSelect(selectId, inputId, ddId) {
     selected = val;
     sel.value = val;
     inp.value = val || '';
-    inp.placeholder = val || '全部类目';
+    inp.placeholder = val || allLabel;
     close();
     sel.dispatchEvent(new Event('change'));
   }
@@ -3236,9 +3294,14 @@ function renderLeads() {
   var total = data.length;
   var highDPV = data.filter(function(d){return d.dpv_30d >= 100;}).length;
 
+  var scenicCount = data.filter(function(d){return d.scenic === '风景名胜';}).length;
+  var zhuangyuanCount = data.filter(function(d){return d.bangdan_type === '状元榜';}).length;
+
   $('leadsStats').innerHTML =
     '<div class="stat-card"><div class="label">城市待开店高优leads总数</div><div class="value blue">' + fmt(total) + '</div></div>' +
-    '<div class="stat-card"><div class="label">高DPV(100+)</div><div class="value amber">' + fmt(highDPV) + '</div><div class="sub">占比' + (total?(highDPV/total*100).toFixed(1):0) + '%</div></div>';
+    '<div class="stat-card"><div class="label">高DPV(100+)</div><div class="value amber">' + fmt(highDPV) + '</div><div class="sub">占比' + (total?(highDPV/total*100).toFixed(1):0) + '%</div></div>' +
+    '<div class="stat-card"><div class="label">状元榜</div><div class="value" style="color:#dc2626;">' + fmt(zhuangyuanCount) + '</div><div class="sub">占比' + (total?(zhuangyuanCount/total*100).toFixed(1):0) + '%</div></div>' +
+    '<div class="stat-card"><div class="label">景区POI</div><div class="value" style="color:#059669;">' + fmt(scenicCount) + '</div><div class="sub">占比' + (total?(scenicCount/total*100).toFixed(1):0) + '%</div></div>';
 }
 
 function filterLeads() {
@@ -3246,12 +3309,23 @@ function filterLeads() {
   var cat = $('lfCategory').value;
   var priority = $('lfPriority').value;
   var dpv = $('lfDpv').value;
+  var bangdan = ($('lfBangdan').value || '').toLowerCase();
+  var scenic = $('lfScenic').value;
+  var recProdLabel = $('lfRecProd').value;
+  var recProdKey = recProdLabel ? ($('lfRecProd')._prodKeyMap || {})[recProdLabel] : '';
 
   STATE.leadsFiltered = STATE.leadsData.filter(function(d) {
     if (search && (d.poi_name||'').toLowerCase().indexOf(search) < 0 && (d.poi_id||'').indexOf(search) < 0) return false;
     if (cat && d.category_l2 !== cat) return false;
     if (priority === 'high' && !d.is_high_priority) return false;
     if (dpv === 'high' && (d.dpv_30d || 0) < 100) return false;
+    if (bangdan) {
+      var dBangdan = ((d.bangdan_type||'') + (d.bangdan_sub ? '-' + d.bangdan_sub : '')).toLowerCase();
+      if (dBangdan.indexOf(bangdan) < 0) return false;
+    }
+    if (scenic === 'yes' && d.scenic !== '风景名胜') return false;
+    if (scenic === 'no' && d.scenic === '风景名胜') return false;
+    if (recProdKey && d.recProducts && d.recProducts.indexOf(recProdKey) < 0) return false;
     return true;
   });
 
@@ -3274,14 +3348,24 @@ function renderLeadsTable() {
   var dpvArrow = sort.dir === 'desc' ? ' ▼' : ' ▲';
 
   var html = '<div class="data-table-wrap" style="max-height:calc(100vh - 340px);overflow-y:auto;"><table class="data-table">' +
-    '<thead><tr><th>POI名称</th><th>城市</th><th>类目</th><th class="num" style="cursor:pointer;user-select:none;" onclick="sortLeads(\'dpv_30d\')">近30天日均DPV' + dpvArrow + '</th><th>品牌类型</th><th>烟火档位</th><th>高优</th></tr></thead><tbody>';
+    '<thead><tr><th>POI名称</th><th>POI标签</th><th>城市</th><th>类目</th><th class="num" style="cursor:pointer;user-select:none;" onclick="sortLeads(\'dpv_30d\')">近30天日均DPV' + dpvArrow + '</th><th>品牌类型</th><th>烟火档位</th><th>高优</th></tr></thead><tbody>';
 
   if (pageData.length === 0) {
-    html += '<tr><td colspan="7" style="text-align:center;padding:30px;color:var(--text3);">暂无数据</td></tr>';
+    html += '<tr><td colspan="8" style="text-align:center;padding:30px;color:var(--text3);">暂无数据</td></tr>';
   } else {
     pageData.forEach(function(d) {
+      var tags = '';
+      if (d.bangdan_type) {
+        var bangdanColor = d.bangdan_type === '状元榜' ? '#dc2626' : '#2563eb';
+        var bangdanText = d.bangdan_sub ? d.bangdan_type + '-' + d.bangdan_sub : d.bangdan_type;
+        tags += '<span style="display:inline-block;background:' + bangdanColor + ';color:#fff;font-size:11px;padding:2px 6px;border-radius:4px;margin-right:4px;white-space:nowrap;">' + bangdanText + '</span>';
+      }
+      if (d.scenic === '风景名胜') {
+        tags += '<span style="display:inline-block;background:#059669;color:#fff;font-size:11px;padding:2px 6px;border-radius:4px;white-space:nowrap;">景区POI</span>';
+      }
       html += '<tr>' +
         '<td><strong style="cursor:pointer;color:var(--accent2);" onclick="showLeadDetail(\'' + (d.poi_id||'').replace(/'/g,"\\'") + '\')">' + (d.poi_name||'-') + '</strong></td>' +
+        '<td>' + (tags || '<span style="color:var(--text3);">-</span>') + '</td>' +
         '<td>' + d.city + '</td>' +
         '<td>' + (d.category_l2||'-') + '</td>' +
         '<td class="num">' + fmtDpv(d.dpv_30d) + '</td>' +
@@ -4473,6 +4557,9 @@ function showLeadDetail(poiId, autoFollow) {
     detailItem('品牌类型', d.brand_type) + detailItem('地址', d.address) +
     detailItem('烟火档位', d.smoke_level) + detailItem('30天DPV', fmtDpv(d.dpv_30d)) +
     detailItem('城市高优', d.is_high_priority ? '✅ 是' : '否') +
+    detailItem('榜单', d.bangdan_type ? (d.bangdan_type + (d.bangdan_sub ? '-' + d.bangdan_sub : '')) : '-') +
+    detailItem('景区', d.scenic || '-') + detailItem('AOI', d.aoi_name || '-') +
+    detailItem('是否有品', d.has_product === 1 ? '是' : (d.has_product === 0 ? '否' : '-')) +
     '</div></div>';
 
   // 跟进人 selector
