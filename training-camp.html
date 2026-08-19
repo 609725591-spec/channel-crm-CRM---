@@ -2210,7 +2210,7 @@ window.App = {
     var name = params.get('name');
     var company = params.get('company');
     var role = params.get('role') || 'rep';
-    if (name && !this.state.user) {
+    if (name) {
       this.state.user = {
         name: name,
         company: company || '',
