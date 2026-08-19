@@ -2474,6 +2474,7 @@ function renderSigningAnalysis(data, cities) {
     }).sort(function(a,b){return b.n - a.n;});
     var need = 8 - top8.length;
     for (var i = 0; i < Math.min(need, regionExtras.length); i++) {
+      regionExtras[i]._region = true;
       top8.push(regionExtras[i]);
     }
   }
@@ -2506,7 +2507,7 @@ function renderSigningAnalysis(data, cities) {
     var dpOk = dp > 0 && dp <= 500;
     var gpOk = gp > 0 && gp <= 500;
     if ((dpOk || gpOk) && dp >= 0 && gp >= 0) {
-      prodList.push({key:pt, name:prodNames[pt], n:n, dp:dp, gp:gp});
+      prodList.push({key:pt, name:prodNames[pt], n:n, dp:dp, gp:gp, _region:true});
     }
   });
   prodList.sort(function(a,b){return b.n - a.n;});
@@ -2618,6 +2619,7 @@ function renderSigningAnalysis(data, cities) {
   html += '<h4 style="font-size:14px;font-weight:600;margin-bottom:12px;color:var(--accent);">签约Top ' + top8.length + '类目（跨产品汇总）</h4>';
 
   if (top8.length > 0) {
+    var hasRegionCats = top8.some(function(c){return c._region;});
     html += '<div class="data-table-wrap"><table class="data-table"><thead><tr>';
     html += '<th>类目</th><th class="num">签约户数</th><th class="num">DPV提升</th><th class="num">GMV提升</th>';
     html += '</tr></thead><tbody>';
@@ -2626,12 +2628,17 @@ function renderSigningAnalysis(data, cities) {
       var gpColor = c.gp > 0 ? 'var(--green)' : 'var(--red)';
       var dpText = c.dp > 0 ? '+' + c.dp + '%' : (c.dp < 0 ? c.dp + '%' : '持平');
       var gpText = c.gp > 0 ? '+' + c.gp + '%' : (c.gp < 0 ? c.gp + '%' : '持平');
-      html += '<tr><td><strong>' + c.cat + '</strong></td>';
+      var rowStyle = c._region ? ' style="opacity:0.7;"' : '';
+      var catLabel = c._region ? c.cat + ' <span style="font-size:10px;color:var(--text3);font-weight:400;background:var(--bg2);padding:1px 6px;border-radius:3px;margin-left:4px;">' + region + '参考</span>' : c.cat;
+      html += '<tr' + rowStyle + '><td><strong>' + catLabel + '</strong></td>';
       html += '<td class="num">' + c.n + '</td>';
       html += '<td class="num" style="color:' + dpColor + ';font-weight:600;">' + dpText + '</td>';
       html += '<td class="num" style="color:' + gpColor + ';font-weight:600;">' + gpText + '</td></tr>';
     });
     html += '</tbody></table></div>';
+    if (hasRegionCats) {
+      html += '<div style="font-size:11px;color:var(--text3);margin-top:6px;padding:0 4px;">* 标注「' + region + '参考」的类目为本市暂无数据时从大区汇总数据中补充，签约户数为' + region + '全区域合计，仅供参考。</div>';
+    }
   } else {
     html += '<p style="color:var(--text3);text-align:center;padding:20px;">暂无该区域历史签约数据</p>';
   }
@@ -2642,6 +2649,7 @@ function renderSigningAnalysis(data, cities) {
   html += '<h4 style="font-size:14px;font-weight:600;margin-bottom:12px;color:var(--accent2);">签约产品效果（跨类目汇总）</h4>';
 
   if (prodList.length > 0) {
+    var hasRegionProds = prodList.some(function(p){return p._region;});
     html += '<div class="data-table-wrap"><table class="data-table"><thead><tr>';
     html += '<th>产品</th><th class="num">签约户数</th><th class="num">DPV提升</th><th class="num">GMV提升</th>';
     html += '</tr></thead><tbody>';
@@ -2650,12 +2658,17 @@ function renderSigningAnalysis(data, cities) {
       var gpColor = p.gp > 0 ? 'var(--green)' : 'var(--red)';
       var dpText = p.dp > 0 ? '+' + p.dp + '%' : (p.dp < 0 ? p.dp + '%' : '持平');
       var gpText = p.gp > 0 ? '+' + p.gp + '%' : (p.gp < 0 ? p.gp + '%' : '持平');
-      html += '<tr><td><strong>' + p.name + '</strong></td>';
+      var rowStyle = p._region ? ' style="opacity:0.7;"' : '';
+      var prodLabel = p._region ? p.name + ' <span style="font-size:10px;color:var(--text3);font-weight:400;background:var(--bg2);padding:1px 6px;border-radius:3px;margin-left:4px;">' + region + '参考</span>' : p.name;
+      html += '<tr' + rowStyle + '><td><strong>' + prodLabel + '</strong></td>';
       html += '<td class="num">' + p.n + '</td>';
       html += '<td class="num" style="color:' + dpColor + ';font-weight:600;">' + dpText + '</td>';
       html += '<td class="num" style="color:' + gpColor + ';font-weight:600;">' + gpText + '</td></tr>';
     });
     html += '</tbody></table></div>';
+    if (hasRegionProds) {
+      html += '<div style="font-size:11px;color:var(--text3);margin-top:6px;padding:0 4px;">* 标注「' + region + '参考」的产品为本市暂无数据时从大区汇总数据中补充，仅供参考。</div>';
+    }
   } else {
     html += '<p style="color:var(--text3);text-align:center;padding:20px;">暂无该区域产品签约数据</p>';
   }
