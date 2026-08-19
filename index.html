@@ -683,7 +683,7 @@ a { color:var(--accent2); text-decoration:none; }
             <option value="pz">品专版</option>
           </select>
           <div class="search-select" id="cfMaintainerWrap">
-            <input class="search-select-input" id="cfMaintainerInput" placeholder="商户运维小二" autocomplete="off" style="width:130px;">
+            <input class="search-select-input" id="cfMaintainerInput" placeholder="小二" autocomplete="off" style="width:80px;">
             <span class="search-select-arrow">▾</span>
             <div class="search-select-dropdown" id="cfMaintainerDD"></div>
           </div>
@@ -1593,7 +1593,7 @@ async function loadData() {
   });
   var cfMaintainer = $('cfMaintainer');
   cfMaintainer._allCats = Object.keys(maintainerOpts).sort();
-  cfMaintainer._allLabel = '商户运维小二';
+  cfMaintainer._allLabel = '小二';
   cfMaintainer._allCats.forEach(function(v) {
     var opt = document.createElement('option');
     opt.value = v; opt.textContent = v;
@@ -3276,7 +3276,7 @@ function renderCommercialTable() {
   STATE.myPool.forEach(function(p){ if(p.target_type==='pid') poolSet[p.target_id] = p.id; });
 
   var html = '<div class="data-table-wrap" style="max-height:calc(100vh - 340px);overflow-y:auto;"><table class="data-table">' +
-    '<thead><tr><th style="width:30px;text-align:center;"><input type="checkbox" onchange="toggleAllPoolCheck(this,\'comm\')"></th><th>门店名</th><th>商户运维小二</th><th>PID</th><th>城市</th><th>类目</th><th>分层</th><th class="num" style="cursor:pointer;user-select:none;" onclick="sortCommercial(\'dpv_30d\')">日均DPV' + dpvArrow + '</th><th class="num" style="cursor:pointer;user-select:none;" onclick="sortCommercial(\'store_count\')">门店数' + storeArrow + '</th><th>签约</th><th>状态</th><th>操作</th></tr></thead><tbody>';
+    '<thead><tr><th style="width:30px;text-align:center;"><input type="checkbox" onchange="toggleAllPoolCheck(this,\'comm\')"></th><th>门店名</th><th>小二</th><th>PID</th><th>城市</th><th>类目</th><th>分层</th><th class="num" style="cursor:pointer;user-select:none;" onclick="sortCommercial(\'dpv_30d\')">日均DPV' + dpvArrow + '</th><th class="num" style="cursor:pointer;user-select:none;" onclick="sortCommercial(\'store_count\')">门店数' + storeArrow + '</th><th>签约</th><th>状态</th><th>操作</th></tr></thead><tbody>';
 
   if (pageData.length === 0) {
     html += '<tr><td colspan="12" style="text-align:center;padding:30px;color:var(--text3);">暂无数据</td></tr>';
