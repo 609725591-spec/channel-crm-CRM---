@@ -2219,6 +2219,20 @@ window.App = {
       };
       this.saveState();
     }
+    // Also listen for postMessage from CRM parent (cross-origin fallback)
+    window.addEventListener('message', function(e) {
+      if (e.data && e.data.type === 'crm-auto-login' && e.data.name) {
+        App.state.user = {
+          name: e.data.name,
+          company: e.data.company || '',
+          phone: 'crm_' + e.data.name,
+          role: e.data.role || 'rep'
+        };
+        App.saveState();
+        App.showApp();
+        App.navigate('learn');
+      }
+    });
   },
 
   // ─── AUTH ───────────────────────────────────────────
