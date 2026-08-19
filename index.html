@@ -3745,7 +3745,7 @@ function getRecProducts(d) {
     zx: findCaseData(region, cat, 'zx'),
     dj: findCaseData(region, cat, 'dj')
   };
-  var hasDzOpp = !checkOccupancy(d.city, d.category_l3 || cat).occupied;
+  var hasDzOpp = !checkOccupancy(d.city, d.category_l3 || cat, cat).occupied;
   var tier = getCityDpvTier(d.city, dpv);
   var candidates = [];
 
@@ -3818,9 +3818,9 @@ function renderRecommendations(d) {
     dj: {name:'导结', data: findCaseData(region, cat, 'dj')}
   };
 
-  // Check occupancy for 顶展/钻展（优先用三级类目匹配）
+  // Check occupancy for 顶展/钻展（优先用三级类目精确匹配，回退到二级类目路径匹配）
   var occCat = d.category_l3 || cat;
-  var occ = checkOccupancy(d.city, occCat);
+  var occ = checkOccupancy(d.city, occCat, cat);
   var hasDzOpp = !occ.occupied;
 
   // ── 评分制推荐：按城市DPV分层×类目×门店数打分，取Top≤3 ──
@@ -4799,7 +4799,7 @@ function renderFollowUpTimeline(targetType, targetId) {
 /* =============================================
    OCCUPANCY CHECK
    ============================================= */
-function checkOccupancy(city, category) {
+function checkOccupancy(city, category, l2Category) {
   var now = new Date();
   var match = STATE.occupancy.find(function(o) {
     if (o.city_name !== city) return false;
@@ -4809,6 +4809,19 @@ function checkOccupancy(city, category) {
     return occCat === category;
   });
   if (match) return { occupied: true, start: match.start_time, end: match.end_time };
+  // l3未匹配到时，回退检查l2是否在biz_name路径中（同l2下任意子类目被占=该l2词包不可售）
+  if (l2Category && l2Category !== category) {
+    var l2Match = STATE.occupancy.find(function(o) {
+      if (o.city_name !== city) return false;
+      if (new Date(o.start_time) > now || new Date(o.end_time) < now) return false;
+      var parts = (o.biz_name || '').split(';');
+      for (var i = 0; i < parts.length; i++) {
+        if (parts[i] === l2Category) return true;
+      }
+      return false;
+    });
+    if (l2Match) return { occupied: true, start: l2Match.start_time, end: l2Match.end_time };
+  }
   return { occupied: false };
 }
 
