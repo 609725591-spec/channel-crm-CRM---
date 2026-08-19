@@ -3661,7 +3661,7 @@ function getRecProducts(d) {
     zx: findCaseData(region, cat, 'zx'),
     dj: findCaseData(region, cat, 'dj')
   };
-  var hasDzOpp = !checkOccupancy(d.city, cat).occupied;
+  var hasDzOpp = !checkOccupancy(d.city, d.category_l3 || cat).occupied;
   var tier = getCityDpvTier(d.city, dpv);
   var candidates = [];
 
@@ -3734,8 +3734,9 @@ function renderRecommendations(d) {
     dj: {name:'导结', data: findCaseData(region, cat, 'dj')}
   };
 
-  // Check occupancy for 顶展/钻展
-  var occ = checkOccupancy(d.city, cat);
+  // Check occupancy for 顶展/钻展（优先用三级类目匹配）
+  var occCat = d.category_l3 || cat;
+  var occ = checkOccupancy(d.city, occCat);
   var hasDzOpp = !occ.occupied;
 
   // ── 评分制推荐：按城市DPV分层×类目×门店数打分，取Top≤3 ──
@@ -4717,11 +4718,8 @@ function checkOccupancy(city, category) {
     if (o.city_name !== city) return false;
     if (new Date(o.start_time) > now || new Date(o.end_time) < now) return false;
     var parts = (o.biz_name || '').split(';');
-    // 匹配任意层级：顶展按城市×二级类目售卖，biz_name任一环节匹配即视为占用
-    for (var i = 0; i < parts.length; i++) {
-      if (parts[i] === category) return true;
-    }
-    return false;
+    var occCat = parts[parts.length - 1]; // 取最深层类目
+    return occCat === category;
   });
   if (match) return { occupied: true, start: match.start_time, end: match.end_time };
   return { occupied: false };
