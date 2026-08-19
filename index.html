@@ -3767,7 +3767,7 @@ function renderRecommendations(d) {
     else if (tier === 'medium') dzScore += 15;
     if (caseMap.dz.data && caseMap.dz.data.dp > 0) dzScore += 20;
     if (stores >= 3) dzScore += 10;
-    if (dzScore >= 30) candidates.push({key:'dz', name:'顶展', score:dzScore, tag:'品牌曝光', color:'#ea580c'});
+    if (dzScore >= 30) candidates.push({key:'dz', name:'顶展', score:dzScore, tag:'🔥 顶展机会', color:'#ea580c'});
   }
 
   // 钻展评分：高DPV+连锁品牌
@@ -3777,7 +3777,7 @@ function renderRecommendations(d) {
     else if (tier === 'medium') zxScore += 15;
     if (caseMap.zx.data && caseMap.zx.data.dp > 0) zxScore += 20;
     if (stores >= 5) zxScore += 10;
-    if (zxScore >= 30) candidates.push({key:'zx', name:'钻展', score:zxScore, tag:'品牌曝光', color:'#7c3aed'});
+    if (zxScore >= 30) candidates.push({key:'zx', name:'钻展', score:zxScore, tag:'🔥 钻展机会', color:'#7c3aed'});
   }
 
   // 导结评分：有真实案例才推荐
@@ -4717,8 +4717,11 @@ function checkOccupancy(city, category) {
     if (o.city_name !== city) return false;
     if (new Date(o.start_time) > now || new Date(o.end_time) < now) return false;
     var parts = (o.biz_name || '').split(';');
-    var occCat = parts[parts.length - 1]; // 取最深层类目
-    return occCat === category;
+    // 匹配任意层级：顶展按城市×二级类目售卖，biz_name任一环节匹配即视为占用
+    for (var i = 0; i < parts.length; i++) {
+      if (parts[i] === category) return true;
+    }
+    return false;
   });
   if (match) return { occupied: true, start: match.start_time, end: match.end_time };
   return { occupied: false };
