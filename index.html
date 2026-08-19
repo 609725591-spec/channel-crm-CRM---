@@ -408,13 +408,24 @@ a { color:var(--accent2); text-decoration:none; }
 /* Script cards — removed */
 
 /* ===== Training Video Cards ===== */
-.train-video-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(320px,1fr)); gap:16px; }
+.train-video-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(300px,1fr)); gap:16px; }
 .train-video-card { background:var(--card); border:1px solid var(--border); border-radius:var(--radius-lg); overflow:hidden; cursor:pointer; transition:all .2s; }
 .train-video-card:hover { border-color:var(--accent); transform:translateY(-2px); box-shadow:0 6px 20px rgba(0,0,0,.3); }
-.train-video-thumb { position:relative; width:100%; aspect-ratio:16/9; background:linear-gradient(135deg,#1a1f3a 0%,#0f172a 100%); display:flex; align-items:center; justify-content:center; }
-.train-video-thumb .play-icon { width:56px; height:56px; background:rgba(59,130,246,.85); border-radius:50%; display:flex; align-items:center; justify-content:center; transition:transform .2s; }
-.train-video-card:hover .play-icon { transform:scale(1.1); }
-.train-video-thumb .play-icon::after { content:''; width:0; height:0; border-left:18px solid #fff; border-top:11px solid transparent; border-bottom:11px solid transparent; margin-left:4px; }
+.train-video-thumb { position:relative; width:100%; aspect-ratio:16/9; display:flex; align-items:center; justify-content:center; flex-direction:column; overflow:hidden; }
+.train-video-thumb .thumb-icon { font-size:42px; margin-bottom:6px; filter:drop-shadow(0 2px 8px rgba(0,0,0,.3)); }
+.train-video-thumb .thumb-label { font-size:13px; font-weight:600; color:rgba(255,255,255,.85); letter-spacing:1px; text-shadow:0 1px 4px rgba(0,0,0,.4); }
+.train-video-thumb .play-btn { position:absolute; bottom:12px; right:12px; width:36px; height:36px; background:rgba(255,255,255,.18); backdrop-filter:blur(4px); border-radius:50%; display:flex; align-items:center; justify-content:center; transition:all .2s; }
+.train-video-card:hover .play-btn { background:rgba(59,130,246,.85); transform:scale(1.1); }
+.train-video-thumb .play-btn::after { content:''; width:0; height:0; border-left:12px solid #fff; border-top:7px solid transparent; border-bottom:7px solid transparent; margin-left:3px; }
+/* Category gradients */
+.thumb-cat-onboard { background:linear-gradient(135deg,#1e3a5f 0%,#0f766e 50%,#134e4a 100%); }
+.thumb-cat-compliance { background:linear-gradient(135deg,#7f1d1d 0%,#991b1b 50%,#450a0a 100%); }
+.thumb-cat-effect { background:linear-gradient(135deg,#1e40af 0%,#3b82f6 50%,#1d4ed8 100%); }
+.thumb-cat-agent { background:linear-gradient(135deg,#581c87 0%,#7c3aed 50%,#4c1d95 100%); }
+.thumb-cat-brand { background:linear-gradient(135deg,#92400e 0%,#d97706 50%,#78350f 100%); }
+.thumb-cat-convert { background:linear-gradient(135deg,#065f46 0%,#10b981 50%,#064e3b 100%); }
+.thumb-cat-leisure { background:linear-gradient(135deg,#9d174d 0%,#ec4899 50%,#831843 100%); }
+.thumb-cat-travel { background:linear-gradient(135deg,#0e7490 0%,#06b6d4 50%,#164e63 100%); }
 .train-video-info { padding:14px 16px; }
 .train-video-info .title { font-size:14px; font-weight:600; color:var(--text); margin-bottom:6px; line-height:1.4; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
 .train-video-info .meta { font-size:12px; color:var(--text3); display:flex; gap:12px; align-items:center; }
@@ -6335,13 +6346,28 @@ var TRAINING_VIDEOS = [
 function renderTraining() {
   renderTrainingVideos();
 }
+var TRAINING_CAT = {
+  '新人培训': {cls:'thumb-cat-onboard', icon:'🎓', label:'新人培训'},
+  '合规培训': {cls:'thumb-cat-compliance', icon:'⚠️', label:'合规培训'},
+  '效果广告': {cls:'thumb-cat-effect', icon:'📊', label:'效果广告'},
+  '智能体': {cls:'thumb-cat-agent', icon:'🤖', label:'智能体'},
+  '品牌广告': {cls:'thumb-cat-brand', icon:'🏷️', label:'品牌广告'},
+  '导结': {cls:'thumb-cat-convert', icon:'📞', label:'导结'},
+  '休娱': {cls:'thumb-cat-leisure', icon:'🎮', label:'休娱'},
+  '文旅大交通': {cls:'thumb-cat-travel', icon:'✈️', label:'文旅大交通'}
+};
 function renderTrainingVideos() {
   var grid = $('trainVideoGrid');
   if (!grid) return;
   var html = '';
   TRAINING_VIDEOS.forEach(function(v) {
+    var cat = TRAINING_CAT[v.tag] || {cls:'thumb-cat-effect', icon:'🎬', label:v.tag||''};
     html += '<div class="train-video-card" onclick="window.open(\'' + v.url.replace(/'/g, "\\'") + '\',\'_blank\')">';
-    html += '<div class="train-video-thumb"><div class="play-icon"></div></div>';
+    html += '<div class="train-video-thumb ' + cat.cls + '">';
+    html += '<div class="thumb-icon">' + cat.icon + '</div>';
+    html += '<div class="thumb-label">' + cat.label + '</div>';
+    html += '<div class="play-btn"></div>';
+    html += '</div>';
     html += '<div class="train-video-info">';
     html += '<div class="title">' + v.title + '</div>';
     html += '<div class="meta">';
