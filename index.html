@@ -6777,8 +6777,9 @@ function switchTrainingTab(tab) {
     var tcFrame = $('trainingCampFrame');
     if (tcFrame && tcFrame.getAttribute('data-loaded') !== 'true') {
       var u = STATE.user || {};
-      var params = 'name=' + encodeURIComponent(u.employee_name || u.name || '') +
-        '&company=' + encodeURIComponent(u.provider_name || u.company || '') +
+      var empName = STATE.currentEmployee || u.provider_name || '';
+      var params = 'name=' + encodeURIComponent(empName) +
+        '&company=' + encodeURIComponent(u.provider_name || '') +
         '&role=rep';
       tcFrame.src = 'https://609725591-spec.github.io/channel-crm-CRM---/training-camp.html?' + params;
       tcFrame.setAttribute('data-loaded', 'true');
