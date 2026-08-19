@@ -2191,16 +2191,34 @@ window.App = {
   // ─── INIT ───────────────────────────────────────────
   init() {
     this.loadState();
+    this.checkUrlAutoLogin();
     this.navigate('learn');
     if (typeof SupabaseSync !== 'undefined') SupabaseSync.init();
     this.setupNavigation();
     this.setupLoginForm();
     if (this.state.user) {
       this.showApp();
-      this.route(location.hash || '#home');
+      this.route(location.hash || '#learn');
     }
     window.addEventListener('hashchange', () => this.route(location.hash));
     this.populateCompanyList();
+  },
+
+  // ─── AUTO-LOGIN FROM CRM URL PARAMS ────────────────
+  checkUrlAutoLogin() {
+    var params = new URLSearchParams(location.search);
+    var name = params.get('name');
+    var company = params.get('company');
+    var role = params.get('role') || 'rep';
+    if (name && !this.state.user) {
+      this.state.user = {
+        name: name,
+        company: company || '',
+        phone: 'crm_' + name,
+        role: role
+      };
+      this.saveState();
+    }
   },
 
   // ─── AUTH ───────────────────────────────────────────
