@@ -682,6 +682,12 @@ a { color:var(--accent2); text-decoration:none; }
             <option value="dj">导结</option>
             <option value="pz">品专版</option>
           </select>
+          <div class="search-select" id="cfMaintainerWrap">
+            <input class="search-select-input" id="cfMaintainerInput" placeholder="运维小二" autocomplete="off" style="width:110px;">
+            <span class="search-select-arrow">▾</span>
+            <div class="search-select-dropdown" id="cfMaintainerDD"></div>
+          </div>
+          <select id="cfMaintainer" onchange="filterCommercial()" style="display:none;"><option value="">运维小二</option></select>
           <button class="btn btn-outline btn-sm" onclick="exportCommercial()">📥 导出</button>
           <button class="btn btn-primary btn-sm" onclick="openCustomModal('commercial')">+ 添加商机</button>
           <button class="btn btn-sm" onclick="window.open('https://xy.amap.com/','_blank')" style="background:#f59e0b;color:#000;font-weight:600;text-decoration:none;">进入轩辕系统</button>
@@ -1583,6 +1589,21 @@ async function loadData() {
   populateCategoryFilter('lfCategory', STATE.leadsData, 'category_l2');
   initSearchSelect('cfCategory', 'cfCategoryInput', 'cfCategoryDD');
   initSearchSelect('lfCategory', 'lfCategoryInput', 'lfCategoryDD');
+
+  // Populate maintainer filter for commercial page
+  var maintainerOpts = {};
+  STATE.commercialData.forEach(function(d) {
+    if (d.maintainer) maintainerOpts[d.maintainer] = true;
+  });
+  var cfMaintainer = $('cfMaintainer');
+  cfMaintainer._allCats = Object.keys(maintainerOpts).sort();
+  cfMaintainer._allLabel = '运维小二';
+  cfMaintainer._allCats.forEach(function(v) {
+    var opt = document.createElement('option');
+    opt.value = v; opt.textContent = v;
+    cfMaintainer.appendChild(opt);
+  });
+  initSearchSelect('cfMaintainer', 'cfMaintainerInput', 'cfMaintainerDD');
 
   // Populate bangdan filter (combined bangdan_type + bangdan_sub)
   var bangdanOpts = {};
@@ -3200,6 +3221,7 @@ function filterCommercial() {
   var cat = $('cfCategory').value;
   var status = $('cfStatus').value;
   var recProd = $('cfRecProduct').value;
+  var maintainer = ($('cfMaintainer').value || '');
 
   STATE.commercialFiltered = STATE.commercialData.filter(function(d) {
     // 只展示未签约商户
@@ -3207,6 +3229,7 @@ function filterCommercial() {
     if (search && (d.store_name||'').toLowerCase().indexOf(search) < 0 && (d.pid||'').indexOf(search) < 0) return false;
     if (tier && d.tier !== tier) return false;
     if (cat && d.category_l2 !== cat) return false;
+    if (maintainer && (d.maintainer||'') !== maintainer) return false;
     // Status filter based on follow-ups
     if (status) {
       var fu = getFollowUpStatus('pid', d.pid);
@@ -3243,10 +3266,10 @@ function renderCommercialTable() {
   STATE.myPool.forEach(function(p){ if(p.target_type==='pid') poolSet[p.target_id] = p.id; });
 
   var html = '<div class="data-table-wrap" style="max-height:calc(100vh - 340px);overflow-y:auto;"><table class="data-table">' +
-    '<thead><tr><th style="width:30px;text-align:center;"><input type="checkbox" onchange="toggleAllPoolCheck(this,\'comm\')"></th><th>门店名</th><th>PID</th><th>城市</th><th>类目</th><th>分层</th><th class="num" style="cursor:pointer;user-select:none;" onclick="sortCommercial(\'dpv_30d\')">日均DPV' + dpvArrow + '</th><th class="num" style="cursor:pointer;user-select:none;" onclick="sortCommercial(\'store_count\')">门店数' + storeArrow + '</th><th>签约</th><th>状态</th><th>操作</th></tr></thead><tbody>';
+    '<thead><tr><th style="width:30px;text-align:center;"><input type="checkbox" onchange="toggleAllPoolCheck(this,\'comm\')"></th><th>门店名</th><th>运维</th><th>PID</th><th>城市</th><th>类目</th><th>分层</th><th class="num" style="cursor:pointer;user-select:none;" onclick="sortCommercial(\'dpv_30d\')">日均DPV' + dpvArrow + '</th><th class="num" style="cursor:pointer;user-select:none;" onclick="sortCommercial(\'store_count\')">门店数' + storeArrow + '</th><th>签约</th><th>状态</th><th>操作</th></tr></thead><tbody>';
 
   if (pageData.length === 0) {
-    html += '<tr><td colspan="11" style="text-align:center;padding:30px;color:var(--text3);">暂无数据</td></tr>';
+    html += '<tr><td colspan="12" style="text-align:center;padding:30px;color:var(--text3);">暂无数据</td></tr>';
   } else {
     pageData.forEach(function(d) {
       var signed = [];
@@ -3275,6 +3298,7 @@ function renderCommercialTable() {
       html += '<tr>' +
         '<td style="text-align:center;"><input type="checkbox" class="pool-check" data-type="pid" data-id="' + d.pid + '"></td>' +
         '<td class="clickable" onclick="showPIDDetail(\'' + d.pid + '\')"><strong>' + (d.store_name||'-') + '</strong></td>' +
+        '<td style="font-size:12px;color:var(--text2);">' + (d.maintainer||'-') + '</td>' +
         '<td style="font-size:12px;color:var(--text3);">' + d.pid + '</td>' +
         '<td>' + d.city + '</td>' +
         '<td>' + (d.category_l2||'-') + '</td>' +
