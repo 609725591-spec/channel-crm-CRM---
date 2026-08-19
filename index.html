@@ -619,6 +619,9 @@ a { color:var(--accent2); text-decoration:none; }
       <div class="nav-item" data-page="training" onclick="navigate('training')">
         <span class="nav-icon">🎓</span>培训专区
       </div>
+      <div class="nav-item" data-page="trainingCamp" onclick="navigate('trainingCamp')">
+        <span class="nav-icon">🏋️</span>广告特训营
+      </div>
       <div class="nav-divider"></div>
       <div class="nav-item" data-page="admin" onclick="navigate('admin')" id="navAdmin" style="display:none">
         <span class="nav-icon">⚙️</span>管理后台
@@ -942,6 +945,11 @@ a { color:var(--accent2); text-decoration:none; }
           <div id="trainAllVideoFilter" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;"></div>
           <div id="trainAllVideoGrid" class="train-video-grid"></div>
         </div>
+      </div>
+
+      <!-- ===== PAGE: 广告特训营 ===== -->
+      <div id="page-trainingCamp" class="page" style="padding:0;">
+        <iframe id="trainingCampFrame" style="width:100%;height:calc(100vh - 60px);border:none;border-radius:var(--radius);" data-loaded="false"></iframe>
       </div>
 
     </main>
@@ -1438,6 +1446,13 @@ function navigate(page) {
     case 'occupancy': renderOccupancy(); break;
     case 'caseLib': renderCaseLib(); break;
     case 'training': renderTraining(); break;
+    case 'trainingCamp':
+      var tcFrame = $('trainingCampFrame');
+      if (tcFrame && tcFrame.getAttribute('data-loaded') !== 'true') {
+        tcFrame.src = 'https://609725591-spec.github.io/ad-training-camp/#learn';
+        tcFrame.setAttribute('data-loaded', 'true');
+      }
+      break;
     case 'admin': renderAdmin(); break;
     case 'topics': renderTopicsPage(); break;
     case 'mgmt': renderMgmtDashboard(); break;
