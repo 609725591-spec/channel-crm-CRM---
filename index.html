@@ -1443,14 +1443,13 @@ async function loadData() {
 
   if (isReal) {
     try {
-      // Build query: filter by provider_id + selected cities
+      // Build query: PIDs by provider_id + cities; Leads shared by city (公海按城市共享，不区分服务商)
       var pidQuery = sb.from('crm_pids').select('*')
         .eq('provider_id', STATE.user.provider_id)
         .order('dpv_30d', {ascending: false});
       if (STATE.cities.length > 0) pidQuery = pidQuery.in('city', STATE.cities);
 
       var leadQuery = sb.from('crm_leads').select('*')
-        .eq('provider_id', STATE.user.provider_id)
         .order('dpv_30d', {ascending: false});
       if (STATE.cities.length > 0) leadQuery = leadQuery.in('city', STATE.cities);
 
