@@ -426,6 +426,10 @@ a { color:var(--accent2); text-decoration:none; }
 .thumb-cat-convert { background:linear-gradient(135deg,#065f46 0%,#10b981 50%,#064e3b 100%); }
 .thumb-cat-leisure { background:linear-gradient(135deg,#9d174d 0%,#ec4899 50%,#831843 100%); }
 .thumb-cat-travel { background:linear-gradient(135deg,#0e7490 0%,#06b6d4 50%,#164e63 100%); }
+.thumb-cat-growth { background:linear-gradient(135deg,#065f46 0%,#059669 50%,#064e3b 100%); }
+.thumb-cat-ops { background:linear-gradient(135deg,#92400e 0%,#b45309 50%,#78350f 100%); }
+.thumb-cat-tools { background:linear-gradient(135deg,#374151 0%,#6b7280 50%,#374151 100%); }
+.thumb-cat-nourl { background:linear-gradient(135deg,#1e293b 0%,#334155 50%,#1e293b 100%); }
 .train-video-info { padding:14px 16px; }
 .train-video-info .title { font-size:14px; font-weight:600; color:var(--text); margin-bottom:6px; line-height:1.4; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
 .train-video-info .meta { font-size:12px; color:var(--text3); display:flex; gap:12px; align-items:center; }
@@ -6408,17 +6412,135 @@ function renderTrainingVideos() {
   });
   grid.innerHTML = html || '<div style="text-align:center;padding:60px 20px;color:var(--text3);grid-column:1/-1;"><div style="font-size:48px;margin-bottom:16px;">🎬</div><div style="font-size:15px;">暂无视频课程</div></div>';
 }
+var TRAINING_ALL_VIDEOS = [
+  {title:'智能体商家效果案例分享',url:'',tag:'智能体 & AI',date:'2026-08-20',instructor:'页城'},
+  {title:'品效组合购案例分享',url:'https://n.dingtalk.com/dingding/live-room/index.html?roomId=PnxJoI8lXP&liveUuid=d487c890-1a91-46ce-9e1c-2ef534cbca04&from=ShareCard',tag:'品牌广告 · 顶展 & 品专',date:'2026-08-19',instructor:'大爱'},
+  {title:'五分钟信息同步 & 智能体 & 导结案例分享',url:'https://n.dingtalk.com/dingding/live-room/index.html?roomId=73TlF9nq8h&liveUuid=452b4b83-0d07-4343-b6e6-ae0d1b266785',tag:'智能体 & AI',date:'2026-08-18',instructor:'于富江'},
+  {title:'休娱代运营分享',url:'https://n.dingtalk.com/dingding/live-room/index.html?roomId=d2p4Cc4fJ4&liveUuid=3589ec82-21d6-4a87-9d93-a3059577366a&from=ShareCard',tag:'非美食行业 · 文旅/休娱/商圈',date:'2026-08-18',instructor:'何小玉'},
+  {title:'高德AI外呼帮订｜一句话，定一单',url:'https://n.dingtalk.com/dingding/live-room/index.html?roomId=EGgVWa1RJk&liveUuid=b806c4bd-d8a5-43ba-8f24-91f74cf76b10&from=ShareCard',tag:'智能体 & AI',date:'2026-08-14',instructor:'向麟'},
+  {title:'效广新签提额分享',url:'https://n.dingtalk.com/dingding/live-room/index.html?roomId=mrtJ8n3NqE&liveUuid=10d7b863-8c28-4290-8e02-a1ba263254aa&from=ShareCard',tag:'效果广告',date:'2026-08-14',instructor:'页城'},
+  {title:'《广告投后运营实战》',url:'https://n.dingtalk.com/dingding/live-room/index.html?roomId=3qDvSaXEMb&liveUuid=431d9273-c8d9-4aed-a0aa-71641d8e37b3&from=ShareCard',tag:'效果广告',date:'2026-08-13',instructor:'郑雅琪'},
+  {title:'【运维夜校】8月冲量星期五战役',url:'https://n.dingtalk.com/dingding/live-room/index.html?roomId=Y27KfOcw1x&liveUuid=050f07c8-9b20-4749-a5ff-57155c924a48&from=ShareCard',tag:'运筹 · 营销大促 & 夜校',date:'2026-08-13',instructor:'渠电广告策略运营-六夏'},
+  {title:'【必学】品广-产品知识讲解-大爱',url:'https://n.dingtalk.com/dingding/live-room/index.html?roomId=CQI56pURyU&liveUuid=a3ddd01a-9700-4a21-b1a0-a5918d49f244&from=ShareCard',tag:'品牌广告 · 顶展 & 品专',date:'2026-08-13',instructor:'大爱'},
+  {title:'【导结专题培训】产品认知&价值理解',url:'https://n.dingtalk.com/dingding/live-room/index.html?roomId=QD9w4fmHIU&liveUuid=ee038aa4-e28e-4eea-8bdc-80fb258ab5fa&from=ShareCard',tag:'导航结束页（导结）',date:'2026-08-12',instructor:'邹佳睿'},
+  {title:'【渠道】新服务商成长培训营',url:'https://n.dingtalk.com/dingding/live-room/index.html?roomId=yqLIoGSpmP&liveUuid=14d0cd77-ce05-4be2-879f-95feb6e5028f&from=ShareCard',tag:'新人 & 服务商成长营',date:'2026-08-12',instructor:'涂跃辉'},
+  {title:'休娱丽人行业政策',url:'https://n.dingtalk.com/dingding/live-room/index.html?roomId=OGEnz9VOto&liveUuid=de540977-a7ff-47c9-b4cd-18b3f3813c9c&from=ShareCard',tag:'非美食行业 · 文旅/休娱/商圈',date:'2026-08-12',instructor:'壹昕'},
+  {title:'智能体售卖技巧分享',url:'https://n.dingtalk.com/dingding/live-room/index.html?roomId=LPxBGz3lL2&liveUuid=aef308a9-12b0-462a-8f4f-b887b00011c4&from=ShareCard',tag:'智能体 & AI',date:'2026-08-11',instructor:'大爱'},
+  {title:'【轩辕平台】报价工具操作使用培训',url:'https://n.dingtalk.com/dingding/live-room/index.html?roomId=rsfUz5Y0GQ&liveUuid=edb37eb6-912f-4f0a-bb69-6b6b47fa97a0&from=ShareCard',tag:'工具 & 系统',date:'2026-08-07',instructor:'小陶'},
+  {title:'品牌智能体-一句话生成商家海报培训',url:'https://n.dingtalk.com/dingding/live-room/index.html?roomId=BfZhytcIqj&liveUuid=e7031745-a7f0-4d4c-821d-90a69f7787a3&from=ShareCard',tag:'智能体 & AI',date:'2026-08-07',instructor:'黑帅'},
+  {title:'无效线索赔付新规&绩效申诉新增AI预审',url:'https://n.dingtalk.com/dingding/live-room/index.html?roomId=JWpZPPhUfF&liveUuid=0fb5d0d9-e380-4c4d-9d28-77b6346cbb85&from=ShareCard',tag:'风险 · 合规 · 核身',date:'2026-08-06',instructor:'晨盺'},
+  {title:'美食行业暑期及七夕大促活动宣导',url:'https://n.dingtalk.com/dingding/live-room/index.html?roomId=UIWyDG5Gfr&liveUuid=896924ad-8d72-4595-8d53-f539e5de771b&from=ShareCard',tag:'运筹 · 营销大促 & 夜校',date:'2026-08-06',instructor:'琢星'},
+  {title:'品牌智能体品专版本-重磅上线培训',url:'https://n.dingtalk.com/dingding/live-room/index.html?roomId=kd5KM68aRT&liveUuid=f0136c8f-219d-4df2-86f4-80f57de2d9b7&from=ShareCard',tag:'智能体 & AI',date:'2026-08-06',instructor:'黑帅'},
+  {title:'效广商家政策讲解',url:'https://n.dingtalk.com/dingding/live-room/index.html?roomId=OemEaZDfKs&liveUuid=de39be01-e33f-4b1a-aedb-c49563a3a8b0&from=ShareCard',tag:'效果广告',date:'2026-08-06',instructor:'页城'},
+  {title:'导结切换新品广平台下单链路',url:'https://n.dingtalk.com/dingding/live-room/index.html?roomId=etZprLdYDQ&liveUuid=b6e35f9f-d23c-4784-8e46-9f041aa1af9e&from=ShareCard',tag:'导航结束页（导结）',date:'2026-08-05',instructor:'鑫潼'},
+  {title:'运维夜校-【最高20%补贴率】额外加补与营销活动加强训',url:'https://n.dingtalk.com/dingding/live-room/index.html?roomId=QYheZ41WLw&liveUuid=bff839c2-e8ed-4601-a6e5-69df94d3f314&from=ShareCard',tag:'运筹 · 营销大促 & 夜校',date:'2026-08-05',instructor:'山景明'},
+  {title:'【含新增产品】文旅大交通产品系统性培训',url:'https://n.dingtalk.com/dingding/live-room/index.html?roomId=QF4KMRvQ3w&liveUuid=50a3d0e6-a387-4fc9-8fdb-4462a19f5069&from=ShareCard',tag:'非美食行业 · 文旅/休娱/商圈',date:'2026-08-05',instructor:'谢娜（产品侧特邀）'},
+  {title:'休娱&丽人培训会',url:'https://n.dingtalk.com/dingding/live-room/index.html?roomId=yJxjr6Z8bg&liveUuid=30fa6474-ff43-4657-8bd6-eba48727a264&from=ShareCard',tag:'非美食行业 · 文旅/休娱/商圈',date:'2026-08-05',instructor:'王雷'},
+  {title:'导结优秀案例分享',url:'https://n.dingtalk.com/dingding/live-room/index.html?roomId=xujwUULpNv&liveUuid=0cb78fd0-109e-435e-887e-798da75fb0bd&from=ShareCard',tag:'导航结束页（导结）',date:'2026-08-05',instructor:'大爱'},
+  {title:'休娱快速入局—领先构建餐-娱营收双阵地',url:'https://n.dingtalk.com/dingding/live-room/index.html?roomId=upqFflO05n&liveUuid=9707ccfe-4a72-4d46-a46a-2f73519309af&from=ShareCard',tag:'非美食行业 · 文旅/休娱/商圈',date:'2026-08-04',instructor:'大爱'},
+  {title:'渠道电销行业信息联播',url:'https://n.dingtalk.com/dingding/live-room/index.html?roomId=O7Nsjs9pcn&liveUuid=480fb7b9-c62c-4282-9093-f5feb401b7f4&from=ShareCard',tag:'新人 & 服务商成长营',date:'2026-08-03',instructor:'壹昕'},
+  {title:'【运维夜校-8月营销规划&货补提报规则】',url:'https://n.dingtalk.com/dingding/live-room/index.html?roomId=iP05qxZnCg&liveUuid=2d71e0dd-f9e0-45ab-8322-fba1cb390ae7&from=ShareCard',tag:'运筹 · 营销大促 & 夜校',date:'2026-07-31',instructor:'山景明'},
+  {title:'美食品牌智能体正式售卖拉齐会',url:'https://n.dingtalk.com/dingding/live-room/index.html?roomId=RirdJ9iszP&liveUuid=a3f26e03-7eb8-4ccf-bae1-a4cceabd01e8&from=ShareCard',tag:'智能体 & AI',date:'2026-07-31',instructor:'乐萦'},
+  {title:'大休娱五星门店基建与作业要求迭代',url:'https://n.dingtalk.com/dingding/live-room/index.html?roomId=NUrHagAmqz&liveUuid=9912f0ae-1db8-4c32-ad7d-39a67393186a&from=ShareCard',tag:'非美食行业 · 文旅/休娱/商圈',date:'2026-07-30',instructor:'若颉'},
+  {title:'休娱丽人行业新签指引',url:'https://n.dingtalk.com/dingding/live-room/index.html?roomId=04sgf484Ih&liveUuid=8003ab79-21fd-40b2-a4f6-e16a51e40d8f&from=ShareCard',tag:'非美食行业 · 文旅/休娱/商圈',date:'2026-07-30',instructor:'壹昕'},
+  {title:'休娱&丽人行业分享',url:'https://n.dingtalk.com/dingding/live-room/index.html?roomId=WzzGCWFpWi&liveUuid=8295430a-9fde-46fe-8237-5a112e5dddb4&from=ShareCard',tag:'非美食行业 · 文旅/休娱/商圈',date:'2026-07-29',instructor:'张敏'},
+  {title:'城市会场整合营销增收',url:'https://n.dingtalk.com/dingding/live-room/index.html?roomId=KlewlvNj28&liveUuid=fee77a26-c927-41bb-8ffb-e1ee12e56aec&from=ShareCard',tag:'品牌广告 · 顶展 & 品专',date:'2026-07-29',instructor:'页城'},
+  {title:'交易运维托管培训',url:'https://n.dingtalk.com/dingding/live-room/index.html?roomId=dSGwN7rxTx&liveUuid=f7796769-a489-4ec2-aa98-818e720197b0&from=ShareCard',tag:'运筹 · 营销大促 & 夜校',date:'2026-07-28',instructor:'乐萦'},
+  {title:'顶展售卖实战技巧',url:'https://n.dingtalk.com/dingding/live-room/index.html?roomId=h0QKG1BjxP&liveUuid=fe8ef288-3612-4e74-b861-59140a918374&from=ShareCard',tag:'品牌广告 · 顶展 & 品专',date:'2026-07-28',instructor:'大爱'},
+  {title:'【重要】休娱品牌智能体宣讲',url:'https://n.dingtalk.com/dingding/live-room/index.html?roomId=jUkcgdPjz6&liveUuid=2d27494a-1d30-43b7-a06d-6e3c51469cd9&from=ShareCard',tag:'非美食行业 · 文旅/休娱/商圈',date:'2026-07-24',instructor:'乐峥'},
+  {title:'「重要必学」品广必备售卖技巧',url:'https://n.dingtalk.com/dingding/live-room/index.html?roomId=cqV8zdfUXv&liveUuid=8f50184d-d30c-456a-8632-5f9547269fba&from=ShareCard',tag:'品牌广告 · 顶展 & 品专',date:'2026-07-24',instructor:'页城'},
+  {title:'【运维夜校】冲量星期五-7月末效广冲刺',url:'https://n.dingtalk.com/dingding/live-room/index.html?roomId=Tn80LPp0pc&liveUuid=e37a5eb4-b77e-4d2b-86b9-779914d15eeb&from=ShareCard',tag:'运筹 · 营销大促 & 夜校',date:'2026-07-23',instructor:'渠电广告运营-六夏'},
+  {title:'导结实战分享',url:'https://n.dingtalk.com/dingding/live-room/index.html?roomId=9ZpSLNDUBK&liveUuid=298d2fb7-8aaa-42fc-863b-4f8f12429791&from=ShareCard',tag:'导航结束页（导结）',date:'2026-07-23',instructor:'页城'},
+  {title:'休娱&丽人培训',url:'https://n.dingtalk.com/dingding/live-room/index.html?roomId=aLHRTX2Zuo&liveUuid=8e37fb81-8348-41ff-b2e1-3505353d2466&from=ShareCard',tag:'非美食行业 · 文旅/休娱/商圈',date:'2026-07-22',instructor:'罗晓雷(小黑)&曾婵(阿婵)'},
+  {title:'导结售卖实战技巧',url:'https://n.dingtalk.com/dingding/live-room/index.html?roomId=ZFdY20OTmN&liveUuid=7d9a153f-f2b5-41fb-a3ff-b8eb518c0de8&from=ShareCard',tag:'导航结束页（导结）',date:'2026-07-22',instructor:'页城'},
+  {title:'【九点一刻】文旅销售技巧 分享人：万慧敏',url:'https://n.dingtalk.com/dingding/live-room/index.html?roomId=cpxd1aVO7I&liveUuid=826ea6cc-280c-4662-ace2-f99791dfa00f&from=ShareCard',tag:'非美食行业 · 文旅/休娱/商圈',date:'2026-07-22',instructor:'万慧敏'},
+  {title:'导结实战售卖技巧-敬源',url:'https://n.dingtalk.com/dingding/live-room/index.html?roomId=KORLY6WmrI&liveUuid=2de1860d-96b3-4dee-a267-2e014c864a37&from=ShareCard',tag:'导航结束页（导结）',date:'2026-07-21',instructor:'敬源'},
+  {title:'导结一页纸解读+电销导结实战案例分享',url:'https://n.dingtalk.com/dingding/live-room/index.html?roomId=Lu3SuQnH6q&liveUuid=e4155f88-bbbe-426f-a3ed-323c748ee291&from=ShareCard',tag:'导航结束页（导结）',date:'2026-07-17',instructor:'大爱'},
+  {title:'【九点一刻】金保运攻略 分享人：羽中',url:'https://n.dingtalk.com/dingding/live-room/index.html?roomId=pE0d6dFpef&liveUuid=aec4d77e-4729-4983-8ba2-9bb6014385a7&from=ShareCard',tag:'非美食行业 · 文旅/休娱/商圈',date:'2026-07-17',instructor:'羽中'},
+  {title:'【运维夜校】效广案例+冲量星期五暑期冲刺',url:'https://n.dingtalk.com/dingding/live-room/index.html?roomId=zSZAxPZbea&liveUuid=6a981251-14c2-4199-96d4-ce60b6dd680d&from=ShareCard',tag:'运筹 · 营销大促 & 夜校',date:'2026-07-16',instructor:'直营运维-杨佳艳'},
+  {title:'新商成长强化营二期 - 效广+智能体产品基础',url:'https://n.dingtalk.com/dingding/live-room/index.html?roomId=WOuo6HAXzM&liveUuid=deb77878-344e-49ad-bf99-9731b4a17ce1&from=ShareCard',tag:'新人 & 服务商成长营',date:'2026-07-16',instructor:'页城'},
+  {title:'【文旅大数据产品】专题培训',url:'https://n.dingtalk.com/dingding/live-room/index.html?roomId=Zhyq08AXfs&liveUuid=e22fd665-d1b2-490e-a6da-ca2ae325e752&from=ShareCard',tag:'非美食行业 · 文旅/休娱/商圈',date:'2026-07-16',instructor:'佐弈'},
+  {title:'品牌智能体B端功能讲解',url:'https://n.dingtalk.com/dingding/live-room/index.html?roomId=qw345ufgrE&liveUuid=1c9c624f-419b-4706-a02e-570310ec6a8e&from=ShareCard',tag:'智能体 & AI',date:'2026-07-16',instructor:'页城'},
+  {title:'【渠道】新服务商成长培训营',url:'https://n.dingtalk.com/dingding/live-room/index.html?roomId=6jHQj0oRkF&liveUuid=d515e5a3-814c-466f-84f2-e69f6366479a&from=ShareCard',tag:'新人 & 服务商成长营',date:'2026-07-15',instructor:'涂跃辉'},
+  {title:'休娱系列课程-旺铺升级等政策',url:'https://n.dingtalk.com/dingding/live-room/index.html?roomId=D4NlJVJ2e7&liveUuid=bb80d0ca-00d6-4f07-a6a7-ab66be5d2e21&from=ShareCard',tag:'非美食行业 · 文旅/休娱/商圈',date:'2026-07-15',instructor:'壹昕'},
+  {title:'【运维夜校】效广续充专项提升计划',url:'https://n.dingtalk.com/dingding/live-room/index.html?roomId=2Fof6wJUMX&liveUuid=77ba2660-408e-45f9-b463-c2539c4e151c&from=ShareCard',tag:'运筹 · 营销大促 & 夜校',date:'2026-07-14',instructor:'六夏'},
+  {title:'休娱系列课程-休娱准入规则&商机验真SOP',url:'https://n.dingtalk.com/dingding/live-room/index.html?roomId=3u8bsm77Yl&liveUuid=5dba1910-c1da-46c0-b094-48b4e9837022&from=ShareCard',tag:'非美食行业 · 文旅/休娱/商圈',date:'2026-07-14',instructor:'大爱'},
+  {title:'【运维夜校】一键买单培训&7月广告返点政策宣贯',url:'https://n.dingtalk.com/dingding/live-room/index.html?roomId=f4zzP1gyuQ&liveUuid=23a0a9d5-11d7-4a46-bd56-404757c19b7b&from=ShareCard',tag:'运筹 · 营销大促 & 夜校',date:'2026-07-09',instructor:'山景明'},
+  {title:'休娱政策讲解',url:'https://n.dingtalk.com/dingding/live-room/index.html?roomId=J6e7baAoU7&liveUuid=11387b15-bfbc-4034-8bc7-2382df498ebe&from=ShareCard',tag:'非美食行业 · 文旅/休娱/商圈',date:'2026-07-09',instructor:'页城'},
+  {title:'休娱&丽人行业-周度分享',url:'https://n.dingtalk.com/dingding/live-room/index.html?roomId=WpNhxSjNc2&liveUuid=3cc13dec-c3c3-4068-a7ff-cbd10ebdb92b&from=ShareCard',tag:'非美食行业 · 文旅/休娱/商圈',date:'2026-07-08',instructor:'廖鼎富'},
+  {title:'风险合规分享',url:'https://n.dingtalk.com/dingding/live-room/index.html?roomId=rIxTxfrbcH&liveUuid=3e315e48-bc9b-4a5a-922e-9004c70cb2cc&from=ShareCard',tag:'风险 · 合规 · 核身',date:'2026-07-08',instructor:'页城'},
+  {title:'【文旅大交通】精细化产品培训',url:'https://n.dingtalk.com/dingding/live-room/index.html?roomId=RuFqSjmqIZ&liveUuid=acb15745-b218-4215-90c9-69ddb854d635&from=ShareCard',tag:'非美食行业 · 文旅/休娱/商圈',date:'2026-07-07',instructor:'文旅大交通运营部'},
+  {title:'精品分享🔥美食行业品牌广告全栈精讲',url:'https://n.dingtalk.com/dingding/live-room/index.html?roomId=IjBTcuY1S9&liveUuid=d5220a4f-dc06-4e05-bc5f-135cfe985c72&from=ShareCard',tag:'品牌广告 · 顶展 & 品专',date:'2026-07-02',instructor:'尤加'},
+  {title:'【交易渠道】新服务商成长培训营',url:'https://n.dingtalk.com/dingding/live-room/index.html?roomId=WLZHRHSNjN&liveUuid=8f673963-3123-4eef-a65f-12883cd0d1db&from=ShareCard',tag:'新人 & 服务商成长营',date:'2026-07-02',instructor:'刘璐'},
+  {title:'美食钻展售卖技巧',url:'https://n.dingtalk.com/dingding/live-room/index.html?roomId=JA5Ucwjjpq&liveUuid=b1eae553-ef53-4d6c-88b8-957bba98a451&from=ShareCard',tag:'品牌广告 · 顶展 & 品专',date:'2026-07-02',instructor:'页城'},
+  {title:'【运维夜校】运维成长期-收入提升专题课',url:'https://n.dingtalk.com/dingding/live-room/index.html?roomId=CLAj0o3RVX&liveUuid=3ac5a835-b314-409e-834e-89c80d452158&from=ShareCard',tag:'运筹 · 营销大促 & 夜校',date:'2026-07-01',instructor:'电销运维-单宇轩'},
+  {title:'交易渠电早知道——景区钻展售卖技巧',url:'https://n.dingtalk.com/dingding/live-room/index.html?roomId=QVkN5wZ12F&liveUuid=da277362-874b-478e-9903-886e7e7b0bb5&from=ShareCard',tag:'非美食行业 · 文旅/休娱/商圈',date:'2026-07-01',instructor:'页城'},
+  {title:'【运维夜校-7月营销规划&货补提报规则】',url:'https://n.dingtalk.com/dingding/live-room/index.html?roomId=pvOceU7Vzl&liveUuid=b8d9df02-0b7e-4cb0-9cd3-d67703d9d838&from=ShareCard',tag:'运筹 · 营销大促 & 夜校',date:'2026-06-30',instructor:'山景明'},
+  {title:'新人小二该如何做营收',url:'https://n.dingtalk.com/dingding/live-room/index.html?roomId=pS3QKChYQN&liveUuid=b524ad35-47d4-4aea-acb5-1b94f9220117&from=ShareCard',tag:'新人 & 服务商成长营',date:'2026-06-30',instructor:'页城'},
+  {title:'美食钻展产品能力&售卖规则介绍',url:'https://n.dingtalk.com/dingding/live-room/index.html?roomId=9Cqy7srQTa&liveUuid=e4c9ae8e-38db-47b4-a49e-74e212909bec&from=ShareCard',tag:'品牌广告 · 顶展 & 品专',date:'2026-06-29',instructor:'尤加'},
+  {title:'【夜校】渠道美食广告运维培训-续充技巧',url:'https://n.dingtalk.com/dingding/live-room/index.html?roomId=wp0n2Sh9RZ&liveUuid=090c8336-1ec0-48ce-9262-61b068513602&from=ShareCard',tag:'运筹 · 营销大促 & 夜校',date:'2026-06-29',instructor:'电销运维-刘时旺'},
+  {title:'【冲量星期五】效广专项（月底新签上线&停投召回）',url:'https://n.dingtalk.com/dingding/live-room/index.html?roomId=npYxNEvz1D&liveUuid=118cabf4-504a-4b61-b5dc-bb0c97a98dfa&from=ShareCard',tag:'效果广告',date:'2026-06-26',instructor:'六夏'},
+  {title:'品牌专区提升SKA影响力',url:'https://n.dingtalk.com/dingding/live-room/index.html?roomId=r6FCwbdXGl&liveUuid=694e8e26-311e-48a7-8946-f110770fb56a&from=ShareCard',tag:'品牌广告 · 顶展 & 品专',date:'2026-06-26',instructor:'大爱'},
+  {title:'【夜校】渠道美食广告运维培训-效果复盘',url:'https://n.dingtalk.com/dingding/live-room/index.html?roomId=cgOVZj5XFZ&liveUuid=4d00f728-3258-438a-a0e2-f1b01d359752&from=ShareCard',tag:'运筹 · 营销大促 & 夜校',date:'2026-06-25',instructor:'电销运维-刘时旺'},
+  {title:'效广成长期专题-广告诊断',url:'https://n.dingtalk.com/dingding/live-room/index.html?roomId=Wmj98I7Hvt&liveUuid=dfbf04d1-cdb0-4e8c-9857-ec98b4186f16&from=ShareCard',tag:'效果广告',date:'2026-06-25',instructor:'大爱'},
+  {title:'顶展售卖技巧分享',url:'https://n.dingtalk.com/dingding/live-room/index.html?roomId=w6hHpd1jSg&liveUuid=922a5933-7f2b-453b-9789-80089fb4a8ca&from=ShareCard',tag:'品牌广告 · 顶展 & 品专',date:'2026-06-24',instructor:'大爱'},
+  {title:'交易渠电早知道',url:'https://n.dingtalk.com/dingding/live-room/index.html?roomId=I9MQjf72xv&liveUuid=bef4f90e-8263-4df5-a903-7ba8b6ccf664&from=ShareCard',tag:'新人 & 服务商成长营',date:'2026-06-23',instructor:'页城'},
+  {title:'效果广告新签上线系列',url:'https://n.dingtalk.com/dingding/live-room/index.html?roomId=cNYLraW8TV&liveUuid=b6b1d229-87db-42aa-9221-fc6fa7c07cd3&from=ShareCard',tag:'效果广告',date:'2026-06-18',instructor:'页城'},
+  {title:'【冲量端午节】效广提收专项之溢价&提预算',url:'https://n.dingtalk.com/dingding/live-room/index.html?roomId=iLEsT1Q3Xz&liveUuid=b72e1649-89f5-4b9b-88ee-a05982f6bfc0&from=ShareCard',tag:'效果广告',date:'2026-06-17',instructor:'六夏'},
+  {title:'智能体配置',url:'https://n.dingtalk.com/dingding/live-room/index.html?roomId=aNaxc8MBLc&liveUuid=0c1e1796-abde-4468-a40b-a4ec2ab7123d&from=ShareCard',tag:'智能体 & AI',date:'2026-06-17',instructor:'页城'},
+  {title:'【渠电部】历史拒用门店-核销激活',url:'https://n.dingtalk.com/dingding/live-room/index.html?roomId=UhSfAWMcYb&liveUuid=0fe44f2d-0b21-4232-8258-a77094d46457&from=ShareCard',tag:'风险 · 合规 · 核身',date:'2026-06-16',instructor:'灿曦'},
+  {title:'交易渠电早知道',url:'https://n.dingtalk.com/dingding/live-room/index.html?roomId=vM4bT8LXmY&liveUuid=37bb78f1-8259-4304-a216-64a17f9cf8b3&from=ShareCard',tag:'新人 & 服务商成长营',date:'2026-06-16',instructor:'页城'},
+  {title:'渠道美食效果广告专题战役——【冲量星期五】',url:'https://n.dingtalk.com/dingding/live-room/index.html?roomId=rMeTFZAiOM&liveUuid=09d10888-b84a-4759-8123-f12dcbce3446&from=ShareCard',tag:'效果广告',date:'2026-06-12',instructor:'六夏'},
+  {title:'品牌智能体介绍&分享 及 端外渠道订单核销注意事项',url:'https://n.dingtalk.com/dingding/live-room/index.html?roomId=lBrPYivWIY&liveUuid=aebbf7fa-3d9a-453f-ab8f-e91f6febaa0d&from=ShareCard',tag:'智能体 & AI',date:'2026-06-10',instructor:'乐萦'},
+  {title:'渠电-一证多开链路下的风险提示和合规作业要求-非常重要',url:'https://n.dingtalk.com/dingding/live-room/index.html?roomId=OOsigyLDfb&liveUuid=c3ffa177-4be4-40c3-b2ee-fac4a1f7dc5a&from=ShareCard',tag:'风险 · 合规 · 核身',date:'2026-06-05',instructor:'临春'},
+  {title:'广告提收售前作战指引',url:'https://n.dingtalk.com/dingding/live-room/index.html?roomId=iSHDSEwB5Z&liveUuid=d705dcf6-6663-4b7d-b24f-485eb12841d7&from=ShareCard',tag:'效果广告',date:'2026-06-05',instructor:'六夏'},
+  {title:'交易渠电早知道——效果广告基础SOP',url:'https://n.dingtalk.com/dingding/live-room/index.html?roomId=7Ki7SuGMVE&liveUuid=b43c26bb-cd2d-488e-882b-132dcb73f787&from=ShareCard',tag:'效果广告',date:'2026-06-03',instructor:'页城'},
+  {title:'智能体产品介绍',url:'https://n.dingtalk.com/dingding/live-room/index.html?roomId=VI4Oh32RhE&liveUuid=4d9c6043-7c1b-48ba-9f52-964382e7e2bd&from=ShareCard',tag:'智能体 & AI',date:'2026-06-02',instructor:'页城'},
+  {title:'渠电美食6月营销规划—补贴新规端午大促等',url:'https://n.dingtalk.com/dingding/live-room/index.html?roomId=dmNhDYGWku&liveUuid=7815a28e-16f2-4e69-a5af-2608e318e4f0&from=ShareCard',tag:'运筹 · 营销大促 & 夜校',date:'2026-06-01',instructor:'山景明'},
+  {title:'高频行业端午大促规划',url:'https://n.dingtalk.com/dingding/live-room/index.html?roomId=b35sZMjBTV&liveUuid=b52bcf75-92cd-49cc-81a7-f07bca5779c5&from=ShareCard',tag:'运筹 · 营销大促 & 夜校',date:'2026-05-29',instructor:'乐萦'},
+  {title:'广告特训专场-效果广告新智能出价产品介绍',url:'https://n.dingtalk.com/dingding/live-room/index.html?roomId=vF2th7bkoS&liveUuid=7e115add-040f-4108-8c58-9b7b3ec95461&from=ShareCard',tag:'效果广告',date:'2026-05-28',instructor:'大曜'},
+  {title:'商圈产品培训-美食交易渠道',url:'https://n.dingtalk.com/dingding/live-room/index.html?roomId=3ff3pcEIly&liveUuid=4bf95e3e-81e9-4af2-8e13-1f514a040b1f&from=ShareCard',tag:'非美食行业 · 文旅/休娱/商圈',date:'2026-05-27',instructor:'壹昕'},
+  {title:'商圈产品-美食交易渠道全员',url:'https://n.dingtalk.com/dingding/live-room/index.html?roomId=3ff3pcEIly&liveUuid=4bf95e3e-81e9-4af2-8e13-1f514a040b1f',tag:'非美食行业 · 文旅/休娱/商圈',date:'2026-05-27',instructor:'壹昕'},
+  {title:'美食-新版互出资膨胀券活动规则和重点事项',url:'https://n.dingtalk.com/dingding/live-room/index.html?roomId=XxTlDOJI7r&liveUuid=59b318ca-8540-493a-a831-6045e0e9c4cb&from=ShareCard',tag:'运筹 · 营销大促 & 夜校',date:'2026-05-25',instructor:'大曜'},
+  {title:'文旅项目交易渠道培训',url:'https://n.dingtalk.com/dingding/live-room/index.html?roomId=V6Mwt33Slh&liveUuid=f0b58c9d-fcaf-440b-9811-6d099ac2651e&from=ShareCard',tag:'非美食行业 · 文旅/休娱/商圈',date:'2026-05-22',instructor:'阿海'},
+  {title:'广告特训-效果广告投放标准化框架',url:'https://n.dingtalk.com/dingding/live-room/index.html?roomId=nyfMVPmlSJ&liveUuid=897b2237-666d-4396-adf8-69d97ec3841c&from=ShareCard',tag:'效果广告',date:'2026-05-21',instructor:'六夏'},
+  {title:'文旅大交通产品介绍',url:'https://n.dingtalk.com/dingding/live-room/index.html?roomId=flXlpcJIiU&liveUuid=9fa01eac-7025-4588-b1a4-ae22bdd74236&from=ShareCard',tag:'非美食行业 · 文旅/休娱/商圈',date:'2026-05-19',instructor:'阿海'},
+  {title:'经营通·高德服务商增长新机遇',url:'https://n.dingtalk.com/dingding/live-room/index.html?roomId=Ievdnxhl5S&liveUuid=053bd1d5-1f32-4a42-b54a-6fcafebbb451&from=ShareCard',tag:'新人 & 服务商成长营',date:'2026-05-18',instructor:'露捺'},
+  {title:'qoderwork使用教程',url:'https://n.dingtalk.com/dingding/live-room/index.html?roomId=Gxpvi6ldIA&liveUuid=f6dda4c1-f682-4efc-8be7-dbc1b6f27d07&from=ShareCard',tag:'工具 & 系统',date:'2026-05-15',instructor:'页城'},
+  {title:'5月物料策略规划｜店转进展',url:'https://n.dingtalk.com/dingding/live-room/index.html?roomId=1z5GTLWTJn&liveUuid=baf9eef2-28a9-4249-ab01-b8676e0652a9&from=ShareCard',tag:'运筹 · 营销大促 & 夜校',date:'2026-05-15',instructor:'大曜'},
+  {title:'美食行业新版互出资招商培训',url:'https://n.dingtalk.com/dingding/live-room/index.html?roomId=LMiGvAbgSj&liveUuid=19180f7d-8256-4285-8fdf-b017ddc30a9c&from=ShareCard',tag:'运筹 · 营销大促 & 夜校',date:'2026-05-15',instructor:'琢星'},
+  {title:'"安心服务"产品2.0升级项目培训',url:'https://n.dingtalk.com/dingding/live-room/index.html?roomId=gqq6Xa3BO3&liveUuid=0a8d41b9-57fe-4224-b8f0-6493d4d394dd&from=ShareCard',tag:'风险 · 合规 · 核身',date:'2026-05-14',instructor:'神宝'},
+  {title:'广告新签案例：服务式销售广告新签实战分享',url:'https://n.dingtalk.com/dingding/live-room/index.html?roomId=Sk6jzuaqdZ&liveUuid=545f192d-eea0-4aee-bae0-1225cfdca34a&from=ShareCard',tag:'品牌广告 · 顶展 & 品专',date:'2026-05-14',instructor:'大曜'},
+  {title:'5月新签门店供给达标-作业快速提升指南培训',url:'https://n.dingtalk.com/dingding/live-room/index.html?roomId=ygaZEspEPH&liveUuid=8d77537c-9145-4edf-9227-bf6f7a873230&from=ShareCard',tag:'新人 & 服务商成长营',date:'2026-05-13',instructor:'大曜'},
+  {title:'【高频】五星装修及风控策略申诉SOP',url:'https://n.dingtalk.com/dingding/live-room/index.html?roomId=0I0qpSWOw6&liveUuid=5aa22e93-b191-4f19-9ecb-11c02cc79592&from=ShareCard',tag:'风险 · 合规 · 核身',date:'2026-05-12',instructor:'乐萦'},
+  {title:'营销专场-5月营销活动宣贯',url:'https://n.dingtalk.com/dingding/live-room/index.html?roomId=p6NTNvyWVW&liveUuid=58c75d6e-2f33-48ab-958a-e7c588173287&from=ShareCard',tag:'运筹 · 营销大促 & 夜校',date:'2026-05-12',instructor:'大曜'},
+  {title:'渠道交易新人训-作业实操流程+合规分享',url:'https://n.dingtalk.com/dingding/live-room/index.html?roomId=Ve0AOZ1sHH&liveUuid=28e31b9d-3532-4bb4-898d-08216683c666&from=ShareCard',tag:'新人 & 服务商成长营',date:'2026-05-12',instructor:'大曜'},
+  {title:'《POI审核规则相关培训》',url:'https://n.dingtalk.com/dingding/live-room/index.html?roomId=MIp6lk5N29&liveUuid=f848bef1-ee2f-4b88-9ffa-76adc80a9d0f&from=ShareCard',tag:'风险 · 合规 · 核身',date:'2026-05-11',instructor:'合规治理-妙依'},
+  {title:'《开店/开户法人核身能力升级培训》',url:'https://n.dingtalk.com/dingding/live-room/index.html?roomId=w9BVLWCuuB&liveUuid=87c7561b-5cd9-498b-bdcb-f7ecc0ba7f38&from=ShareCard',tag:'风险 · 合规 · 核身',date:'2026-05-08',instructor:''}
+];
+var TRAINING_ALL_CAT = {
+  '新人 & 服务商成长营': {cls:'thumb-cat-onboard', icon:'🌱', label:'新人成长'},
+  '效果广告': {cls:'thumb-cat-effect', icon:'📊', label:'效果广告'},
+  '智能体 & AI': {cls:'thumb-cat-agent', icon:'🤖', label:'智能体 & AI'},
+  '品牌广告 · 顶展 & 品专': {cls:'thumb-cat-brand', icon:'💎', label:'品牌广告'},
+  '导航结束页（导结）': {cls:'thumb-cat-convert', icon:'📍', label:'导结'},
+  '非美食行业 · 文旅/休娱/商圈': {cls:'thumb-cat-leisure', icon:'🎭', label:'非美食行业'},
+  '风险 · 合规 · 核身': {cls:'thumb-cat-compliance', icon:'🛡️', label:'风险合规'},
+  '运筹 · 营销大促 & 夜校': {cls:'thumb-cat-ops', icon:'📋', label:'运筹夜校'},
+  '工具 & 系统': {cls:'thumb-cat-tools', icon:'🔧', label:'工具系统'}
+};
 var _trainAllFilterTag = '';
 function renderAllVideoFilters() {
   var bar = $('trainAllVideoFilter');
   if (!bar) return;
   var tags = {};
-  TRAINING_VIDEOS.forEach(function(v) { if (v.tag) tags[v.tag] = (tags[v.tag]||0)+1; });
-  var html = '<div class="train-filter-btn' + (!_trainAllFilterTag?' active':'') + '" onclick="filterAllVideos(\'\')">全部 (' + TRAINING_VIDEOS.length + ')</div>';
-  Object.keys(tags).forEach(function(t) {
-    var cat = TRAINING_CAT[t];
+  TRAINING_ALL_VIDEOS.forEach(function(v) { if (v.tag) tags[v.tag] = (tags[v.tag]||0)+1; });
+  var sortedTags = Object.keys(tags).sort(function(a,b) { return tags[b]-tags[a]; });
+  var html = '<div class="train-filter-btn' + (!_trainAllFilterTag?' active':'') + '" onclick="filterAllVideos(\'\')">全部 (' + TRAINING_ALL_VIDEOS.length + ')</div>';
+  sortedTags.forEach(function(t) {
+    var cat = TRAINING_ALL_CAT[t];
     var icon = cat ? cat.icon + ' ' : '';
-    html += '<div class="train-filter-btn' + (_trainAllFilterTag===t?' active':'') + '" onclick="filterAllVideos(\'' + t + '\')">' + icon + t + ' (' + tags[t] + ')</div>';
+    html += '<div class="train-filter-btn' + (_trainAllFilterTag===t?' active':'') + '" onclick="filterAllVideos(\'' + t.replace(/'/g,"\\'") + '\')">' + icon + t + ' (' + tags[t] + ')</div>';
   });
   bar.innerHTML = html;
 }
@@ -6431,22 +6553,30 @@ function renderAllVideoCards() {
   var grid = $('trainAllVideoGrid');
   if (!grid) return;
   renderAllVideoFilters();
-  var list = _trainAllFilterTag ? TRAINING_VIDEOS.filter(function(v) { return v.tag === _trainAllFilterTag; }) : TRAINING_VIDEOS;
+  var list = _trainAllFilterTag ? TRAINING_ALL_VIDEOS.filter(function(v) { return v.tag === _trainAllFilterTag; }) : TRAINING_ALL_VIDEOS;
   var html = '';
   list.forEach(function(v) {
-    var cat = TRAINING_CAT[v.tag] || {cls:'thumb-cat-effect', icon:'🎬', label:v.tag||''};
-    html += '<div class="train-video-card" onclick="window.open(\'' + v.url.replace(/'/g, "\\'") + '\',\'_blank\')">';
+    var cat = TRAINING_ALL_CAT[v.tag] || {cls:'thumb-cat-nourl', icon:'🎬', label:v.tag||''};
+    var hasUrl = v.url && v.url.length > 0;
+    if (hasUrl) {
+      html += '<div class="train-video-card" onclick="window.open(\'' + v.url.replace(/'/g, "\\'") + '\',\'_blank\')">';
+    } else {
+      html += '<div class="train-video-card" style="opacity:0.7;cursor:default;">';
+    }
     html += '<div class="train-video-thumb ' + cat.cls + '">';
     html += '<div class="thumb-icon">' + cat.icon + '</div>';
     html += '<div class="thumb-label">' + cat.label + '</div>';
-    html += '<div class="play-btn"></div>';
+    if (hasUrl) html += '<div class="play-btn"></div>';
+    else html += '<div style="position:absolute;bottom:8px;right:10px;font-size:11px;color:rgba(255,255,255,0.6);">暂无回放</div>';
     html += '</div>';
     html += '<div class="train-video-info">';
     html += '<div class="title">' + v.title + '</div>';
     html += '<div class="meta">';
     if (v.tag) html += '<span class="tag">' + v.tag + '</span>';
     if (v.date) html += '<span>' + v.date + '</span>';
-    html += '</div></div></div>';
+    html += '</div>';
+    if (v.instructor) html += '<div style="font-size:12px;color:var(--text3);margin-top:4px;">讲师：' + v.instructor + '</div>';
+    html += '</div></div>';
   });
   grid.innerHTML = html || '<div style="text-align:center;padding:60px 20px;color:var(--text3);grid-column:1/-1;"><div style="font-size:48px;margin-bottom:16px;">🎬</div><div style="font-size:15px;">暂无视频课程</div></div>';
 }
