@@ -2557,8 +2557,8 @@ function renderSigningAnalysis(data, cities) {
   }).sort(function(a,b){return b.n - a.n;});
   var top8 = catList.slice(0, 8);
 
-  // 补齐：城市类目不足8个时，从大区REAL_CASES补充
-  if (top8.length < 8 && useCity) {
+  // 补齐：仅在城市数据不足时，类目从大区REAL_CASES补充
+  if (!useCity && top8.length < 8) {
     var existCats = {};
     top8.forEach(function(c) { existCats[c.cat] = true; });
     var regionCatAgg = {};
@@ -2596,7 +2596,8 @@ function renderSigningAnalysis(data, cities) {
     return dpOk || gpOk;
   }).sort(function(a,b){return b.n - a.n;});
 
-  // 补齐：城市缺数据的产品从大区REAL_CASES补回
+  // 补齐：仅在城市数据不足时，缺数据的产品从大区REAL_CASES补回
+  if (!useCity) {
   var prodKeys = {};
   prodList.forEach(function(p) { prodKeys[p.key] = true; });
   ['xg','znt','dz','zx','dj','pg'].forEach(function(pt) {
@@ -2618,6 +2619,7 @@ function renderSigningAnalysis(data, cities) {
       prodList.push({key:pt, name:prodNames[pt], n:n, dp:dp, gp:gp, _region:true});
     }
   });
+  }
   prodList.sort(function(a,b){return b.n - a.n;});
 
   // Deep analysis: monthly trend, channel, cross-analysis, conversion
