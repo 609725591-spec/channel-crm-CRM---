@@ -619,9 +619,6 @@ a { color:var(--accent2); text-decoration:none; }
       <div class="nav-item" data-page="training" onclick="navigate('training')">
         <span class="nav-icon">🎓</span>培训专区
       </div>
-      <div class="nav-item" data-page="trainingCamp" onclick="navigate('trainingCamp')">
-        <span class="nav-icon">🏋️</span>广告特训营
-      </div>
       <div class="nav-divider"></div>
       <div class="nav-item" data-page="admin" onclick="navigate('admin')" id="navAdmin" style="display:none">
         <span class="nav-icon">⚙️</span>管理后台
@@ -932,10 +929,7 @@ a { color:var(--accent2); text-decoration:none; }
           <div class="training-tab" data-tab="allvideo" onclick="switchTrainingTab('allvideo')" style="padding:10px 24px;cursor:pointer;font-size:14px;color:var(--text2);border-bottom:2px solid transparent;transition:all .2s;">全量视频课程汇总</div>
         </div>
         <div id="training-product" class="training-panel">
-          <div style="text-align:center;padding:60px 20px;color:var(--text3);">
-            <div style="font-size:48px;margin-bottom:16px;">📖</div>
-            <div style="font-size:15px;">商业化产品培训资料即将上线，敬请期待</div>
-          </div>
+          <iframe id="trainingCampFrame" style="width:100%;height:calc(100vh - 220px);border:none;border-radius:var(--radius);" data-loaded="false"></iframe>
         </div>
         <div id="training-video" class="training-panel" style="display:none;">
           <div id="trainVideoFilter" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;"></div>
@@ -945,11 +939,6 @@ a { color:var(--accent2); text-decoration:none; }
           <div id="trainAllVideoFilter" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;"></div>
           <div id="trainAllVideoGrid" class="train-video-grid"></div>
         </div>
-      </div>
-
-      <!-- ===== PAGE: 广告特训营 ===== -->
-      <div id="page-trainingCamp" class="page" style="padding:0;">
-        <iframe id="trainingCampFrame" style="width:100%;height:calc(100vh - 60px);border:none;border-radius:var(--radius);" data-loaded="false"></iframe>
       </div>
 
     </main>
@@ -1446,13 +1435,6 @@ function navigate(page) {
     case 'occupancy': renderOccupancy(); break;
     case 'caseLib': renderCaseLib(); break;
     case 'training': renderTraining(); break;
-    case 'trainingCamp':
-      var tcFrame = $('trainingCampFrame');
-      if (tcFrame && tcFrame.getAttribute('data-loaded') !== 'true') {
-        tcFrame.src = 'https://609725591-spec.github.io/channel-crm-CRM---/training-camp.html';
-        tcFrame.setAttribute('data-loaded', 'true');
-      }
-      break;
     case 'admin': renderAdmin(); break;
     case 'topics': renderTopicsPage(); break;
     case 'mgmt': renderMgmtDashboard(); break;
@@ -6789,6 +6771,14 @@ function switchTrainingTab(tab) {
   });
   var target = $('training-' + tab);
   if (target) target.style.display = 'block';
+  // Lazy load training camp iframe when product tab is shown
+  if (tab === 'product') {
+    var tcFrame = $('trainingCampFrame');
+    if (tcFrame && tcFrame.getAttribute('data-loaded') !== 'true') {
+      tcFrame.src = 'https://609725591-spec.github.io/channel-crm-CRM---/training-camp.html';
+      tcFrame.setAttribute('data-loaded', 'true');
+    }
+  }
 }
 
 /* =============================================
