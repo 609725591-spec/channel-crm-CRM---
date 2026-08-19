@@ -895,6 +895,7 @@ a { color:var(--accent2); text-decoration:none; }
         <div class="training-tabs" style="display:flex;gap:0;margin-bottom:24px;border-bottom:1px solid var(--border);">
           <div class="training-tab active" data-tab="product" onclick="switchTrainingTab('product')" style="padding:10px 24px;cursor:pointer;font-size:14px;font-weight:600;color:var(--accent2);border-bottom:2px solid var(--accent);transition:all .2s;">商业化产品培训</div>
           <div class="training-tab" data-tab="video" onclick="switchTrainingTab('video')" style="padding:10px 24px;cursor:pointer;font-size:14px;color:var(--text2);border-bottom:2px solid transparent;transition:all .2s;">新人启航培训视频</div>
+          <div class="training-tab" data-tab="allvideo" onclick="switchTrainingTab('allvideo')" style="padding:10px 24px;cursor:pointer;font-size:14px;color:var(--text2);border-bottom:2px solid transparent;transition:all .2s;">全量视频课程汇总</div>
         </div>
         <div id="training-product" class="training-panel">
           <div style="text-align:center;padding:60px 20px;color:var(--text3);">
@@ -905,6 +906,10 @@ a { color:var(--accent2); text-decoration:none; }
         <div id="training-video" class="training-panel" style="display:none;">
           <div id="trainVideoFilter" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;"></div>
           <div id="trainVideoGrid" class="train-video-grid"></div>
+        </div>
+        <div id="training-allvideo" class="training-panel" style="display:none;">
+          <div id="trainAllVideoFilter" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;"></div>
+          <div id="trainAllVideoGrid" class="train-video-grid"></div>
         </div>
       </div>
 
@@ -6349,6 +6354,7 @@ var TRAINING_VIDEOS = [
 ];
 function renderTraining() {
   renderTrainingVideos();
+  renderAllVideos();
 }
 var TRAINING_CAT = {
   '新人培训': {cls:'thumb-cat-onboard', icon:'🎓', label:'新人培训'},
@@ -6401,6 +6407,51 @@ function renderTrainingVideos() {
     html += '</div></div></div>';
   });
   grid.innerHTML = html || '<div style="text-align:center;padding:60px 20px;color:var(--text3);grid-column:1/-1;"><div style="font-size:48px;margin-bottom:16px;">🎬</div><div style="font-size:15px;">暂无视频课程</div></div>';
+}
+var _trainAllFilterTag = '';
+function renderAllVideoFilters() {
+  var bar = $('trainAllVideoFilter');
+  if (!bar) return;
+  var tags = {};
+  TRAINING_VIDEOS.forEach(function(v) { if (v.tag) tags[v.tag] = (tags[v.tag]||0)+1; });
+  var html = '<div class="train-filter-btn' + (!_trainAllFilterTag?' active':'') + '" onclick="filterAllVideos(\'\')">全部 (' + TRAINING_VIDEOS.length + ')</div>';
+  Object.keys(tags).forEach(function(t) {
+    var cat = TRAINING_CAT[t];
+    var icon = cat ? cat.icon + ' ' : '';
+    html += '<div class="train-filter-btn' + (_trainAllFilterTag===t?' active':'') + '" onclick="filterAllVideos(\'' + t + '\')">' + icon + t + ' (' + tags[t] + ')</div>';
+  });
+  bar.innerHTML = html;
+}
+function filterAllVideos(tag) {
+  _trainAllFilterTag = tag;
+  renderAllVideoFilters();
+  renderAllVideoCards();
+}
+function renderAllVideoCards() {
+  var grid = $('trainAllVideoGrid');
+  if (!grid) return;
+  renderAllVideoFilters();
+  var list = _trainAllFilterTag ? TRAINING_VIDEOS.filter(function(v) { return v.tag === _trainAllFilterTag; }) : TRAINING_VIDEOS;
+  var html = '';
+  list.forEach(function(v) {
+    var cat = TRAINING_CAT[v.tag] || {cls:'thumb-cat-effect', icon:'🎬', label:v.tag||''};
+    html += '<div class="train-video-card" onclick="window.open(\'' + v.url.replace(/'/g, "\\'") + '\',\'_blank\')">';
+    html += '<div class="train-video-thumb ' + cat.cls + '">';
+    html += '<div class="thumb-icon">' + cat.icon + '</div>';
+    html += '<div class="thumb-label">' + cat.label + '</div>';
+    html += '<div class="play-btn"></div>';
+    html += '</div>';
+    html += '<div class="train-video-info">';
+    html += '<div class="title">' + v.title + '</div>';
+    html += '<div class="meta">';
+    if (v.tag) html += '<span class="tag">' + v.tag + '</span>';
+    if (v.date) html += '<span>' + v.date + '</span>';
+    html += '</div></div></div>';
+  });
+  grid.innerHTML = html || '<div style="text-align:center;padding:60px 20px;color:var(--text3);grid-column:1/-1;"><div style="font-size:48px;margin-bottom:16px;">🎬</div><div style="font-size:15px;">暂无视频课程</div></div>';
+}
+function renderAllVideos() {
+  renderAllVideoCards();
 }
 function switchTrainingTab(tab) {
   document.querySelectorAll('.training-tab').forEach(function(el) {
