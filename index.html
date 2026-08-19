@@ -2278,8 +2278,17 @@ async function uploadTopicExcel(topicId, file) {
    ============================================= */
 
 function computeDeepAnalysis(cases, city, region, commercialData) {
+  function isValidCase(c) {
+    if (!c.metrics) return false;
+    var m = c.metrics;
+    var dpv = m.dpv_pct || 0;
+    var gmv = m.gmv_pct || 0;
+    if (dpv > 500 || gmv > 500) return false;
+    if (dpv <= 0 && gmv <= 0) return false;
+    return true;
+  }
   var regionCases = cases.filter(function(c) {
-    return c.metrics && getRegion(c.city) === region;
+    return isValidCase(c) && getRegion(c.city) === region;
   });
   var cityCases = regionCases.filter(function(c) { return c.city === city; });
   var useCases = cityCases.length >= 5 ? cityCases : regionCases;
