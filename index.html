@@ -3829,7 +3829,7 @@ function renderRecommendations(d) {
       if (cd && cd.data && cd.data.dp > 0) desc += region + cat + cd.data.n + '户签约后DPV +' + cd.data.dp + '%。';
       else desc += '提升自然流量转化。';
     } else if (rec.key === 'xg') {
-      desc = tier === 'low' ? 'CPC按点击付费，预算自控。' : (tier === 'medium' ? '获客宝+OCPC智能出价，精准获客。' : 'NoBid/OCPC放量投放，旺季冲量。');
+      desc = tier === 'low' ? 'CPC按点击付费，预算自控。' : (tier === 'medium' ? '获客宝+OCPC智能出价，精准获客。' : 'OCPC放量投放，旺季冲量。');
       if (cd && cd.data && cd.data.dp > 0) desc += region + cat + cd.data.n + '户签约后DPV +' + cd.data.dp + '%' + (cd.data.gp > 0 ? '、GMV +' + cd.data.gp + '%' : '') + '。';
     } else if (rec.key === 'dz') {
       desc = '搜索首屏品牌展示，' + cat + '类目词包当前可售。';
