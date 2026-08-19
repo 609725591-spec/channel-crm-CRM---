@@ -3281,7 +3281,7 @@ function renderLeadsTable() {
   } else {
     pageData.forEach(function(d) {
       html += '<tr>' +
-        '<td><strong>' + (d.poi_name||'-') + '</strong></td>' +
+        '<td><strong style="cursor:pointer;color:var(--accent2);" onclick="showLeadDetail(\'' + (d.poi_id||'').replace(/'/g,"\\'") + '\')">' + (d.poi_name||'-') + '</strong></td>' +
         '<td>' + d.city + '</td>' +
         '<td>' + (d.category_l2||'-') + '</td>' +
         '<td class="num">' + fmtDpv(d.dpv_30d) + '</td>' +
@@ -3306,6 +3306,53 @@ function sortLeads(field) {
   STATE.leadsSort = s;
   STATE.leadsPage = 1;
   renderLeadsTable();
+}
+
+function showLeadDetail(poiId) {
+  var d = STATE.leadsData.find(function(x) { return x.poi_id === poiId; });
+  if (!d) return;
+
+  var html = '';
+
+  // Tab bar: 基本信息, 推荐方案, 同城案例
+  html += '<div class="tab-bar">';
+  html += '<button class="tab-btn active" onclick="switchDetailTab(this,0)">基本信息</button>';
+  html += '<button class="tab-btn" onclick="switchDetailTab(this,1)">推荐方案</button>';
+  html += '<button class="tab-btn" onclick="switchDetailTab(this,2)">同城案例</button>';
+  html += '</div>';
+
+  // Tab 0: 基本信息
+  html += '<div class="tab-panel active">';
+  html += '<div class="detail-section"><h4>门店信息</h4>';
+  html += '<div class="detail-grid">';
+  html += detailItem('POI ID', d.poi_id);
+  html += detailItem('城市', d.city);
+  html += detailItem('类目', (d.category_l2||'-') + (d.category_l3 ? ' > ' + d.category_l3 : ''));
+  html += detailItem('近30天日均DPV', fmtDpv(d.dpv_30d));
+  html += detailItem('品牌类型', d.brand_type || '-');
+  html += detailItem('烟火档位', d.smoke_level || '-');
+  html += detailItem('优先级', d.is_high_priority ? '<span class="badge badge-green">高优</span>' : '-');
+  html += '</div></div>';
+  // Lead hint
+  html += '<div style="background:rgba(59,130,246,0.08);border:1px solid rgba(59,130,246,0.2);border-radius:8px;padding:12px 16px;margin-top:12px;">';
+  html += '<div style="font-size:13px;font-weight:600;color:var(--accent2);margin-bottom:4px;">💡 开店签约建议</div>';
+  html += '<div style="font-size:12px;color:var(--text2);line-height:1.8;">该商户目前尚未开店，属于公海高优商机。开店后可签约商业化产品，下方「推荐方案」基于同类目已签约商户的真实效果数据生成，可作为签约沟通的参考依据。</div>';
+  html += '</div>';
+  html += '</div>';
+
+  // Tab 1: 推荐方案 (reuse renderRecommendations)
+  html += '<div class="tab-panel">';
+  html += renderRecommendations(d);
+  html += '</div>';
+
+  // Tab 2: 同城案例 (reuse renderCases)
+  html += '<div class="tab-panel">';
+  html += renderCases(d);
+  html += '</div>';
+
+  $('modalTitle').textContent = d.poi_name || poiId;
+  $('modalBody').innerHTML = html;
+  $('detailModal').classList.add('active');
 }
 
 /* =============================================
