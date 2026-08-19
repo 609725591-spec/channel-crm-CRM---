@@ -4460,8 +4460,7 @@ function showLeadDetail(poiId, autoFollow) {
   body += '<div class="tab-bar">' +
     '<button class="tab-btn active" onclick="switchDetailTab(this,0)">基本信息</button>' +
     '<button class="tab-btn" onclick="switchDetailTab(this,1)">推荐方案</button>' +
-    '<button class="tab-btn" onclick="switchDetailTab(this,2)">同城案例</button>' +
-    '<button class="tab-btn" onclick="switchDetailTab(this,3)">跟进记录</button>' +
+    '<button class="tab-btn" onclick="switchDetailTab(this,2)">跟进记录</button>' +
     '</div>';
 
   // Tab 0: 基本信息
@@ -4491,13 +4490,8 @@ function showLeadDetail(poiId, autoFollow) {
   body += renderRecommendations(d);
   body += '</div>';
 
-  // Tab 2: 同城案例 (reuse PID case data)
+  // Tab 2: 跟进记录
   body += '<div class="tab-panel" data-tab="2">';
-  body += renderCases(d);
-  body += '</div>';
-
-  // Tab 3: 跟进记录
-  body += '<div class="tab-panel" data-tab="3">';
   body += '<button class="btn btn-primary btn-sm" onclick="openFollowUp(\'lead\',\'' + d.poi_id + '\')" style="margin-bottom:16px;">+ 添加跟进</button>';
   body += renderFollowUpTimeline('lead', d.poi_id);
   body += '</div>';
@@ -4508,7 +4502,7 @@ function showLeadDetail(poiId, autoFollow) {
   if (autoFollow) {
     setTimeout(function() {
       var btns = document.querySelectorAll('#detailModal .tab-btn');
-      if (btns[3]) switchDetailTab(btns[3], 3);
+      if (btns[2]) switchDetailTab(btns[2], 2);
       openFollowUp('lead', poiId);
     }, 50);
   }
