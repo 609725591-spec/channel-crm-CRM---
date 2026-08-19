@@ -6794,6 +6794,14 @@ function switchTrainingTab(tab) {
         '&company=' + encodeURIComponent(u.provider_name || '') +
         '&role=rep';
       tcFrame.src = 'https://609725591-spec.github.io/channel-crm-CRM---/training-camp.html?' + params;
+      tcFrame.addEventListener('load', function() {
+        tcFrame.contentWindow.postMessage({
+          type: 'crm-auto-login',
+          name: empName,
+          company: u.provider_name || '',
+          role: 'rep'
+        }, '*');
+      });
       tcFrame.setAttribute('data-loaded', 'true');
     }
   }
