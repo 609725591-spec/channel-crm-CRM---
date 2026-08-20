@@ -6052,12 +6052,33 @@ function showHeaderEmpCombo() {
 }
 
 function promptAddEmployee() {
-  var name = prompt('请输入新人员姓名：');
-  if (!name || !name.trim()) return;
-  name = name.trim();
+  var btn = $('headerEmpAddBtn');
+  // Check if input already shown
+  var existing = $('headerEmpAddInput');
+  if (existing) { existing.focus(); return; }
+  // Create inline input
+  var wrap = document.createElement('span');
+  wrap.id = 'headerEmpAddWrap';
+  wrap.style.cssText = 'display:inline-flex;align-items:center;gap:4px;margin-left:4px;';
+  wrap.innerHTML = '<input id="headerEmpAddInput" type="text" placeholder="输入姓名" style="width:80px;padding:4px 8px;border:1px solid var(--accent);border-radius:var(--radius);background:var(--bg);color:var(--text1);font-size:12px;outline:none;" />' +
+    '<button onclick="confirmAddEmployee()" style="background:var(--accent);color:#fff;border:none;border-radius:var(--radius);padding:4px 8px;font-size:11px;cursor:pointer;">确定</button>' +
+    '<button onclick="cancelAddEmployee()" style="background:none;border:1px solid var(--border);color:var(--text2);border-radius:var(--radius);padding:4px 6px;font-size:11px;cursor:pointer;">取消</button>';
+  btn.parentNode.insertBefore(wrap, btn.nextSibling);
+  btn.style.display = 'none';
+  $('headerEmpAddInput').focus();
+  $('headerEmpAddInput').addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') confirmAddEmployee();
+    if (e.key === 'Escape') cancelAddEmployee();
+  });
+}
+
+function confirmAddEmployee() {
+  var inp = $('headerEmpAddInput');
+  var name = inp ? inp.value.trim() : '';
+  if (!name) { cancelAddEmployee(); return; }
   // Check duplicate
   if (STATE.employees.indexOf(name) >= 0) {
-    alert('该人员已存在');
+    cancelAddEmployee();
     switchEmpIdentity(name);
     return;
   }
@@ -6069,12 +6090,17 @@ function promptAddEmployee() {
       provider_id: STATE.user.provider_id,
       name: name,
       role: 'employee'
-    }).then(function(res) {
-      if (res.error) console.warn('Add employee error:', res.error.message);
     });
   }
-  // Switch to the new employee
+  cancelAddEmployee();
   switchEmpIdentity(name);
+}
+
+function cancelAddEmployee() {
+  var wrap = $('headerEmpAddWrap');
+  if (wrap) wrap.remove();
+  var btn = $('headerEmpAddBtn');
+  if (btn) btn.style.display = 'inline-flex';
 }
 
 function showEmpDropdown() {
