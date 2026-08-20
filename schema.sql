@@ -118,6 +118,7 @@ CREATE TABLE IF NOT EXISTS crm_follow_ups (
   status TEXT DEFAULT '待跟进',
   note TEXT,
   product_interest TEXT,
+  intended_amount NUMERIC DEFAULT 0,
   next_action TEXT,
   next_date DATE,
   created_at TIMESTAMPTZ DEFAULT NOW(),
