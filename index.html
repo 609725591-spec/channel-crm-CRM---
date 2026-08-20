@@ -6575,6 +6575,28 @@ var TRAINING_VIDEOS = [
     url: 'https://n.dingtalk.com/dingding/live-room/index.html?roomId=QF4KMRvQ3w&liveUuid=50a3d0e6-a387-4fc9-8fdb-4462a19f5069'
   }
 ];
+var VIDEO_THUMBS = {
+  '28e31b9d-3532-4bb4-898d-08216683c666':'thumbnails/v01.png',
+  'c3ffa177-4be4-40c3-b2ee-fac4a1f7dc5a':'thumbnails/v02.jpg',
+  'b43c26bb-cd2d-488e-882b-132dcb73f787':'thumbnails/v03.jpg',
+  '897b2237-666d-4396-adf8-69d97ec3841c':'thumbnails/v04.png',
+  'b6b1d229-87db-42aa-9221-fc6fa7c07cd3':'thumbnails/v05.jpg',
+  '10d7b863-8c28-4290-8e02-a1ba263254aa':'thumbnails/v06.jpg',
+  '4d9c6043-7c1b-48ba-9f52-964382e7e2bd':'thumbnails/v07.jpg',
+  '7b43b375-3886-4703-9c5a-428e14c5dd06':'thumbnails/v08.jpg',
+  'aef308a9-12b0-462a-8f4f-b887b00011c4':'thumbnails/v09.jpg',
+  '8f50184d-d30c-456a-8632-5f9547269fba':'thumbnails/v10.jpg',
+  '298d2fb7-8aaa-42fc-863b-4f8f12429791':'thumbnails/v11.jpg',
+  '7d9a153f-f2b5-41fb-a3ff-b8eb518c0de8':'thumbnails/v12.jpg',
+  '5dba1910-c1da-46c0-b094-48b4e9837022':'thumbnails/v13.jpg',
+  '3589ec82-21d6-4a87-9d93-a3059577366a':'thumbnails/v14.jpg',
+  '50a3d0e6-a387-4fc9-8fdb-4462a19f5069':'thumbnails/v15.png'
+};
+function getVideoThumb(url) {
+  if (!url) return null;
+  var m = url.match(/liveUuid=([a-f0-9-]+)/);
+  return m ? (VIDEO_THUMBS[m[1]] || null) : null;
+}
 function renderTraining() {
   renderTrainingVideos();
   renderAllVideos();
@@ -6616,10 +6638,15 @@ function renderTrainingVideos() {
   var html = '';
   list.forEach(function(v) {
     var cat = TRAINING_CAT[v.tag] || {cls:'thumb-cat-effect', icon:'🎬', label:v.tag||''};
+    var thumb = getVideoThumb(v.url);
     html += '<div class="train-video-card" onclick="window.open(\'' + v.url.replace(/'/g, "\\'") + '\',\'_blank\')">';
     html += '<div class="train-video-thumb ' + cat.cls + '">';
-    html += '<div class="thumb-icon">' + cat.icon + '</div>';
-    html += '<div class="thumb-label">' + cat.label + '</div>';
+    if (thumb) {
+      html += '<img src="' + thumb + '" style="width:100%;height:100%;object-fit:cover;position:absolute;top:0;left:0;" loading="lazy" alt="">';
+    } else {
+      html += '<div class="thumb-icon">' + cat.icon + '</div>';
+      html += '<div class="thumb-label">' + cat.label + '</div>';
+    }
     html += '<div class="play-btn"></div>';
     html += '</div>';
     html += '<div class="train-video-info">';
@@ -6795,8 +6822,13 @@ function renderAllVideoCards() {
       html += '<div class="train-video-card" style="opacity:0.7;cursor:default;">';
     }
     html += '<div class="train-video-thumb ' + cat.cls + '">';
-    html += '<div class="thumb-icon">' + cat.icon + '</div>';
-    html += '<div class="thumb-label">' + cat.label + '</div>';
+    var thumb = getVideoThumb(v.url);
+    if (thumb) {
+      html += '<img src="' + thumb + '" style="width:100%;height:100%;object-fit:cover;position:absolute;top:0;left:0;" loading="lazy" alt="">';
+    } else {
+      html += '<div class="thumb-icon">' + cat.icon + '</div>';
+      html += '<div class="thumb-label">' + cat.label + '</div>';
+    }
     if (hasUrl) html += '<div class="play-btn"></div>';
     else html += '<div style="position:absolute;bottom:8px;right:10px;font-size:11px;color:rgba(255,255,255,0.6);">暂无回放</div>';
     html += '</div>';
