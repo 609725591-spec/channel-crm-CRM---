@@ -583,7 +583,7 @@ a { color:var(--accent2); text-decoration:none; }
         <span style="font-size:10px;color:var(--text3);margin-left:2px;">▾</span>
         <div class="emp-dropdown" id="headerEmpDD"></div>
       </div>
-      <button id="headerEmpAddBtn" onclick="promptAddEmployee()" title="添加人员" style="display:none;background:none;border:1px solid var(--border);border-radius:var(--radius);color:var(--text2);font-size:14px;width:24px;height:24px;cursor:pointer;line-height:1;padding:0;margin-left:4px;">+</button>
+      <button id="headerEmpAddBtn" onclick="promptAddEmployee()" style="display:none;background:var(--accent);color:#fff;border:none;border-radius:var(--radius);font-size:12px;padding:5px 12px;cursor:pointer;font-weight:500;margin-left:6px;white-space:nowrap;">+ 添加人员</button>
       <span id="headerUser" class="user-info"></span>
       <button class="logout-btn" onclick="doLogout()">退出</button>
     </div>
@@ -6060,9 +6060,9 @@ function promptAddEmployee() {
   var wrap = document.createElement('span');
   wrap.id = 'headerEmpAddWrap';
   wrap.style.cssText = 'display:inline-flex;align-items:center;gap:4px;margin-left:4px;';
-  wrap.innerHTML = '<input id="headerEmpAddInput" type="text" placeholder="输入姓名" style="width:80px;padding:4px 8px;border:1px solid var(--accent);border-radius:var(--radius);background:var(--bg);color:var(--text1);font-size:12px;outline:none;" />' +
-    '<button onclick="confirmAddEmployee()" style="background:var(--accent);color:#fff;border:none;border-radius:var(--radius);padding:4px 8px;font-size:11px;cursor:pointer;">确定</button>' +
-    '<button onclick="cancelAddEmployee()" style="background:none;border:1px solid var(--border);color:var(--text2);border-radius:var(--radius);padding:4px 6px;font-size:11px;cursor:pointer;">取消</button>';
+  wrap.innerHTML = '<input id="headerEmpAddInput" type="text" placeholder="输入姓名，回车确认" style="width:120px;padding:5px 10px;border:1px solid var(--accent);border-radius:var(--radius);background:var(--bg);color:var(--text1);font-size:12px;outline:none;" />' +
+    '<button onclick="confirmAddEmployee()" style="background:var(--accent);color:#fff;border:none;border-radius:var(--radius);padding:5px 12px;font-size:12px;cursor:pointer;font-weight:500;">确定</button>' +
+    '<button onclick="cancelAddEmployee()" style="background:transparent;border:1px solid var(--border);color:var(--text2);border-radius:var(--radius);padding:5px 10px;font-size:12px;cursor:pointer;">取消</button>';
   btn.parentNode.insertBefore(wrap, btn.nextSibling);
   btn.style.display = 'none';
   $('headerEmpAddInput').focus();
