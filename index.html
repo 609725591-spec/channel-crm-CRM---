@@ -792,8 +792,8 @@ a { color:var(--accent2); text-decoration:none; }
           <select id="jobLevel" onchange="renderJobs()">
             <option value="employee">个人</option>
             <option value="provider">服务商</option>
-            <option value="manager">渠道经理</option>
-            <option value="region">大区</option>
+            <option value="manager" class="admin-only-level" style="display:none">渠道经理</option>
+            <option value="region" class="admin-only-level" style="display:none">大区</option>
           </select>
         </div>
         <div id="jobsStats" class="stats-row"></div>
@@ -1322,7 +1322,14 @@ async function doLogin() {
 function onLoginSuccess() {
   $('loginPage').style.display = 'none';
   $('headerUser').textContent = STATE.user.provider_name;
-  if (STATE.user.is_admin) { $('navAdmin').style.display = 'flex'; }
+  if (STATE.user.is_admin) {
+    $('navAdmin').style.display = 'flex';
+    // Show admin-only job level options
+    document.querySelectorAll('.admin-only-level').forEach(function(opt) { opt.style.display = ''; });
+  } else {
+    // Remove admin-only level options for non-admin users
+    document.querySelectorAll('.admin-only-level').forEach(function(opt) { opt.remove(); });
+  }
 
   // Save session to localStorage for auto-login on refresh
   localStorage.setItem('crm_session', JSON.stringify({
@@ -5013,25 +5020,57 @@ function renderJobsTable(level) {
     return '<div class="empty-state" style="margin-top:24px;"><div class="icon">📋</div><div class="msg">暂无作业数据，开始跟进商户后这里会显示统计</div></div>';
   }
 
-  // Group by employee_name
   var groups = {};
-  allRecords.forEach(function(r) {
-    var name = r.employee_name || '系统';
-    if (!groups[name]) groups[name] = { followups: 0, signed: 0 };
-    groups[name].followups++;
-    if (r.status === '已签约') groups[name].signed++;
-  });
+  var headerLabel = '小二';
+
+  if (level === 'provider') {
+    headerLabel = '服务商';
+    var pname = STATE.user.provider_name || '当前服务商';
+    groups[pname] = { followups: 0, signed: 0 };
+    allRecords.forEach(function(r) {
+      groups[pname].followups++;
+      if (r.status === '已签约') groups[pname].signed++;
+    });
+  } else if (level === 'manager') {
+    headerLabel = '渠道经理';
+    allRecords.forEach(function(r) {
+      var name = r.channel_manager || '未分配';
+      if (!groups[name]) groups[name] = { followups: 0, signed: 0 };
+      groups[name].followups++;
+      if (r.status === '已签约') groups[name].signed++;
+    });
+  } else if (level === 'region') {
+    headerLabel = '大区';
+    allRecords.forEach(function(r) {
+      var name = r.region || '未分配';
+      if (!groups[name]) groups[name] = { followups: 0, signed: 0 };
+      groups[name].followups++;
+      if (r.status === '已签约') groups[name].signed++;
+    });
+  } else {
+    // employee level (default)
+    allRecords.forEach(function(r) {
+      var name = r.employee_name || '系统';
+      if (!groups[name]) groups[name] = { followups: 0, signed: 0 };
+      groups[name].followups++;
+      if (r.status === '已签约') groups[name].signed++;
+    });
+  }
 
   var html = '<div class="data-table-wrap" style="margin-top:16px;"><table class="data-table"><thead><tr>' +
-    '<th>小二</th>' +
-    '<th class="num">跟进数</th><th class="num">签约数</th>' +
+    '<th>' + headerLabel + '</th>' +
+    '<th class="num">跟进数</th><th class="num">签约数</th><th class="num">转化率</th>' +
     '</tr></thead><tbody>';
 
-  Object.keys(groups).forEach(function(name) {
-    var g = groups[name];
+  // Sort by followups desc
+  var sorted = Object.entries(groups).sort(function(a, b) { return b[1].followups - a[1].followups; });
+  sorted.forEach(function(entry) {
+    var name = entry[0], g = entry[1];
+    var rate = g.followups > 0 ? (g.signed / g.followups * 100).toFixed(1) + '%' : '-';
     html += '<tr><td><strong>' + name + '</strong></td>' +
       '<td class="num">' + g.followups + '</td>' +
-      '<td class="num">' + g.signed + '</td></tr>';
+      '<td class="num">' + g.signed + '</td>' +
+      '<td class="num">' + rate + '</td></tr>';
   });
 
   html += '</tbody></table></div>';
