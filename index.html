@@ -2467,10 +2467,10 @@ function renderAnalysis() {
     '</div>';
 
   // === Section 2: Historical Signing Analysis (by product × category) ===
-  renderSigningAnalysis(data, cities);
+  renderSigningAnalysis(data, cities, cityFilteredCases, regionFilteredCases);
 }
 
-function renderSigningAnalysis(data, cities) {
+function renderSigningAnalysis(data, cities, cityFilteredCases, regionFilteredCases) {
   var container = $('analysisSigning');
   var region = getRegion(cities[0] || '');
   var city = cities[0] || '';
