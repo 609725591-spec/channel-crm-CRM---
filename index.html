@@ -989,6 +989,13 @@ a { color:var(--accent2); text-decoration:none; }
         </div>
         <div class="form-row">
           <div style="flex:1">
+            <label>意向金额（元）</label>
+            <input id="fuAmount" type="number" min="0" step="100" placeholder="如：5000">
+          </div>
+          <div style="flex:1"></div>
+        </div>
+        <div class="form-row">
+          <div style="flex:1">
             <label>下次跟进日期</label>
             <input id="fuNextDate" type="date">
           </div>
@@ -4758,6 +4765,7 @@ function openFollowUp(targetType, targetId) {
   if (nextIdx < statuses.length - 1) sel.value = statuses[nextIdx + 1];
 
   $('fuProduct').value = '';
+  $('fuAmount').value = '';
   $('fuNote').value = '';
   $('fuNextDate').value = '';
   $('fuNextAction').value = '';
@@ -4792,6 +4800,7 @@ async function saveFollowUp() {
     employee_name: empName,
     status: $('fuStatus').value,
     product_interest: $('fuProduct').value,
+    intended_amount: $('fuAmount').value || '',
     note: $('fuNote').value,
     next_date: $('fuNextDate').value,
     next_action: $('fuNextAction').value,
@@ -4864,6 +4873,7 @@ function renderFollowUpTimeline(targetType, targetId) {
       '<div class="tl-body">' + (r.note || '无备注') + '</div>' +
       '<div class="tl-status" style="margin-top:4px;">' + statusBadge(r.status) +
       (r.product_interest ? ' <span class="badge badge-blue" style="margin-left:4px;">' + r.product_interest + '</span>' : '') +
+      (r.intended_amount ? ' <span class="badge" style="margin-left:4px;background:#fff8e1;color:#b8860b;">¥' + Number(r.intended_amount).toLocaleString() + '</span>' : '') +
       '</div></div>';
   });
   html += '</div>';
