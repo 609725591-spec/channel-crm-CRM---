@@ -935,6 +935,7 @@ a { color:var(--accent2); text-decoration:none; }
           <div id="trainVideoGrid" class="train-video-grid"></div>
         </div>
         <div id="training-allvideo" class="training-panel" style="display:none;">
+          <div style="margin-bottom:16px;"><input id="trainAllVideoSearch" type="text" placeholder="🔍 搜索课程名称、讲师、分类..." oninput="searchAllVideos(this.value)" style="width:100%;max-width:400px;padding:8px 14px;border:1px solid var(--border);border-radius:var(--radius);background:var(--bg);color:var(--text1);font-size:13px;outline:none;" /></div>
           <div id="trainAllVideoFilter" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;"></div>
           <div id="trainAllVideoGrid" class="train-video-grid"></div>
         </div>
@@ -6723,6 +6724,11 @@ var TRAINING_ALL_CAT = {
   '工具 & 系统': {cls:'thumb-cat-tools', icon:'🔧', label:'工具系统'}
 };
 var _trainAllFilterTag = '';
+var _trainAllSearch = '';
+function searchAllVideos(val) {
+  _trainAllSearch = (val || '').toLowerCase();
+  renderAllVideoCards();
+}
 function renderAllVideoFilters() {
   var bar = $('trainAllVideoFilter');
   if (!bar) return;
@@ -6747,6 +6753,13 @@ function renderAllVideoCards() {
   if (!grid) return;
   renderAllVideoFilters();
   var list = _trainAllFilterTag ? TRAINING_ALL_VIDEOS.filter(function(v) { return v.tag === _trainAllFilterTag; }) : TRAINING_ALL_VIDEOS;
+  if (_trainAllSearch) {
+    list = list.filter(function(v) {
+      return (v.title||'').toLowerCase().indexOf(_trainAllSearch) >= 0
+        || (v.instructor||'').toLowerCase().indexOf(_trainAllSearch) >= 0
+        || (v.tag||'').toLowerCase().indexOf(_trainAllSearch) >= 0;
+    });
+  }
   var html = '';
   list.forEach(function(v) {
     var cat = TRAINING_ALL_CAT[v.tag] || {cls:'thumb-cat-nourl', icon:'🎬', label:v.tag||''};
@@ -6771,7 +6784,7 @@ function renderAllVideoCards() {
     if (v.instructor) html += '<div style="font-size:12px;color:var(--text3);margin-top:4px;">讲师：' + v.instructor + '</div>';
     html += '</div></div>';
   });
-  grid.innerHTML = html || '<div style="text-align:center;padding:60px 20px;color:var(--text3);grid-column:1/-1;"><div style="font-size:48px;margin-bottom:16px;">🎬</div><div style="font-size:15px;">暂无视频课程</div></div>';
+  grid.innerHTML = html || '<div style="text-align:center;padding:60px 20px;color:var(--text3);grid-column:1/-1;"><div style="font-size:48px;margin-bottom:16px;">🔍</div><div style="font-size:15px;">' + (_trainAllSearch ? '未找到匹配"' + _trainAllSearch + '"的课程' : '暂无视频课程') + '</div></div>';
 }
 function renderAllVideos() {
   renderAllVideoCards();
