@@ -5574,14 +5574,29 @@ function exportUsageCSV() {
 function exportCommercial() {
   logUsage('export_commercial');
   var data = STATE.commercialFiltered;
-  var header = 'PID,门店名,城市,区县,类目,分层,DPV,90天GMV,门店数,签约状态';
+  var header = 'PID,门店名,城市,区县,类目,分层,DPV,90天GMV,门店数,签约状态,跟进次数,跟进人,跟进状态,感兴趣产品,意向金额,跟进备注,下次跟进日期,下一步动作';
   var lines = [header];
   data.forEach(function(d) {
     var signed = [];
     if (d.is_signed_agent) signed.push('智能体');
     if (d.is_signed_eff) signed.push('效广');
     if (d.is_signed_brand) signed.push('品广');
-    lines.push([d.pid, csvEscape(d.store_name), d.city, d.district, d.category_l2, d.tier, d.dpv_30d, d.gmv_90d, d.store_count, signed.join('+')||'未签约'].join(','));
+    var key = 'pid_' + d.pid;
+    var fus = STATE.followUps[key] || [];
+    var fuNames = [], fuStatuses = [], fuProducts = [], fuAmounts = [], fuNotes = [], fuDates = [], fuActions = [];
+    fus.forEach(function(r) {
+      fuNames.push(r.employee_name || '');
+      fuStatuses.push(r.status || '');
+      fuProducts.push(r.product_interest || '');
+      fuAmounts.push(r.intended_amount || '');
+      fuNotes.push(r.note || '');
+      fuDates.push(r.next_date || '');
+      fuActions.push(r.next_action || '');
+    });
+    lines.push([d.pid, csvEscape(d.store_name), d.city, d.district, d.category_l2, d.tier, d.dpv_30d, d.gmv_90d, d.store_count, signed.join('+')||'未签约',
+      fus.length, csvEscape(fuNames.join(';')), csvEscape(fuStatuses.join(';')), csvEscape(fuProducts.join(';')),
+      csvEscape(fuAmounts.join(';')), csvEscape(fuNotes.join(';')), csvEscape(fuDates.join(';')), csvEscape(fuActions.join(';'))
+    ].join(','));
   });
   downloadCSV(lines.join('\n'), '在约-高优商业化_' + STATE.cities.join('-') + '.csv');
 }
