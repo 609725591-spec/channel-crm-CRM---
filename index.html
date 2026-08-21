@@ -5504,7 +5504,6 @@ function renderUsageProviderView() {
       '<td class="num">' + d.logins + '</td><td class="num">' + d.navs + '</td><td class="num">' + d.followUps + '</td>' +
       '<td class="num">' + d.poolOps + '</td><td class="num">' + d.exports + '</td><td class="num">' + d.activeDayCount + '</td>' +
       '<td style="color:' + daysColor + ';font-weight:600;">' + daysLabel + '</td></tr>';
-    html += '<tr id="empRow_' + idx + '" style="display:none;"><td></td><td colspan="8" id="empCell_' + idx + '" style="padding:0;"></td></tr>';
   });
   html += '</tbody></table></div>';
   $('mgmtUsageDetail').innerHTML = html;
@@ -5512,21 +5511,28 @@ function renderUsageProviderView() {
 
 function toggleUsageEmp(pid, rowEl) {
   var c = STATE.mgmtUsageCache;
-  var tbody = rowEl.closest('tbody');
-  var rows = tbody.querySelectorAll('tr');
-  var idx = -1;
-  for (var i = 0; i < rows.length; i++) { if (rows[i] === rowEl) { idx = Math.floor(i / 2); break; } }
-  if (idx < 0) return;
-  var empRow = document.getElementById('empRow_' + idx);
-  var empCell = document.getElementById('empCell_' + idx);
   var arrow = rowEl.querySelector('td:first-child');
-  if (empRow.style.display !== 'none') { empRow.style.display = 'none'; arrow.textContent = '▶'; return; }
+  var existingDetail = rowEl.nextElementSibling;
+
+  // If detail row already exists right after, collapse it
+  if (existingDetail && existingDetail.classList.contains('usage-detail-row')) {
+    existingDetail.remove();
+    arrow.textContent = '▶';
+    return;
+  }
+
+  // Build employee detail row
   var emps = [];
   Object.keys(c.byEmployee).forEach(function(k) { if (c.byEmployee[k].provider_id === pid) emps.push(c.byEmployee[k]); });
   emps.sort(function(a,b){ return (b.lastActive||'').localeCompare(a.lastActive||''); });
-  if (emps.length === 0) { empCell.innerHTML = '<div style="padding:12px 16px;color:var(--text3);font-size:13px;">暂无小二使用记录</div>'; }
-  else {
-    var h = '<div style="background:var(--bg);border-radius:8px;margin:4px 0;padding:8px 12px;"><table class="data-table" style="font-size:12px;"><thead><tr>' +
+
+  var detailRow = document.createElement('tr');
+  detailRow.className = 'usage-detail-row';
+  var h = '<td></td><td colspan="8" style="padding:0;">';
+  if (emps.length === 0) {
+    h += '<div style="padding:12px 16px;color:var(--text3);font-size:13px;">暂无小二使用记录</div>';
+  } else {
+    h += '<div style="background:var(--bg);border-radius:8px;margin:4px 0;padding:8px 12px;"><table class="data-table" style="font-size:12px;"><thead><tr>' +
       '<th>小二</th><th class="num">登录</th><th class="num">页面浏览</th><th class="num">跟进</th><th class="num">做工池</th><th class="num">导出</th><th class="num">活跃天数</th><th>最近活跃</th></tr></thead><tbody>';
     emps.forEach(function(e) {
       var da = e.lastActive ? Math.floor((Date.now() - new Date(e.lastActive).getTime()) / 86400000) : -1;
@@ -5535,9 +5541,12 @@ function toggleUsageEmp(pid, rowEl) {
       h += '<tr><td>👤 ' + e.employee_name + '</td><td class="num">' + e.logins + '</td><td class="num">' + e.navs + '</td><td class="num">' + e.followUps + '</td><td class="num">' + e.poolOps + '</td><td class="num">' + e.exports + '</td><td class="num">' + e.activeDayCount + '</td><td style="color:' + dc + ';font-weight:600;">' + dl + '</td></tr>';
     });
     h += '</tbody></table></div>';
-    empCell.innerHTML = h;
   }
-  empRow.style.display = '';
+  h += '</td>';
+  detailRow.innerHTML = h;
+
+  // Insert right after the clicked row
+  rowEl.parentNode.insertBefore(detailRow, rowEl.nextSibling);
   arrow.textContent = '▼';
 }
 
