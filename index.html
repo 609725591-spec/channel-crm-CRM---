@@ -5645,12 +5645,21 @@ function exportUsageCSV() {
       return [r.region, r.providers, r.logins, r.navs, r.followUps, r.poolOps, r.exports, Object.keys(r.activeDays).length, r.lastActive ? r.lastActive.substring(0,16).replace('T',' ') : '-'];
     });
   } else {
-    header = ['服务商','所属大区','渠道经理','登录','页面浏览','跟进','做工池','导出','活跃天数','最近活跃'];
-    rows = Object.keys(c.byProvider).map(function(k) {
-      var d = c.byProvider[k];
-      return [d.provider_name, d.region || '未分配', d.channel_manager || '未分配', d.logins, d.navs, d.followUps, d.poolOps, d.exports, d.activeDayCount, d.lastActive ? d.lastActive.substring(0,16).replace('T',' ') : '-'];
+    header = ['类型','服务商','所属大区','渠道经理','小二','登录','页面浏览','跟进','做工池','导出','活跃天数','最近活跃'];
+    rows = [];
+    var provArr = Object.keys(c.byProvider).map(function(k){ return Object.assign({provider_id:k}, c.byProvider[k]); });
+    provArr.sort(function(a,b){ return (b.lastActive||'').localeCompare(a.lastActive||''); });
+    provArr.forEach(function(d) {
+      // Provider summary row
+      rows.push(['服务商', d.provider_name, d.region || '未分配', d.channel_manager || '未分配', '', d.logins, d.navs, d.followUps, d.poolOps, d.exports, d.activeDayCount, d.lastActive ? d.lastActive.substring(0,16).replace('T',' ') : '-']);
+      // Employee detail rows
+      var emps = [];
+      Object.keys(c.byEmployee).forEach(function(k) { if (c.byEmployee[k].provider_id === d.provider_id) emps.push(c.byEmployee[k]); });
+      emps.sort(function(a,b){ return (b.lastActive||'').localeCompare(a.lastActive||''); });
+      emps.forEach(function(e) {
+        rows.push(['  小二', d.provider_name, d.region || '未分配', d.channel_manager || '未分配', e.employee_name, e.logins, e.navs, e.followUps, e.poolOps, e.exports, e.activeDayCount, e.lastActive ? e.lastActive.substring(0,16).replace('T',' ') : '-']);
+      });
     });
-    rows.sort(function(a,b){ return (b[9]||'').localeCompare(a[9]||''); });
   }
   var csv = '\uFEFF' + header.join(',') + '\n' + rows.map(function(r){ return r.map(function(v){ return '"' + String(v).replace(/"/g,'""') + '"'; }).join(','); }).join('\n');
   var blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
