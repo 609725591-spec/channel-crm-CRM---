@@ -5478,35 +5478,72 @@ async function renderMgmtUsage() {
   }
 }
 
+var _usageFilterRegion = '';
+var _usageFilterChannel = '';
+var _usageFilterProvider = '';
+
 function renderUsageProviderView() {
   var c = STATE.mgmtUsageCache;
   var bp = c.byProvider;
   var arr = Object.keys(bp).map(function(k){ return Object.assign({provider_id:k}, bp[k]); });
-  arr.sort(function(a,b){ return (b.lastActive||'').localeCompare(a.lastActive||''); });
+
+  // Collect unique filter options
+  var regions = {}, channels = {};
+  arr.forEach(function(d) { regions[d.region || '未分配'] = true; channels[d.channel_manager || '未分配'] = true; });
+  var regionList = Object.keys(regions).sort();
+  var channelList = Object.keys(channels).sort();
+
+  // Apply filters
+  var filtered = arr.filter(function(d) {
+    if (_usageFilterRegion && (d.region || '未分配') !== _usageFilterRegion) return false;
+    if (_usageFilterChannel && (d.channel_manager || '未分配') !== _usageFilterChannel) return false;
+    if (_usageFilterProvider && (d.provider_name||'').toLowerCase().indexOf(_usageFilterProvider.toLowerCase()) < 0) return false;
+    return true;
+  });
+  filtered.sort(function(a,b){ return (b.lastActive||'').localeCompare(a.lastActive||''); });
+
   var totalActiveDays = 0;
-  arr.forEach(function(d){ totalActiveDays += d.activeDayCount; });
+  filtered.forEach(function(d){ totalActiveDays += d.activeDayCount; });
   $('mgmtUsageStats').innerHTML =
     '<div class="stat-card"><div class="label">活跃服务商</div><div class="value blue">' + c.activeProviders.size + '</div><div class="sub">共' + c.totalProviders + '家注册</div></div>' +
     '<div class="stat-card"><div class="label">总登录次数</div><div class="value amber">' + c.totalLogins + '</div><div class="sub">人均 ' + (c.activeProviders.size > 0 ? (c.totalLogins / c.activeProviders.size).toFixed(1) : 0) + ' 次</div></div>' +
     '<div class="stat-card"><div class="label">总操作次数</div><div class="value purple">' + c.totalOps + '</div><div class="sub">导出 ' + c.totalExports + ' 次</div></div>' +
     '<div class="stat-card"><div class="label">总活跃天数</div><div class="value green">' + totalActiveDays + '</div><div class="sub">人均 ' + (c.activeProviders.size > 0 ? (totalActiveDays / c.activeProviders.size).toFixed(1) : 0) + ' 天</div></div>';
 
-  var html = '<div class="data-table-wrap"><table class="data-table"><thead><tr>' +
-    '<th style="width:28px;"></th><th>服务商</th><th class="num">登录</th><th class="num">页面浏览</th><th class="num">跟进</th><th class="num">做工池</th><th class="num">导出</th><th class="num">活跃天数</th><th>最近活跃</th>' +
+  // Filter bar
+  var filterHtml = '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;align-items:center;">' +
+    '<select onchange="_usageFilterRegion=this.value;renderUsageProviderView()" style="padding:6px 10px;border:1px solid var(--border);border-radius:var(--radius);background:var(--bg);color:var(--text1);font-size:12px;">' +
+    '<option value="">全部大区</option>';
+  regionList.forEach(function(r) { filterHtml += '<option value="' + r + '"' + (_usageFilterRegion===r?' selected':'') + '>' + r + '</option>'; });
+  filterHtml += '</select>' +
+    '<select onchange="_usageFilterChannel=this.value;renderUsageProviderView()" style="padding:6px 10px;border:1px solid var(--border);border-radius:var(--radius);background:var(--bg);color:var(--text1);font-size:12px;">' +
+    '<option value="">全部渠道经理</option>';
+  channelList.forEach(function(ch) { filterHtml += '<option value="' + ch + '"' + (_usageFilterChannel===ch?' selected':'') + '>' + ch + '</option>'; });
+  filterHtml += '</select>' +
+    '<input id="usageProviderSearch" type="text" placeholder="搜索服务商..." value="' + _usageFilterProvider + '" oninput="_usageFilterProvider=this.value;renderUsageProviderView()" style="padding:6px 10px;border:1px solid var(--border);border-radius:var(--radius);background:var(--bg);color:var(--text1);font-size:12px;width:160px;" />' +
+    '<span style="font-size:12px;color:var(--text3);">共 ' + filtered.length + ' 家</span></div>';
+
+  var html = filterHtml + '<div class="data-table-wrap"><table class="data-table"><thead><tr>' +
+    '<th style="width:28px;"></th><th>服务商</th><th>所属大区</th><th>渠道经理</th><th class="num">登录</th><th class="num">页面浏览</th><th class="num">跟进</th><th class="num">做工池</th><th class="num">导出</th><th class="num">活跃天数</th><th>最近活跃</th>' +
     '</tr></thead><tbody>';
-  arr.forEach(function(d, idx) {
+  filtered.forEach(function(d) {
     var daysAgo = d.lastActive ? Math.floor((Date.now() - new Date(d.lastActive).getTime()) / 86400000) : -1;
     var daysLabel = daysAgo < 0 ? '-' : (daysAgo === 0 ? '今天' : (daysAgo + '天前'));
     var daysColor = daysAgo < 0 ? 'var(--text3)' : (daysAgo <= 1 ? 'var(--green)' : (daysAgo <= 7 ? 'var(--amber)' : 'var(--red)'));
     html += '<tr style="cursor:pointer;" onclick="toggleUsageEmp(\'' + d.provider_id + '\',this)">' +
       '<td style="text-align:center;font-size:10px;color:var(--text3);">▶</td>' +
-      '<td>🏢 ' + d.provider_name + ' <span style="font-size:11px;color:var(--text3);">' + d.region + '</span></td>' +
+      '<td>🏢 ' + d.provider_name + '</td>' +
+      '<td style="font-size:12px;">' + (d.region || '未分配') + '</td>' +
+      '<td style="font-size:12px;">' + (d.channel_manager || '未分配') + '</td>' +
       '<td class="num">' + d.logins + '</td><td class="num">' + d.navs + '</td><td class="num">' + d.followUps + '</td>' +
       '<td class="num">' + d.poolOps + '</td><td class="num">' + d.exports + '</td><td class="num">' + d.activeDayCount + '</td>' +
       '<td style="color:' + daysColor + ';font-weight:600;">' + daysLabel + '</td></tr>';
   });
   html += '</tbody></table></div>';
   $('mgmtUsageDetail').innerHTML = html;
+  // Restore cursor position in search input
+  var searchEl = $('usageProviderSearch');
+  if (searchEl && _usageFilterProvider) { searchEl.focus(); searchEl.setSelectionRange(searchEl.value.length, searchEl.value.length); }
 }
 
 function toggleUsageEmp(pid, rowEl) {
@@ -5608,12 +5645,12 @@ function exportUsageCSV() {
       return [r.region, r.providers, r.logins, r.navs, r.followUps, r.poolOps, r.exports, Object.keys(r.activeDays).length, r.lastActive ? r.lastActive.substring(0,16).replace('T',' ') : '-'];
     });
   } else {
-    header = ['服务商','大区','登录','页面浏览','跟进','做工池','导出','活跃天数','最近活跃'];
+    header = ['服务商','所属大区','渠道经理','登录','页面浏览','跟进','做工池','导出','活跃天数','最近活跃'];
     rows = Object.keys(c.byProvider).map(function(k) {
       var d = c.byProvider[k];
-      return [d.provider_name, d.region, d.logins, d.navs, d.followUps, d.poolOps, d.exports, d.activeDayCount, d.lastActive ? d.lastActive.substring(0,16).replace('T',' ') : '-'];
+      return [d.provider_name, d.region || '未分配', d.channel_manager || '未分配', d.logins, d.navs, d.followUps, d.poolOps, d.exports, d.activeDayCount, d.lastActive ? d.lastActive.substring(0,16).replace('T',' ') : '-'];
     });
-    rows.sort(function(a,b){ return (b[8]||'').localeCompare(a[8]||''); });
+    rows.sort(function(a,b){ return (b[9]||'').localeCompare(a[9]||''); });
   }
   var csv = '\uFEFF' + header.join(',') + '\n' + rows.map(function(r){ return r.map(function(v){ return '"' + String(v).replace(/"/g,'""') + '"'; }).join(','); }).join('\n');
   var blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
