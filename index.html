@@ -6488,7 +6488,8 @@ async function logAction(action, targetType, targetId, detail) {
       action: action,
       target_type: targetType,
       target_id: targetId,
-      detail: detail
+      detail: detail,
+      ip: STATE.clientIP || null
     });
   } catch(e) { /* silent */ }
 }
@@ -6505,7 +6506,8 @@ async function logUsage(action) {
       employee_name: STATE.currentEmployee || STATE.user.provider_name || '',
       action: action,
       page: STATE.currentPage,
-      session_id: 'sess_' + Date.now()
+      session_id: 'sess_' + Date.now(),
+      ip: STATE.clientIP || null
     });
   } catch(e) { /* silent */ }
 }
@@ -6513,6 +6515,10 @@ async function logUsage(action) {
 /* =============================================
    INIT
    ============================================= */
+// Fetch client public IP once for logging
+STATE.clientIP = null;
+fetch('https://api.ipify.org?format=json').then(function(r){return r.json();}).then(function(d){STATE.clientIP=d.ip;}).catch(function(){/* silent */});
+
 document.addEventListener('keydown', function(e) {
   if (e.key === 'Enter' && $('loginPage').style.display !== 'none') doLogin();
   if (e.key === 'Escape') { closeModal(); closeFollowModal(); }
