@@ -3479,7 +3479,7 @@ function renderLeadsTable() {
       var tags = '';
       if (d.bangdan_type) {
         var bangdanColor = d.bangdan_type === '状元榜' ? '#dc2626' : '#2563eb';
-        var bangdanText = (d.bangdan_type === '扫街榜' || d.bangdan_type === '状元榜') ? '榜单商户' : (d.bangdan_sub ? d.bangdan_type + '-' + d.bangdan_sub : d.bangdan_type);
+        var bangdanText = '榜单商户';
         tags += '<span style="display:inline-block;background:' + bangdanColor + ';color:#fff;font-size:11px;padding:2px 6px;border-radius:4px;margin-right:4px;white-space:nowrap;">' + bangdanText + '</span>';
       }
       if (d.scenic === '风景名胜') {
@@ -4685,7 +4685,7 @@ function showLeadDetail(poiId, autoFollow) {
     detailItem('品牌类型', d.brand_type) + detailItem('地址', d.address) +
     detailItem('烟火档位', d.smoke_level) + detailItem('30天DPV', fmtDpv(d.dpv_30d)) +
     detailItem('城市高优', d.is_high_priority ? '✅ 是' : '否') +
-    detailItem('榜单', d.bangdan_type ? ((d.bangdan_type === '扫街榜' || d.bangdan_type === '状元榜') ? '榜单商户' : (d.bangdan_type + (d.bangdan_sub ? '-' + d.bangdan_sub : ''))) : '-') +
+    detailItem('榜单', d.bangdan_type ? '榜单商户' : '-') +
     detailItem('景区', d.scenic || '-') + detailItem('AOI', d.aoi_name || '-') +
     detailItem('是否有品', d.has_product === 1 ? '是' : (d.has_product === 0 ? '否' : '-')) +
     '</div></div>';
