@@ -648,7 +648,7 @@ a { color:var(--accent2); text-decoration:none; }
       <div id="page-commercial" class="page">
         <h2 class="page-title">在约-高优商业化</h2>
         <p class="page-desc">在约门店中尚未签约商业化的PID，按优先级排序</p>
-        <div id="commercialStats" class="stats-row"></div>
+        <div id="commercialStats" class="stats-row" style="display:none;"></div>
         <div class="filter-bar" id="commercialFilters">
           <input id="cfSearch" placeholder="搜索门店名/PID" oninput="filterCommercial()">
           <select id="cfTier" onchange="filterCommercial()">
@@ -690,10 +690,15 @@ a { color:var(--accent2); text-decoration:none; }
           </div>
           <select id="cfMaintainer" onchange="filterCommercial()" style="display:none;"><option value="">运维小二</option></select>
           <button class="btn btn-outline btn-sm" onclick="exportCommercial()">📥 导出</button>
-          <button class="btn btn-primary btn-sm" onclick="openCustomModal('commercial')">+ 添加商机</button>
+          <button class="btn btn-primary btn-sm" onclick="openCustomModal('commercial')" style="display:none;">+ 添加商机</button>
           <button class="btn btn-sm" onclick="window.open('https://xy.amap.com/','_blank')" style="background:#f59e0b;color:#000;font-weight:600;text-decoration:none;">进入轩辕系统</button>
         </div>
         <div id="commercialTableWrap"></div>
+        <style>
+          /* TEMP: 暂时隐藏操作列 */
+          #commercialTableWrap .data-table th:last-child,
+          #commercialTableWrap .data-table td:last-child { display:none; }
+        </style>
       </div>
 
       <!-- ===== PAGE: 公海-高优开店 ===== -->
@@ -1513,6 +1518,7 @@ async function loadData() {
       if (STATE.cities.length > 0) pidQuery = pidQuery.in('city', STATE.cities);
 
       var leadQuery = sb.from('crm_leads').select('*')
+        .eq('is_high_priority', true)
         .order('dpv_30d', {ascending: false});
       if (STATE.cities.length > 0) leadQuery = leadQuery.in('city', STATE.cities);
 
