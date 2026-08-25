@@ -1524,6 +1524,7 @@ async function loadData() {
 
       var leadQuery = sb.from('crm_leads').select('*')
         .eq('is_high_priority', true)
+        .eq('brand_type', 'city')
         .order('dpv_30d', {ascending: false});
       if (STATE.cities.length > 0) {
         var cityVariants = [];
