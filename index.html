@@ -612,7 +612,7 @@ a { color:var(--accent2); text-decoration:none; }
         <span class="nav-icon">📝</span>作业分析
       </div>
       <div class="nav-item" data-page="occupancy" onclick="navigate('occupancy')">
-        <span class="nav-icon">🗺️</span>占量地图
+        <span class="nav-icon">🗺️</span>顶展占量地图
       </div>
       <div class="nav-item" data-page="caseLib" onclick="navigate('caseLib')">
         <span class="nav-icon">📚</span>商业化案例库
@@ -807,7 +807,7 @@ a { color:var(--accent2); text-decoration:none; }
         <div id="jobsTable"></div>
       </div>
 
-      <!-- ===== PAGE: 占量地图 ===== -->
+      <!-- ===== PAGE: 顶展占量地图 ===== -->
       <div id="page-occupancy" class="page" style="padding:0;">
         <iframe id="occupancyFrame" style="width:100%;height:calc(100vh - 60px);border:none;display:block;" src="about:blank"></iframe>
       </div>
@@ -4948,7 +4948,7 @@ function checkOccupancy(city, category, l2Category) {
 }
 
 /* =============================================
-   PAGE: 占量地图
+   PAGE: 顶展占量地图
    ============================================= */
 function renderOccupancy() {
   var frame = $('occupancyFrame');
@@ -7288,7 +7288,7 @@ var TOUR_STEPS = [
   },
   {
     target: '[data-page="occupancy"]',
-    icon: '🗺️', title: '占量地图',
+    icon: '🗺️', title: '顶展占量地图',
     desc: '地图可视化查看各区域的顶钻展签约分布和占量情况，直观了解市场覆盖率和空白区域。'
   },
   {
