@@ -772,6 +772,11 @@ a { color:var(--accent2); text-decoration:none; }
           </div>
         </div>
         <div id="topicTableWrap"></div>
+        <style>
+          /* TEMP: 暂时隐藏专项高优商机的状态、备注、操作列 */
+          #topicTableWrap .topic-table th:nth-last-child(-n+3),
+          #topicTableWrap .topic-table td:nth-last-child(-n+3) { display:none; }
+        </style>
       </div>
 
       <!-- ===== PAGE: 我的做工 ===== -->
