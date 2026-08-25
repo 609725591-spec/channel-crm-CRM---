@@ -1520,7 +1520,16 @@ async function loadData() {
       var leadQuery = sb.from('crm_leads').select('*')
         .eq('is_high_priority', true)
         .order('dpv_30d', {ascending: false});
-      if (STATE.cities.length > 0) leadQuery = leadQuery.in('city', STATE.cities);
+      if (STATE.cities.length > 0) {
+        var cityVariants = [];
+        STATE.cities.forEach(function(c) {
+          cityVariants.push(c);
+          cityVariants.push(c.replace(/市$/, ''));
+          cityVariants.push(c + '市');
+        });
+        cityVariants = cityVariants.filter(function(v,i,a){ return a.indexOf(v)===i; });
+        leadQuery = leadQuery.in('city', cityVariants);
+      }
 
       var occQuery = sb.from('crm_occupancy').select('*');
       if (STATE.cities.length > 0) occQuery = occQuery.in('city_name', STATE.cities);
