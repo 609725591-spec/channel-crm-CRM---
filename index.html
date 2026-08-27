@@ -1362,25 +1362,43 @@ async function doLogin() {
     return;
   }
 
-  // Supabase lookup
+  // Supabase lookup with retry
   if (sb) {
-    try {
-      var res = await sb.from('crm_providers').select('*').eq('access_code', code).single();
-      if (res.data) {
-        STATE.user = {
-          provider_id: res.data.provider_id,
-          provider_name: res.data.provider_name,
-          provider_type: res.data.provider_type,
-          region: res.data.region,
-          channel_manager: res.data.channel_manager,
-          cities: res.data.cities || [],
-          role: '操盘手',
-          is_admin: false
-        };
-        onLoginSuccess();
-        return;
+    var lastErr = null;
+    for (var attempt = 0; attempt < 3; attempt++) {
+      try {
+        var res = await sb.from('crm_providers').select('*').eq('access_code', code).single();
+        if (res.data) {
+          STATE.user = {
+            provider_id: res.data.provider_id,
+            provider_name: res.data.provider_name,
+            provider_type: res.data.provider_type,
+            region: res.data.region,
+            channel_manager: res.data.channel_manager,
+            cities: res.data.cities || [],
+            role: '操盘手',
+            is_admin: false
+          };
+          onLoginSuccess();
+          return;
+        }
+        if (res.error && res.error.code === 'PGRST116') {
+          // PGRST116 = no rows found — code genuinely doesn't exist
+          break;
+        }
+        // Other error — might be network, retry
+        lastErr = res.error;
+      } catch(e) {
+        lastErr = e;
+        console.warn('Supabase login attempt ' + (attempt+1) + ':', e.message);
       }
-    } catch(e) { console.warn('Supabase login error:', e); }
+      if (attempt < 2) await new Promise(function(r){ setTimeout(r, 1500); });
+    }
+    if (lastErr) {
+      $('loginBtn').disabled = false;
+      $('loginError').innerHTML = '<span style="color:var(--amber);">网络连接不稳定，请检查网络后重试</span><br><span style="font-size:11px;color:var(--text3);">如持续出现，请尝试切换网络或使用VPN</span>';
+      return;
+    }
   }
 
   $('loginBtn').disabled = false;
