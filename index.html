@@ -1080,6 +1080,36 @@ a { color:var(--accent2); text-decoration:none; }
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script>
 /* =============================================
+   GLOBAL ERROR SAFETY NET
+   Tracking/analytics errors must NEVER break the app.
+   ============================================= */
+window.addEventListener('error', function(e) {
+  var src = (e.filename || '') + ':' + (e.lineno || '');
+  // Only suppress known tracking-related errors silently
+  if (e.message && (
+    e.message.indexOf('flushDwell') > -1 ||
+    e.message.indexOf('logPageLeave') > -1 ||
+    e.message.indexOf('sendBeaconDwell') > -1 ||
+    e.message.indexOf('logUsage') > -1 ||
+    e.message.indexOf('page_leave') > -1 ||
+    e.message.indexOf('dwell') > -1
+  )) {
+    e.preventDefault();
+    console.warn('[Tracking Error Suppressed]', e.message, src);
+    return true;
+  }
+});
+window.addEventListener('unhandledrejection', function(e) {
+  if (e.reason && e.reason.message && (
+    e.reason.message.indexOf('dwell') > -1 ||
+    e.reason.message.indexOf('page_leave') > -1
+  )) {
+    e.preventDefault();
+    console.warn('[Tracking Promise Error Suppressed]', e.reason.message);
+  }
+});
+
+/* =============================================
    CONFIG
    ============================================= */
 var CONFIG = {
