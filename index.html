@@ -5460,7 +5460,12 @@ async function loadUsageData() {
   function bumpLog(obj, action, ts) {
     var cat = classifyAction(action);
     obj[cat]++;
-    if (ts) { obj.activeDays[ts.substring(0,10)] = true; if (!obj.lastActive || ts > obj.lastActive) obj.lastActive = ts; }
+    if (ts) {
+      var ld = new Date(ts);
+      var dayKey = ld.getFullYear() + '-' + String(ld.getMonth()+1).padStart(2,'0') + '-' + String(ld.getDate()).padStart(2,'0');
+      obj.activeDays[dayKey] = true;
+      if (!obj.lastActive || new Date(ts) > new Date(obj.lastActive)) obj.lastActive = ts;
+    }
   }
   function newStats() { return {logins:0,navs:0,exports:0,imports:0,followUps:0,poolOps:0,other:0,lastActive:null,activeDays:{}}; }
   usageLogs.forEach(function(log) {
@@ -5489,6 +5494,7 @@ async function loadUsageData() {
     if (!byEmployee[empKey]) byEmployee[empKey] = Object.assign({provider_id: pid, provider_name: byProvider[pid].provider_name, employee_name: emp, region: byProvider[pid].region}, newStats());
     bumpLog(byEmployee[empKey], log.action, log.created_at);
     var cat = classifyAction(log.action);
+    if (cat === 'logins') totalLogins++;
     if (cat === 'exports') totalExports++;
     totalOps++;
     activeProviders.add(pid);
@@ -5546,13 +5552,19 @@ function renderUsageProviderView() {
   });
   filtered.sort(function(a,b){ return (b.lastActive||'').localeCompare(a.lastActive||''); });
 
-  var totalActiveDays = 0;
-  filtered.forEach(function(d){ totalActiveDays += d.activeDayCount; });
+  var totalActiveDays = 0, fLogins = 0, fOps = 0, fExports = 0;
+  filtered.forEach(function(d){ totalActiveDays += d.activeDayCount; fLogins += d.logins; fOps += d.logins+d.navs+d.exports+d.imports+d.followUps+d.poolOps+d.other; fExports += d.exports; });
+  var hasFilter = _usageFilterRegion || _usageFilterChannel || _usageFilterProvider;
+  var showLogins = hasFilter ? fLogins : c.totalLogins;
+  var showOps = hasFilter ? fOps : c.totalOps;
+  var showExports = hasFilter ? fExports : c.totalExports;
+  var showActive = hasFilter ? filtered.length : c.activeProviders.size;
+  var showTotal = hasFilter ? filtered.length : c.totalProviders;
   $('mgmtUsageStats').innerHTML =
-    '<div class="stat-card"><div class="label">活跃服务商</div><div class="value blue">' + c.activeProviders.size + '</div><div class="sub">共' + c.totalProviders + '家注册</div></div>' +
-    '<div class="stat-card"><div class="label">总登录次数</div><div class="value amber">' + c.totalLogins + '</div><div class="sub">人均 ' + (c.activeProviders.size > 0 ? (c.totalLogins / c.activeProviders.size).toFixed(1) : 0) + ' 次</div></div>' +
-    '<div class="stat-card"><div class="label">总操作次数</div><div class="value purple">' + c.totalOps + '</div><div class="sub">导出 ' + c.totalExports + ' 次</div></div>' +
-    '<div class="stat-card"><div class="label">总活跃天数</div><div class="value green">' + totalActiveDays + '</div><div class="sub">人均 ' + (c.activeProviders.size > 0 ? (totalActiveDays / c.activeProviders.size).toFixed(1) : 0) + ' 天</div></div>';
+    '<div class="stat-card"><div class="label">活跃服务商</div><div class="value blue">' + showActive + '</div><div class="sub">共' + showTotal + '家注册</div></div>' +
+    '<div class="stat-card"><div class="label">总登录次数</div><div class="value amber">' + showLogins + '</div><div class="sub">人均 ' + (showActive > 0 ? (showLogins / showActive).toFixed(1) : 0) + ' 次</div></div>' +
+    '<div class="stat-card"><div class="label">总操作次数</div><div class="value purple">' + showOps + '</div><div class="sub">导出 ' + showExports + ' 次</div></div>' +
+    '<div class="stat-card"><div class="label">总活跃天数</div><div class="value green">' + totalActiveDays + '</div><div class="sub">人均 ' + (showActive > 0 ? (totalActiveDays / showActive).toFixed(1) : 0) + ' 天</div></div>';
 
   // Filter bar
   var filterHtml = '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;align-items:center;">' +
@@ -5571,8 +5583,14 @@ function renderUsageProviderView() {
     '<th style="width:28px;"></th><th>服务商</th><th>所属大区</th><th>渠道经理</th><th class="num">登录</th><th class="num">页面浏览</th><th class="num">跟进</th><th class="num">做工池</th><th class="num">导出</th><th class="num">活跃天数</th><th>最近活跃</th>' +
     '</tr></thead><tbody>';
   filtered.forEach(function(d) {
-    var daysAgo = d.lastActive ? Math.floor((Date.now() - new Date(d.lastActive).getTime()) / 86400000) : -1;
-    var daysLabel = daysAgo < 0 ? '-' : (daysAgo === 0 ? '今天' : (daysAgo + '天前'));
+    var daysAgo = -1;
+    if (d.lastActive) {
+      var now = new Date(), la = new Date(d.lastActive);
+      var todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+      var activeStart = new Date(la.getFullYear(), la.getMonth(), la.getDate()).getTime();
+      daysAgo = Math.round((todayStart - activeStart) / 86400000);
+    }
+    var daysLabel = daysAgo < 0 ? '-' : (daysAgo === 0 ? '今天' : (daysAgo === 1 ? '昨天' : (daysAgo + '天前')));
     var daysColor = daysAgo < 0 ? 'var(--text3)' : (daysAgo <= 1 ? 'var(--green)' : (daysAgo <= 7 ? 'var(--amber)' : 'var(--red)'));
     html += '<tr style="cursor:pointer;" onclick="toggleUsageEmp(\'' + d.provider_id + '\',this)">' +
       '<td style="text-align:center;font-size:10px;color:var(--text3);">▶</td>' +
@@ -5616,8 +5634,14 @@ function toggleUsageEmp(pid, rowEl) {
     h += '<div style="background:var(--bg);border-radius:8px;margin:4px 0;padding:8px 12px;"><table class="data-table" style="font-size:12px;"><thead><tr>' +
       '<th>小二</th><th class="num">登录</th><th class="num">页面浏览</th><th class="num">跟进</th><th class="num">做工池</th><th class="num">导出</th><th class="num">活跃天数</th><th>最近活跃</th></tr></thead><tbody>';
     emps.forEach(function(e) {
-      var da = e.lastActive ? Math.floor((Date.now() - new Date(e.lastActive).getTime()) / 86400000) : -1;
-      var dl = da < 0 ? '-' : (da === 0 ? '今天' : (da + '天前'));
+      var da = -1;
+      if (e.lastActive) {
+        var now2 = new Date(), la2 = new Date(e.lastActive);
+        var todayS = new Date(now2.getFullYear(), now2.getMonth(), now2.getDate()).getTime();
+        var actS = new Date(la2.getFullYear(), la2.getMonth(), la2.getDate()).getTime();
+        da = Math.round((todayS - actS) / 86400000);
+      }
+      var dl = da < 0 ? '-' : (da === 0 ? '今天' : (da === 1 ? '昨天' : (da + '天前')));
       var dc = da < 0 ? 'var(--text3)' : (da <= 1 ? 'var(--green)' : (da <= 7 ? 'var(--amber)' : 'var(--red)'));
       h += '<tr><td>👤 ' + e.employee_name + '</td><td class="num">' + e.logins + '</td><td class="num">' + e.navs + '</td><td class="num">' + e.followUps + '</td><td class="num">' + e.poolOps + '</td><td class="num">' + e.exports + '</td><td class="num">' + e.activeDayCount + '</td><td style="color:' + dc + ';font-weight:600;">' + dl + '</td></tr>';
     });
@@ -5656,8 +5680,14 @@ function renderUsageRegionView() {
     '<th>大区</th><th class="num">服务商数</th><th class="num">登录</th><th class="num">页面浏览</th><th class="num">跟进</th><th class="num">做工池</th><th class="num">导出</th><th class="num">活跃天数</th><th>最近活跃</th>' +
     '</tr></thead><tbody>';
   arr.forEach(function(r) {
-    var daysAgo = r.lastActive ? Math.floor((Date.now() - new Date(r.lastActive).getTime()) / 86400000) : -1;
-    var daysLabel = daysAgo < 0 ? '-' : (daysAgo === 0 ? '今天' : (daysAgo + '天前'));
+    var daysAgo = -1;
+    if (r.lastActive) {
+      var now3 = new Date(), la3 = new Date(r.lastActive);
+      var todayS3 = new Date(now3.getFullYear(), now3.getMonth(), now3.getDate()).getTime();
+      var actS3 = new Date(la3.getFullYear(), la3.getMonth(), la3.getDate()).getTime();
+      daysAgo = Math.round((todayS3 - actS3) / 86400000);
+    }
+    var daysLabel = daysAgo < 0 ? '-' : (daysAgo === 0 ? '今天' : (daysAgo === 1 ? '昨天' : (daysAgo + '天前')));
     var daysColor = daysAgo < 0 ? 'var(--text3)' : (daysAgo <= 1 ? 'var(--green)' : (daysAgo <= 7 ? 'var(--amber)' : 'var(--red)'));
     html += '<tr><td><strong>' + r.region + '</strong></td><td class="num">' + r.providers + '</td>' +
       '<td class="num">' + r.logins + '</td><td class="num">' + r.navs + '</td><td class="num">' + r.followUps + '</td>' +
