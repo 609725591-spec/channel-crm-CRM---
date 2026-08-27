@@ -6723,13 +6723,15 @@ async function logUsage(action, dwellSecs) {
 }
 
 function flushDwell() {
-  if (STATE.pageEnterTime && !STATE.pageDwellSent && STATE.user && STATE.user.provider_id !== 'SP_DEMO_001') {
-    var dwell = Math.round((Date.now() - STATE.pageEnterTime) / 1000);
-    if (dwell > 0 && dwell < 7200) {
-      logPageLeave(STATE.currentPage, dwell);
+  try {
+    if (STATE.pageEnterTime && !STATE.pageDwellSent && STATE.user && STATE.user.provider_id !== 'SP_DEMO_001') {
+      var dwell = Math.round((Date.now() - STATE.pageEnterTime) / 1000);
+      if (dwell > 0 && dwell < 7200) {
+        logPageLeave(STATE.currentPage, dwell);
+      }
+      STATE.pageDwellSent = true;
     }
-    STATE.pageDwellSent = true;
-  }
+  } catch(e) { /* silent — tracking errors must never break navigation */ }
 }
 
 function logPageLeave(page, dwellSecs) {
@@ -6745,7 +6747,7 @@ function logPageLeave(page, dwellSecs) {
     ip: STATE.clientIP || null
   };
   try { payload.dwell_seconds = dwellSecs; } catch(e) {}
-  sb.from('crm_usage_logs').insert(payload).catch(function(){});
+  Promise.resolve(sb.from('crm_usage_logs').insert(payload)).catch(function(){});
 }
 
 function sendBeaconDwell() {
