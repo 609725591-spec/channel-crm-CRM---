@@ -894,6 +894,7 @@ a { color:var(--accent2); text-decoration:none; }
             <div class="tab-bar" id="mgmtUsageTabs" style="margin-bottom:0;">
               <button class="tab-btn active" onclick="switchUsageTab(this,'provider')">服务商明细</button>
               <button class="tab-btn" onclick="switchUsageTab(this,'region')">大区汇总</button>
+              <button class="tab-btn" onclick="switchUsageTab(this,'page')">板块分析</button>
             </div>
             <button onclick="exportUsageCSV()" style="padding:6px 14px;border:1px solid var(--border);border-radius:6px;background:var(--card);color:var(--text);font-size:12px;cursor:pointer;">⬇ 导出CSV</button>
           </div>
@@ -1159,7 +1160,10 @@ var STATE = {
   myPoolTab: 'commercial', // current tab in my pool page
   mgmtDimension: 'region', // management dashboard: region|channel|provider
   mgmtData: null,          // management dashboard aggregated data
-  charts: {}         // chart instances
+  charts: {},        // chart instances
+  sessionId: null,         // unique session ID per login
+  pageEnterTime: null,     // timestamp when current page was entered
+  pageDwellSent: false     // flag to prevent double-sending dwell for same page
 };
 
 /* =============================================
@@ -1372,6 +1376,11 @@ function onLoginSuccess() {
     ts: Date.now()
   }));
 
+  // Initialize session tracking
+  STATE.sessionId = 'sess_' + Date.now() + '_' + Math.random().toString(36).substring(2, 8);
+  STATE.pageEnterTime = Date.now();
+  STATE.pageDwellSent = false;
+
   // Log usage
   logUsage('login');
 
@@ -1461,8 +1470,12 @@ function toggleSidebar() {
    ROUTER
    ============================================= */
 function navigate(page) {
+  // Flush dwell time for the page being left
+  flushDwell();
   STATE.currentPage = page;
-  if (page !== 'mgmt') logUsage('nav_' + page);
+  STATE.pageEnterTime = Date.now();
+  STATE.pageDwellSent = false;
+  logUsage('nav_' + page);
   // Update sidebar
   document.querySelectorAll('.sidebar .nav-item').forEach(function(el) {
     el.classList.toggle('active', el.dataset.page === page);
@@ -5438,16 +5451,17 @@ async function loadUsageData() {
   if (STATE.mgmtUsageCache) return STATE.mgmtUsageCache;
   $('mgmtUsageStats').innerHTML = '<div style="text-align:center;padding:20px;color:var(--text2);">加载中...</div>';
   $('mgmtUsageDetail').innerHTML = '';
-  var usageRes = await fetchAll(sb.from('crm_usage_logs').select('provider_id,provider_name,employee_name,action,page,login_time'));
+  var usageRes = await fetchAll(sb.from('crm_usage_logs').select('provider_id,provider_name,employee_name,action,page,login_time,dwell_seconds'));
   var usageLogs = usageRes.data || [];
   var actionRes = await fetchAll(sb.from('crm_action_logs').select('provider_id,employee_name,action,target_type,detail,created_at'));
   var actionLogs = actionRes.data || [];
   var provRes = await fetchAll(sb.from('crm_providers').select('provider_id,provider_name,region,channel_manager'));
   var provMap = {};
   (provRes.data || []).forEach(function(p) { provMap[p.provider_id] = p; });
-  var byProvider = {}, byEmployee = {};
+  var byProvider = {}, byEmployee = {}, byPage = {}, perProviderPage = {};
   var totalLogins = 0, totalOps = 0, totalExports = 0;
   var activeProviders = new Set();
+  var PAGE_NAMES = {analysis:'数据分析',commercial:'约-高优商业化',leads:'公海-高优开店',topics:'专项高优商机',mypool:'我的做工',jobs:'作业分析',occupancy:'顶展占量地图',caseLib:'商业化案例库',training:'培训赋能',admin:'管理员',mgmt:'管理驾驶舱'};
   function classifyAction(action) {
     if (action === 'login' || action === 'mgmt_login') return 'logins';
     if (action.indexOf('nav_') === 0) return 'navs';
@@ -5483,6 +5497,27 @@ async function loadUsageData() {
     if (cat === 'exports') totalExports++;
     totalOps++;
     activeProviders.add(pid);
+    // Per-page aggregation
+    var pg = log.page || 'unknown';
+    if (!byPage[pg]) byPage[pg] = {visits:0, ops:0, dwellSecs:0, providers:{}, lastActive:null};
+    if (log.action.indexOf('nav_') === 0) byPage[pg].visits++;
+    var dwellFromAction = 0;
+    if (log.action.indexOf('page_leave') === 0) {
+      var parts = log.action.split(':');
+      if (parts[1]) dwellFromAction = parseInt(parts[1], 10) || 0;
+    }
+    var dwellVal = (log.dwell_seconds || dwellFromAction);
+    if (dwellVal > 0) byPage[pg].dwellSecs += dwellVal;
+    byPage[pg].ops++;
+    byPage[pg].providers[pid] = true;
+    if (ts && (!byPage[pg].lastActive || ts > byPage[pg].lastActive)) byPage[pg].lastActive = ts;
+    // Per-provider-page aggregation
+    var ppKey = pid + '|' + pg;
+    if (!perProviderPage[ppKey]) perProviderPage[ppKey] = {provider_id:pid, provider_name: log.provider_name || prov.provider_name || pid, page:pg, visits:0, ops:0, dwellSecs:0, lastActive:null};
+    if (log.action.indexOf('nav_') === 0) perProviderPage[ppKey].visits++;
+    if (dwellVal > 0) perProviderPage[ppKey].dwellSecs += dwellVal;
+    perProviderPage[ppKey].ops++;
+    if (ts && (!perProviderPage[ppKey].lastActive || ts > perProviderPage[ppKey].lastActive)) perProviderPage[ppKey].lastActive = ts;
   });
   actionLogs.forEach(function(log) {
     var pid = log.provider_id;
@@ -5501,7 +5536,7 @@ async function loadUsageData() {
   });
   Object.keys(byProvider).forEach(function(k) { byProvider[k].activeDayCount = Object.keys(byProvider[k].activeDays).length; });
   Object.keys(byEmployee).forEach(function(k) { byEmployee[k].activeDayCount = Object.keys(byEmployee[k].activeDays).length; });
-  STATE.mgmtUsageCache = { byProvider: byProvider, byEmployee: byEmployee, totalLogins: totalLogins, totalOps: totalOps, totalExports: totalExports, activeProviders: activeProviders, totalProviders: (provRes.data||[]).length };
+  STATE.mgmtUsageCache = { byProvider: byProvider, byEmployee: byEmployee, byPage: byPage, perProviderPage: perProviderPage, PAGE_NAMES: PAGE_NAMES, totalLogins: totalLogins, totalOps: totalOps, totalExports: totalExports, activeProviders: activeProviders, totalProviders: (provRes.data||[]).length };
   return STATE.mgmtUsageCache;
 }
 
@@ -5515,6 +5550,7 @@ function switchUsageTab(btn, mode) {
 
 function renderUsageCurrentView() {
   if (STATE.usageViewMode === 'region') renderUsageRegionView();
+  else if (STATE.usageViewMode === 'page') renderUsagePageView();
   else renderUsageProviderView();
 }
 
@@ -5699,6 +5735,79 @@ function renderUsageRegionView() {
   $('mgmtUsageDetail').innerHTML = html;
 }
 
+var _usagePageFilterProvider = '';
+function renderUsagePageView() {
+  var c = STATE.mgmtUsageCache;
+  var PN = c.PAGE_NAMES;
+  // Build provider list for selector
+  var provArr = Object.keys(c.byProvider).map(function(k) { return {id:k, name:c.byProvider[k].provider_name, region:c.byProvider[k].region}; });
+  provArr.sort(function(a,b){ return a.name.localeCompare(b.name); });
+
+  // Filter by selected provider
+  var ppData = c.perProviderPage;
+  var filtered = [];
+  Object.keys(ppData).forEach(function(k) {
+    if (!_usagePageFilterProvider || ppData[k].provider_id === _usagePageFilterProvider) filtered.push(ppData[k]);
+  });
+
+  // Aggregate into byPage view (for selected provider or all)
+  var pageAgg = {};
+  filtered.forEach(function(d) {
+    if (!pageAgg[d.page]) pageAgg[d.page] = {page:d.page, visits:0, ops:0, dwellSecs:0, lastActive:null};
+    pageAgg[d.page].visits += d.visits;
+    pageAgg[d.page].ops += d.ops;
+    pageAgg[d.page].dwellSecs += d.dwellSecs;
+    if (d.lastActive && (!pageAgg[d.page].lastActive || d.lastActive > pageAgg[d.page].lastActive)) pageAgg[d.page].lastActive = d.lastActive;
+  });
+  var pageArr = Object.keys(pageAgg).map(function(k){ return pageAgg[k]; });
+  pageArr.sort(function(a,b){ return b.visits - a.visits; });
+
+  // Stat cards
+  var totalVisits = 0, totalDwell = 0, pagesUsed = pageArr.length;
+  pageArr.forEach(function(p){ totalVisits += p.visits; totalDwell += p.dwellSecs; });
+  function fmtDwell(s) { if (s < 60) return s + '秒'; if (s < 3600) return Math.floor(s/60) + '分' + (s%60) + '秒'; return Math.floor(s/3600) + '时' + Math.floor((s%3600)/60) + '分'; }
+
+  $('mgmtUsageStats').innerHTML =
+    '<div class="stat-card"><div class="label">使用板块数</div><div class="value blue">' + pagesUsed + '</div></div>' +
+    '<div class="stat-card"><div class="label">总访问次数</div><div class="value amber">' + totalVisits + '</div></div>' +
+    '<div class="stat-card"><div class="label">总停留时长</div><div class="value green">' + fmtDwell(totalDwell) + '</div></div>' +
+    '<div class="stat-card"><div class="label">总操作次数</div><div class="value purple">' + filtered.reduce(function(s,d){return s+d.ops;},0) + '</div></div>';
+
+  // Provider selector
+  var filterHtml = '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;align-items:center;">' +
+    '<label style="font-size:12px;color:var(--text2);font-weight:600;">服务商：</label>' +
+    '<select onchange="_usagePageFilterProvider=this.value;renderUsagePageView()" style="padding:6px 10px;border:1px solid var(--border);border-radius:var(--radius);background:var(--bg);color:var(--text1);font-size:12px;min-width:200px;">' +
+    '<option value="">全部服务商</option>';
+  provArr.forEach(function(p) {
+    filterHtml += '<option value="' + p.id + '"' + (_usagePageFilterProvider===p.id?' selected':'') + '>' + p.name + (p.region ? ' ('+p.region+')' : '') + '</option>';
+  });
+  filterHtml += '</select></div>';
+
+  // Table
+  var html = filterHtml + '<div class="data-table-wrap"><table class="data-table"><thead><tr>' +
+    '<th>板块</th><th class="num">访问次数</th><th class="num">操作次数</th><th class="num">停留时长</th><th>最近访问</th>' +
+    '</tr></thead><tbody>';
+  pageArr.forEach(function(p) {
+    var name = PN[p.page] || p.page;
+    var daysAgo = -1;
+    if (p.lastActive) {
+      var now = new Date(), la = new Date(p.lastActive);
+      var todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+      var activeStart = new Date(la.getFullYear(), la.getMonth(), la.getDate()).getTime();
+      daysAgo = Math.round((todayStart - activeStart) / 86400000);
+    }
+    var daysLabel = daysAgo < 0 ? '-' : (daysAgo === 0 ? '今天' : (daysAgo === 1 ? '昨天' : (daysAgo + '天前')));
+    var daysColor = daysAgo < 0 ? 'var(--text3)' : (daysAgo <= 1 ? 'var(--green)' : (daysAgo <= 7 ? 'var(--amber)' : 'var(--red)'));
+    html += '<tr><td><strong>' + name + '</strong></td>' +
+      '<td class="num">' + p.visits + '</td>' +
+      '<td class="num">' + p.ops + '</td>' +
+      '<td class="num">' + fmtDwell(p.dwellSecs) + '</td>' +
+      '<td style="color:' + daysColor + ';font-weight:600;">' + daysLabel + '</td></tr>';
+  });
+  html += '</tbody></table></div>';
+  $('mgmtUsageDetail').innerHTML = html;
+}
+
 function formatLocalDate(utcStr) {
   if (!utcStr) return '-';
   var d = new Date(utcStr);
@@ -5724,6 +5833,15 @@ function exportUsageCSV() {
       var r = byRegion[k];
       return [r.region, r.providers, r.logins, r.navs, r.followUps, r.poolOps, r.exports, Object.keys(r.activeDays).length, formatLocalDate(r.lastActive)];
     });
+  } else if (mode === 'page') {
+    header = ['服务商','板块','访问次数','操作次数','停留时长(秒)','最近访问'];
+    rows = [];
+    var PN2 = c.PAGE_NAMES || {};
+    var ppArr = Object.keys(c.perProviderPage).map(function(k){ return c.perProviderPage[k]; });
+    ppArr.sort(function(a,b){ return a.provider_name.localeCompare(b.provider_name) || b.visits - a.visits; });
+    ppArr.forEach(function(d) {
+      rows.push([d.provider_name, PN2[d.page] || d.page, d.visits, d.ops, d.dwellSecs, formatLocalDate(d.lastActive)]);
+    });
   } else {
     header = ['类型','服务商','所属大区','渠道经理','小二','登录','页面浏览','跟进','做工池','导出','活跃天数','最近活跃'];
     rows = [];
@@ -5744,7 +5862,7 @@ function exportUsageCSV() {
   var csv = '\uFEFF' + header.join(',') + '\n' + rows.map(function(r){ return r.map(function(v){ return '"' + String(v).replace(/"/g,'""') + '"'; }).join(','); }).join('\n');
   var blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
   var a = document.createElement('a'); a.href = URL.createObjectURL(blob);
-  a.download = '使用统计_' + (mode === 'region' ? '大区汇总' : '服务商明细') + '_' + new Date().toISOString().substring(0,10) + '.csv';
+  a.download = '使用统计_' + (mode === 'region' ? '大区汇总' : (mode === 'page' ? '板块分析' : '服务商明细')) + '_' + new Date().toISOString().substring(0,10) + '.csv';
   a.click();
 }
 function exportCommercial() {
@@ -6586,19 +6704,71 @@ async function logAction(action, targetType, targetId, detail) {
 /* =============================================
    USAGE LOGGING
    ============================================= */
-async function logUsage(action) {
+async function logUsage(action, dwellSecs) {
   if (!sb || !STATE.user || STATE.user.provider_id === 'SP_DEMO_001') return;
+  if (!STATE.sessionId) STATE.sessionId = 'sess_' + Date.now() + '_' + Math.random().toString(36).substring(2, 8);
   try {
-    await sb.from('crm_usage_logs').insert({
+    var payload = {
       provider_id: STATE.user.provider_id,
       provider_name: STATE.user.provider_name,
       employee_name: STATE.currentEmployee || STATE.user.provider_name || '',
       action: action,
       page: STATE.currentPage,
-      session_id: 'sess_' + Date.now(),
+      session_id: STATE.sessionId,
       ip: STATE.clientIP || null
-    });
-  } catch(e) { /* silent */ }
+    };
+    if (dwellSecs !== undefined && dwellSecs !== null) payload.dwell_seconds = dwellSecs;
+    await sb.from('crm_usage_logs').insert(payload);
+  } catch(e) { /* silent — dwell_seconds column may not exist yet */ }
+}
+
+function flushDwell() {
+  if (STATE.pageEnterTime && !STATE.pageDwellSent && STATE.user && STATE.user.provider_id !== 'SP_DEMO_001') {
+    var dwell = Math.round((Date.now() - STATE.pageEnterTime) / 1000);
+    if (dwell > 0 && dwell < 7200) {
+      logPageLeave(STATE.currentPage, dwell);
+    }
+    STATE.pageDwellSent = true;
+  }
+}
+
+function logPageLeave(page, dwellSecs) {
+  if (!sb || !STATE.user || STATE.user.provider_id === 'SP_DEMO_001') return;
+  if (!STATE.sessionId) return;
+  var payload = {
+    provider_id: STATE.user.provider_id,
+    provider_name: STATE.user.provider_name,
+    employee_name: STATE.currentEmployee || STATE.user.provider_name || '',
+    action: 'page_leave:' + dwellSecs,
+    page: page,
+    session_id: STATE.sessionId,
+    ip: STATE.clientIP || null
+  };
+  try { payload.dwell_seconds = dwellSecs; } catch(e) {}
+  sb.from('crm_usage_logs').insert(payload).catch(function(){});
+}
+
+function sendBeaconDwell() {
+  if (!STATE.pageEnterTime || STATE.pageDwellSent || !STATE.user || STATE.user.provider_id === 'SP_DEMO_001') return;
+  var dwell = Math.round((Date.now() - STATE.pageEnterTime) / 1000);
+  if (dwell > 0 && dwell < 7200) {
+    var SUPABASE_URL = 'https://vtslvpfxjrflutorfryq.supabase.co';
+    var SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZ0c2x2cGZ4anJmbHV0b3JmcnlxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIxOTkzMjEsImV4cCI6MjA5Nzc3NTMyMX0.SeW0gTgIAYEDCZawSU65XNbp--L3CJ3jw7XntymKzdQ';
+    var payload = {
+      provider_id: STATE.user.provider_id,
+      provider_name: STATE.user.provider_name,
+      employee_name: STATE.currentEmployee || STATE.user.provider_name || '',
+      action: 'page_leave:' + dwell,
+      page: STATE.currentPage,
+      session_id: STATE.sessionId || 'sess_beacon',
+      ip: STATE.clientIP || null
+    };
+    try {
+      navigator.sendBeacon(SUPABASE_URL + '/rest/v1/crm_usage_logs?apikey=' + SUPABASE_KEY,
+        new Blob([JSON.stringify(payload)], {type:'application/json'}));
+    } catch(e) {}
+  }
+  STATE.pageDwellSent = true;
 }
 
 /* =============================================
@@ -6611,6 +6781,12 @@ fetch('https://api.ipify.org?format=json').then(function(r){return r.json();}).t
 document.addEventListener('keydown', function(e) {
   if (e.key === 'Enter' && $('loginPage').style.display !== 'none') doLogin();
   if (e.key === 'Escape') { closeModal(); closeFollowModal(); }
+});
+
+// Track page close / tab switch for dwell time
+window.addEventListener('beforeunload', function() { sendBeaconDwell(); });
+document.addEventListener('visibilitychange', function() {
+  if (document.hidden) { sendBeaconDwell(); }
 });
 
 // Auto-login from saved session (persists across refresh, 7-day expiry)
@@ -6627,6 +6803,9 @@ document.addEventListener('keydown', function(e) {
     if (session.user && session.user.provider_id) {
       STATE.user = session.user;
       $('loginCode').value = session.code || '';
+      STATE.sessionId = 'sess_' + Date.now() + '_' + Math.random().toString(36).substring(2, 8);
+      STATE.pageEnterTime = Date.now();
+      STATE.pageDwellSent = false;
       // Management session — skip normal flow
       if (session.user.is_mgmt) {
         $('loginPage').style.display = 'none';
