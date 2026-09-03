@@ -752,6 +752,7 @@ a { color:var(--accent2); text-decoration:none; }
         <h2 class="page-title">专项高优商机</h2>
         <p class="page-desc" id="topicsDesc">管理员分配的专题商机列表，按专题维度查看和跟进</p>
         <div id="topicsTabs" class="tab-bar"></div>
+        <div id="topicDescBanner" style="display:none;background:linear-gradient(135deg,#eff6ff,#f0fdf4);border:1px solid #bfdbfe;border-radius:10px;padding:14px 18px;margin-top:12px;font-size:13px;line-height:1.8;color:#1e40af;"></div>
         <div id="topicStats" class="stats-row topic-stats" style="margin-top:16px;"></div>
         <div class="filter-bar topic-filter-bar" id="topicFilters">
           <input id="tfSearch" placeholder="搜索关键词..." oninput="filterTopicLeads()">
@@ -1894,6 +1895,15 @@ function renderTopicTabs() {
     html += '<button class="tab-btn' + active + '" onclick="switchTopicTab(' + t.id + ')">' + t.name + '</button>';
   });
   $('topicsTabs').innerHTML = html;
+  // Show topic description banner if current topic has description
+  var banner = $('topicDescBanner');
+  var cur = STATE.topics.find(function(t){return t.id===STATE.currentTopicId;});
+  if (cur && cur.description) {
+    banner.innerHTML = cur.description.replace(/\n/g, '<br>');
+    banner.style.display = 'block';
+  } else {
+    banner.style.display = 'none';
+  }
 }
 
 function switchTopicTab(topicId) {
