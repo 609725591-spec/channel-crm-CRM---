@@ -753,6 +753,79 @@ a { color:var(--accent2); text-decoration:none; }
         <p class="page-desc" id="topicsDesc">管理员分配的专题商机列表，按专题维度查看和跟进</p>
         <div id="topicsTabs" class="tab-bar"></div>
         <div id="topicDescBanner" style="display:none;background:linear-gradient(135deg,#eff6ff,#f0fdf4);border:1px solid #bfdbfe;border-radius:10px;padding:14px 18px;margin-top:12px;font-size:13px;line-height:1.8;color:#1e40af;"></div>
+
+        <!-- ===== 作业工具 · 销售技巧一页纸（仅效广高优作业leads专题显示） ===== -->
+        <div id="salesToolbox" style="display:none;margin-top:14px;">
+          <div class="stb-head">
+            <span class="stb-badge">作业工具</span>
+            <span class="stb-title">销售技巧一页纸</span>
+            <span class="stb-sub">作业前先对齐价值与话术 · 点击卡片查看，可打印/导出PDF</span>
+          </div>
+          <div class="stb-cards">
+            <div class="stb-card" onclick="openSalesTool('assets/sales-value-onepager.html','说清价值 · 客资产品价值一页纸')">
+              <div class="stb-ico stb-ico-blue">💡</div>
+              <div class="stc-body">
+                <div class="stc-name">说清价值 · 产品价值一页纸</div>
+                <div class="stc-desc">产品介绍 · 四个核心卖点 · 标准话术 · 常见异议应对</div>
+              </div>
+              <div class="stc-go">查看 →</div>
+            </div>
+            <div class="stb-card" onclick="openSalesTool('assets/sales-three-stage-script.html','三段式沟通话术 · 首次联系/二次跟进/推动合作')">
+              <div class="stb-ico stb-ico-green">💬</div>
+              <div class="stc-body">
+                <div class="stc-name">三段式沟通话术</div>
+                <div class="stc-desc">首次联系 · 二次跟进 · 推动合作 · 话术可一键复制</div>
+              </div>
+              <div class="stc-go">查看 →</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 一页纸全屏预览弹窗 -->
+        <div id="salesToolModal" style="display:none;">
+          <div class="stm-overlay" onclick="closeSalesTool()"></div>
+          <div class="stm-panel">
+            <div class="stm-bar">
+              <span class="stm-title" id="stmTitle">销售技巧一页纸</span>
+              <div class="stm-actions">
+                <a class="stm-btn" id="stmOpenNew" href="#" target="_blank" rel="noopener">新窗口打开</a>
+                <button class="stm-btn stm-close" onclick="closeSalesTool()">✕ 关闭</button>
+              </div>
+            </div>
+            <iframe id="stmFrame" class="stm-frame" title="销售技巧一页纸"></iframe>
+          </div>
+        </div>
+        <style>
+          #salesToolbox { border-radius:14px; padding:14px 16px 16px; background:linear-gradient(135deg,#0d2b47 0%,#12385f 55%,#146fac 100%); border:1px solid rgba(96,165,250,.4); box-shadow:0 10px 30px rgba(20,111,172,.28); }
+          #salesToolbox .stb-head { display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:12px; }
+          #salesToolbox .stb-badge { background:#ffd666; color:#5a3d00; font-weight:800; font-size:12px; padding:4px 11px; border-radius:999px; letter-spacing:.05em; }
+          #salesToolbox .stb-title { color:#fff; font-size:17px; font-weight:800; letter-spacing:.02em; }
+          #salesToolbox .stb-sub { color:rgba(220,236,255,.8); font-size:12px; }
+          #salesToolbox .stb-cards { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+          #salesToolbox .stb-card { display:flex; align-items:center; gap:13px; padding:14px 16px; border-radius:12px; background:#fff; cursor:pointer; border:1px solid rgba(255,255,255,.6); transition:transform .15s ease, box-shadow .15s ease; }
+          #salesToolbox .stb-card:hover { transform:translateY(-2px); box-shadow:0 12px 26px rgba(9,30,50,.35); }
+          #salesToolbox .stb-ico { flex:0 0 46px; width:46px; height:46px; display:grid; place-items:center; border-radius:12px; font-size:23px; }
+          #salesToolbox .stb-ico-blue { background:linear-gradient(135deg,#eaf5fc,#d3e9f7); }
+          #salesToolbox .stb-ico-green { background:linear-gradient(135deg,#e9f7f1,#cdeee0); }
+          #salesToolbox .stc-body { min-width:0; flex:1; }
+          #salesToolbox .stc-name { color:#12385f; font-size:15px; font-weight:800; margin-bottom:3px; }
+          #salesToolbox .stc-desc { color:#687689; font-size:12px; line-height:1.5; }
+          #salesToolbox .stc-go { flex:0 0 auto; color:#146fac; font-size:13px; font-weight:800; white-space:nowrap; }
+          @media(max-width:820px){ #salesToolbox .stb-cards{grid-template-columns:1fr;} }
+
+          #salesToolModal { position:fixed; inset:0; z-index:9999; display:flex; align-items:center; justify-content:center; }
+          #salesToolModal .stm-overlay { position:absolute; inset:0; background:rgba(6,18,32,.72); backdrop-filter:blur(3px); }
+          #salesToolModal .stm-panel { position:relative; width:min(1480px,96vw); height:94vh; display:flex; flex-direction:column; background:#0d2b47; border-radius:14px; overflow:hidden; box-shadow:0 24px 70px rgba(0,0,0,.5); }
+          #salesToolModal .stm-bar { flex:0 0 auto; display:flex; align-items:center; justify-content:space-between; gap:14px; padding:10px 16px; background:rgba(13,43,72,.98); border-bottom:1px solid rgba(96,165,250,.28); }
+          #salesToolModal .stm-title { color:#fff; font-size:14px; font-weight:700; }
+          #salesToolModal .stm-actions { display:flex; gap:8px; }
+          #salesToolModal .stm-btn { border:1px solid rgba(255,255,255,.28); border-radius:8px; padding:6px 13px; color:#fff; background:rgba(255,255,255,.08); cursor:pointer; font-size:12.5px; text-decoration:none; }
+          #salesToolModal .stm-btn:hover { background:rgba(255,255,255,.18); }
+          #salesToolModal .stm-close { background:#e82030; border-color:#e82030; font-weight:700; }
+          #salesToolModal .stm-close:hover { background:#ff3543; }
+          #salesToolModal .stm-frame { flex:1 1 auto; width:100%; border:0; background:#edf3f7; }
+        </style>
+
         <div id="topicStats" class="stats-row topic-stats" style="margin-top:16px;"></div>
         <div class="filter-bar topic-filter-bar" id="topicFilters">
           <input id="tfSearch" placeholder="搜索关键词..." oninput="filterTopicLeads()">
@@ -1904,7 +1977,40 @@ function renderTopicTabs() {
   } else {
     banner.style.display = 'none';
   }
+  // Show 作业工具·销售技巧一页纸 only for the 效广高优作业leads topic
+  var toolbox = $('salesToolbox');
+  if (toolbox) {
+    var isEffTopic = cur && /效广/.test(cur.name || '');
+    toolbox.style.display = isEffTopic ? 'block' : 'none';
+  }
 }
+
+function openSalesTool(url, title) {
+  var modal = $('salesToolModal');
+  var frame = $('stmFrame');
+  var t = $('stmTitle');
+  var openNew = $('stmOpenNew');
+  if (t) t.textContent = title || '销售技巧一页纸';
+  if (openNew) openNew.href = url;
+  if (frame) frame.src = url;
+  if (modal) modal.style.display = 'flex';
+  document.body.style.overflow = 'hidden';
+}
+
+function closeSalesTool() {
+  var modal = $('salesToolModal');
+  var frame = $('stmFrame');
+  if (frame) frame.src = 'about:blank';
+  if (modal) modal.style.display = 'none';
+  document.body.style.overflow = '';
+}
+
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') {
+    var modal = $('salesToolModal');
+    if (modal && modal.style.display !== 'none') closeSalesTool();
+  }
+});
 
 function switchTopicTab(topicId) {
   STATE.currentTopicId = topicId;
