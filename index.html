@@ -756,8 +756,7 @@ a { color:var(--accent2); text-decoration:none; }
         <div id="topicStats" class="stats-row topic-stats" style="margin-top:16px;"></div>
         <div class="filter-bar topic-filter-bar" id="topicFilters">
           <input id="tfSearch" placeholder="搜索关键词..." oninput="filterTopicLeads()">
-          <select id="tfCategory" onchange="filterTopicLeads()"><option value="">全部</option></select>
-          <select id="tfCity" onchange="filterTopicLeads()"><option value="">全部城市</option></select>
+          <div id="topicDynFilters" style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;"></div>
           <select id="tfStatus" onchange="filterTopicLeads()">
             <option value="">全部状态</option>
             <option value="new">未跟进</option>
@@ -1928,62 +1927,61 @@ async function loadTopicLeads(topicId) {
     console.warn('loadTopicLeads failed:', e);
     STATE.topicLeads = [];
   }
-  // Populate city filter from data
-  var cities = {};
-  STATE.topicLeads.forEach(function(d) {
-    if (d.city) cities[d.city] = 1;
-  });
-  var citySel = $('tfCity');
-  citySel.innerHTML = '<option value="">全部城市</option>';
-  Object.keys(cities).sort().forEach(function(c) { citySel.innerHTML += '<option value="' + c + '">' + c + '</option>'; });
+  // Build dynamic field filters (省份/城市/区县/二级类目/三级类目/四级类目/预定量分层)
+  var dynWrap = $('topicDynFilters');
+  dynWrap.innerHTML = '';
+  STATE._topicFilters = [];
 
-  // Discover dynamic filter columns from extra_data
-  var dynCols = {};
-  STATE.topicLeads.forEach(function(d) {
-    if (d.extra_data && typeof d.extra_data === 'object') {
-      Object.keys(d.extra_data).forEach(function(k) { dynCols[k] = 1; });
-    }
-  });
-  // Update category filter to show first string-type extra_data column (if any)
-  var catSel = $('tfCategory');
-  catSel.innerHTML = '<option value="">全部</option>';
-  STATE._topicDynCols = Object.keys(dynCols);
-  // Use first column with few distinct values as a "category-like" filter
-  var bestFilterCol = null;
-  var bestDistinct = 999;
-  STATE._topicDynCols.forEach(function(k) {
+  // Resolve this topic's ordered columns from description metadata (|||), fallback to extra_data keys
+  var curTopicF = STATE.topics.find(function(t){ return t.id === STATE.currentTopicId; });
+  var descPartsF = (curTopicF && curTopicF.description) ? curTopicF.description.split('|||') : [];
+  var orderedCols = [];
+  if (descPartsF.length > 1 && descPartsF[1].trim()) {
+    orderedCols = descPartsF[1].trim().split(',').map(function(s){ return s.trim(); });
+  } else {
+    var dcSet = {};
+    STATE.topicLeads.forEach(function(d){
+      if (d.extra_data && typeof d.extra_data === 'object') Object.keys(d.extra_data).forEach(function(k){ dcSet[k] = 1; });
+    });
+    orderedCols = Object.keys(dcSet);
+  }
+
+  var FILTER_FIELDS = ['省份', '城市', '区县', '二级类目', '三级类目', '四级类目', '预定量分层'];
+  FILTER_FIELDS.forEach(function(field, idx) {
+    if (orderedCols.indexOf(field) < 0) return;
     var vals = {};
     STATE.topicLeads.forEach(function(d) {
-      var v = d.extra_data[k];
-      if (v !== undefined && v !== null && v !== '') vals[v] = 1;
+      var v = d.extra_data ? d.extra_data[field] : '';
+      if ((v === undefined || v === null || v === '') && field === '城市') v = d.city;
+      if (v !== undefined && v !== null && v !== '' && v !== '-') vals[v] = 1;
     });
-    var n = Object.keys(vals).length;
-    if (n >= 2 && n <= 30 && n < bestDistinct) { bestDistinct = n; bestFilterCol = k; }
+    var keys = Object.keys(vals);
+    if (keys.length < 1) return;
+    keys.sort(function(a, b) { return String(a).localeCompare(String(b), 'zh'); });
+    var selId = 'tdf_' + idx;
+    var sel = document.createElement('select');
+    sel.id = selId;
+    sel.setAttribute('onchange', 'filterTopicLeads()');
+    var html = '<option value="">全部' + field + '</option>';
+    keys.forEach(function(v) {
+      var sv = String(v).replace(/"/g, '&quot;');
+      html += '<option value="' + sv + '">' + sv + '</option>';
+    });
+    sel.innerHTML = html;
+    dynWrap.appendChild(sel);
+    STATE._topicFilters.push({ col: field, id: selId });
   });
-  if (bestFilterCol) {
-    STATE._topicFilterCol = bestFilterCol;
-    catSel.parentElement.querySelector('label[for=tfCategory]') || (catSel.previousElementSibling && catSel.previousElementSibling.textContent);
-    var filterVals = {};
-    STATE.topicLeads.forEach(function(d) {
-      var v = d.extra_data[bestFilterCol];
-      if (v !== undefined && v !== null && v !== '') filterVals[v] = 1;
-    });
-    Object.keys(filterVals).sort().forEach(function(v) { catSel.innerHTML += '<option value="' + v + '">' + v + '</option>'; });
-    // Update placeholder
-    catSel.options[0].textContent = '全部' + bestFilterCol;
-  } else {
-    STATE._topicFilterCol = null;
-    catSel.options[0].textContent = '全部';
-  }
 
   filterTopicLeads();
 }
 
 function filterTopicLeads() {
   var search = ($('tfSearch').value || '').toLowerCase();
-  var cat = $('tfCategory').value;
-  var city = $('tfCity').value;
   var status = $('tfStatus').value;
+  var dynVals = (STATE._topicFilters || []).map(function(f) {
+    var el = $(f.id);
+    return { col: f.col, val: el ? el.value : '' };
+  });
 
   STATE.topicLeadsFiltered = STATE.topicLeads.filter(function(d) {
     if (search) {
@@ -1996,11 +1994,13 @@ function filterTopicLeads() {
       }
       if (haystack.indexOf(search) < 0) return false;
     }
-    if (cat && STATE._topicFilterCol) {
-      var v = d.extra_data ? d.extra_data[STATE._topicFilterCol] : '';
-      if (String(v) !== cat) return false;
+    for (var i = 0; i < dynVals.length; i++) {
+      var fv = dynVals[i];
+      if (!fv.val) continue;
+      var dv = d.extra_data ? d.extra_data[fv.col] : '';
+      if ((dv === undefined || dv === null || dv === '') && fv.col === '城市') dv = d.city;
+      if (String(dv) !== fv.val) return false;
     }
-    if (city && d.city !== city) return false;
     if (status && d.status !== status) return false;
     return true;
   });
