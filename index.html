@@ -1899,8 +1899,9 @@ function renderTopicTabs() {
   var banner = $('topicDescBanner');
   var cur = STATE.topics.find(function(t){return t.id===STATE.currentTopicId;});
   if (cur && cur.description) {
-    banner.innerHTML = cur.description.replace(/\n/g, '<br>');
-    banner.style.display = 'block';
+    var descText = cur.description.split('|||')[0];
+    banner.innerHTML = descText.replace(/\n/g, '<br>');
+    banner.style.display = descText.trim() ? 'block' : 'none';
   } else {
     banner.style.display = 'none';
   }
@@ -2081,16 +2082,22 @@ function exportTopicLeads() {
   var selIds = Object.keys(_topicSelected);
   var exportData = selIds.length > 0 ? data.filter(function(d){ return _topicSelected[d.id]; }) : data;
 
-  // Discover dynamic cols
+  // Discover dynamic cols (respect column order from topic description)
   var dynamicCols = [];
-  var colSet = {};
-  exportData.forEach(function(d) {
-    if (d.extra_data && typeof d.extra_data === 'object') {
-      Object.keys(d.extra_data).forEach(function(k) {
-        if (!colSet[k]) { colSet[k] = 1; dynamicCols.push(k); }
-      });
-    }
-  });
+  var curTopicExp = STATE.topics.find(function(t){return t.id===STATE.currentTopicId;});
+  var descPartsExp = (curTopicExp && curTopicExp.description) ? curTopicExp.description.split('|||') : [];
+  if (descPartsExp.length > 1 && descPartsExp[1].trim()) {
+    dynamicCols = descPartsExp[1].trim().split(',').map(function(s){return s.trim();});
+  } else {
+    var colSet = {};
+    exportData.forEach(function(d) {
+      if (d.extra_data && typeof d.extra_data === 'object') {
+        Object.keys(d.extra_data).forEach(function(k) {
+          if (!colSet[k]) { colSet[k] = 1; dynamicCols.push(k); }
+        });
+      }
+    });
+  }
 
   var rows = [];
   var header = ['城市'];
@@ -2131,16 +2138,22 @@ function renderTopicLeads() {
     return;
   }
 
-  // Discover dynamic columns from extra_data
+  // Discover dynamic columns from extra_data (respect column order from topic description)
   var dynamicCols = [];
-  var colSet = {};
-  data.forEach(function(d) {
-    if (d.extra_data && typeof d.extra_data === 'object') {
-      Object.keys(d.extra_data).forEach(function(k) {
-        if (!colSet[k]) { colSet[k] = 1; dynamicCols.push(k); }
-      });
-    }
-  });
+  var curTopic = STATE.topics.find(function(t){return t.id===STATE.currentTopicId;});
+  var descParts = (curTopic && curTopic.description) ? curTopic.description.split('|||') : [];
+  if (descParts.length > 1 && descParts[1].trim()) {
+    dynamicCols = descParts[1].trim().split(',').map(function(s){return s.trim();});
+  } else {
+    var colSet = {};
+    data.forEach(function(d) {
+      if (d.extra_data && typeof d.extra_data === 'object') {
+        Object.keys(d.extra_data).forEach(function(k) {
+          if (!colSet[k]) { colSet[k] = 1; dynamicCols.push(k); }
+        });
+      }
+    });
+  }
 
   // Build table
   var html = '<div class="topic-table-wrap" style="overflow-x:auto;"><table class="topic-table"><thead><tr>';
