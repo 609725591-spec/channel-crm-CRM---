@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="color-scheme" content="light">
+  <title>客资三段式沟通文案｜首次联系·二次跟进·推动合作</title>
+  <style>
+    :root {
+      --ink:#172231; --muted:#687689; --navy:#12385f; --blue:#146fac;
+      --sky:#eaf5fc; --line:#d9e5ee; --paper:#fff; --bg:#edf3f7;
+      --mint:#e9f7f1; --green:#187052; --amber:#fff4dd; --gold:#9a620a;
+      --rose:#fff0ee; --red:#a64238; --shadow:0 18px 48px rgba(21,50,77,.12);
+    }
+    *{box-sizing:border-box} html{scroll-behavior:smooth}
+    body{margin:0;background:linear-gradient(145deg,#eaf2f8,#f5f8fa 45%,#eaf1f6);color:var(--ink);font-family:"Microsoft YaHei","PingFang SC","Noto Sans CJK SC",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;line-height:1.55}
+    button{font:inherit}
+    .toolbar{position:sticky;top:0;z-index:20;display:flex;justify-content:space-between;align-items:center;gap:18px;padding:11px max(18px,calc((100% - 1440px)/2));color:#dcecff;background:rgba(13,43,72,.96);backdrop-filter:blur(10px);box-shadow:0 5px 18px rgba(10,35,58,.16)}
+    .toolbar strong{color:#fff;font-size:14px}.toolbar span{font-size:12px}.toolbar button{border:1px solid rgba(255,255,255,.25);border-radius:9px;padding:7px 13px;color:#fff;background:rgba(255,255,255,.08);cursor:pointer}.toolbar button:hover{background:rgba(255,255,255,.17)}
+    .deck{width:min(1440px,calc(100% - 28px));margin:24px auto 48px;display:grid;gap:24px}
+    .page{position:relative;overflow:hidden;min-height:810px;padding:34px 38px;border:1px solid rgba(210,225,236,.9);border-radius:20px;background:var(--paper);box-shadow:var(--shadow)}
+    .page::before{content:"";position:absolute;right:-100px;top:-120px;width:320px;height:320px;border-radius:50%;background:radial-gradient(circle,rgba(20,111,172,.13),rgba(20,111,172,0) 68%)}
+    .page-head{position:relative;display:flex;justify-content:space-between;gap:26px;padding-bottom:20px;border-bottom:2px solid var(--navy)}
+    .kicker{margin:0 0 5px;color:var(--blue);font-size:11px;font-weight:800;letter-spacing:.18em}
+    h1{margin:0;color:var(--navy);font-size:34px;line-height:1.2;letter-spacing:-.035em}
+    .subtitle{max-width:760px;margin:8px 0 0;color:var(--muted);font-size:14px}
+    .headline{align-self:center;max-width:390px;padding:13px 17px;border-left:4px solid var(--blue);border-radius:0 11px 11px 0;color:#24445e;background:var(--sky);font-size:14px;font-weight:700}
+    .grid{display:grid;gap:14px}.top-grid{grid-template-columns:1.05fr 1.5fr 1.15fr;margin-top:17px}.bottom-grid{grid-template-columns:1.16fr 1.84fr;margin-top:14px}
+    .card{min-width:0;padding:17px 18px;border:1px solid var(--line);border-radius:14px;background:#fff}
+    .card h2{display:flex;align-items:center;gap:9px;margin:0 0 12px;color:var(--navy);font-size:17px;line-height:1.3}
+    .badge{display:inline-grid;place-items:center;width:25px;height:25px;flex:0 0 25px;border-radius:8px;color:#fff;background:var(--blue);font-size:11px}
+    .intro{color:#33485c;font-size:14px}.intro strong{color:var(--navy)}
+    .chain{display:flex;align-items:center;gap:6px;margin-top:14px;flex-wrap:wrap}.chain span{padding:6px 8px;border-radius:8px;color:#2a506f;background:var(--sky);font-size:11px;font-weight:700}.chain i{color:#9aabb9;font-style:normal}
+    .selling{display:grid;grid-template-columns:1fr 1fr;gap:9px}.selling article{padding:11px 12px;border-radius:10px;background:#f7fafc}.selling b{display:block;margin-bottom:4px;color:var(--navy);font-size:13px}.selling p{margin:0;color:var(--muted);font-size:11.5px}
+    .action{padding:14px 15px;border:1px solid #cce4d9;border-radius:11px;background:var(--mint)}.action strong{display:block;margin-bottom:5px;color:var(--green);font-size:14px}.action p{margin:0;color:#3f6458;font-size:12px}
+    .action + .action{margin-top:9px}.action.secondary{border-color:#f0d9a7;background:var(--amber)}.action.secondary strong{color:var(--gold)}.action.secondary p{color:#755c2e}
+    .script{padding:15px 16px;border-radius:12px;color:#244157;background:linear-gradient(145deg,#eff7fc,#f9fcfe);font-size:13px}.script p{margin:0 0 9px}.script p:last-child{margin-bottom:0}.script strong{color:var(--navy)}
+    table{width:100%;border-collapse:collapse;font-size:11.4px;line-height:1.48}th{padding:8px 9px;color:#fff;background:var(--navy);text-align:left}td{padding:8px 9px;border-top:1px solid var(--line);vertical-align:top}tbody tr:nth-child(even){background:#f8fafc}td:first-child{width:25%;color:var(--navy);font-weight:800}
+    .footnote{position:absolute;left:38px;right:38px;bottom:17px;display:flex;justify-content:space-between;gap:20px;padding-top:10px;border-top:1px solid var(--line);color:#8290a0;font-size:9.5px}
+    .journey{display:grid;grid-template-columns:repeat(3,1fr);gap:15px;margin-top:18px}
+    .stage{position:relative;display:flex;flex-direction:column;min-height:600px;padding:19px;border:1px solid var(--line);border-top:5px solid var(--blue);border-radius:15px;background:linear-gradient(180deg,#fff,#f8fbfd)}
+    .stage:nth-child(2){border-top-color:#3a8f75}.stage:nth-child(3){border-top-color:#b7791f}
+    .stage-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}.stage-no{color:var(--blue);font-size:11px;font-weight:900;letter-spacing:.13em}.stage:nth-child(2) .stage-no{color:#27775f}.stage:nth-child(3) .stage-no{color:#9a620a}
+    .stage h2{margin:2px 0 3px;color:var(--navy);font-size:19px}.timing{display:inline-block;padding:4px 8px;border-radius:999px;color:var(--muted);background:#eef3f7;font-size:10px;white-space:nowrap}
+    .goal{margin:12px 0;padding:10px 11px;border-radius:9px;color:#375167;background:var(--sky);font-size:11.5px}.goal strong{color:var(--navy)}
+    .copy-box{position:relative;flex:1;padding:15px 14px 48px;border:1px dashed #c3d7e6;border-radius:11px;background:#fff;color:#2d4357;font-size:12.4px;line-height:1.7}.copy-box p{margin:0 0 10px}.copy-box p:last-of-type{margin-bottom:0}
+    .copy-btn{position:absolute;right:10px;bottom:10px;border:1px solid #c9dbe8;border-radius:8px;padding:6px 10px;color:var(--blue);background:#f5faff;cursor:pointer;font-size:10.5px;font-weight:700}.copy-btn:hover{background:var(--sky)}
+    .next{margin-top:11px;padding:10px 11px;border-radius:9px;color:#556779;background:#f1f5f8;font-size:11px}.next strong{color:var(--navy)}
+    .micro{margin-top:14px;display:grid;grid-template-columns:repeat(4,1fr);gap:9px}.micro div{padding:9px 10px;border-radius:9px;color:#465d72;background:#f4f7fa;font-size:10.5px}.micro b{display:block;color:var(--navy);font-size:11px}
+    .toast{position:fixed;right:24px;bottom:24px;z-index:30;padding:10px 15px;border-radius:9px;color:#fff;background:#183d60;box-shadow:0 8px 24px rgba(15,43,67,.22);opacity:0;transform:translateY(10px);pointer-events:none;transition:.22s}.toast.show{opacity:1;transform:none}
+    @media(max-width:1050px){.top-grid,.bottom-grid,.journey{grid-template-columns:1fr}.page{min-height:0;padding-bottom:70px}.stage{min-height:0}.footnote{position:static;margin-top:20px}.page-head{flex-direction:column}.headline{max-width:none}.micro{grid-template-columns:1fr 1fr}}
+    @media(max-width:620px){.toolbar span{display:none}.deck{width:calc(100% - 14px);margin-top:8px}.page{padding:24px 16px 30px;border-radius:13px}h1{font-size:28px}.selling,.micro{grid-template-columns:1fr}.footnote{flex-direction:column;gap:3px}.page-head{padding-bottom:15px}.stage{padding:15px}}
+    @page{size:A4 landscape;margin:8mm}
+    @media print{body{background:#fff}.toolbar{display:none}.deck{display:block;width:100%;margin:0}.page{width:100%;height:194mm;min-height:0;margin:0;padding:9mm 10mm;border:0;border-radius:0;box-shadow:none;break-after:page}.page:last-child{break-after:auto}.page-head{padding-bottom:4mm}.top-grid{margin-top:4mm}.bottom-grid{margin-top:3mm}.grid{gap:3mm}.card{padding:3mm}.footnote{left:10mm;right:10mm;bottom:4mm}.journey{gap:3mm;margin-top:4mm}.stage{min-height:146mm;padding:4mm}.copy-btn{display:none}.micro{margin-top:3mm}.page::before{display:none}}
+  </style>
+</head>
+<body>
+  <div class="toolbar"><div><strong>客资三段式沟通文案</strong> <span>首次联系 · 二次跟进 · 推动合作</span></div><button type="button" onclick="window.print()">打印 / 导出 PDF</button></div>
+  <main class="deck">
+    <section class="page" aria-label="三段式沟通文案">
+      <header class="page-head">
+        <div><p class="kicker">CONTACT · FOLLOW UP · CLOSE</p><h1>三段式沟通文案</h1><p class="subtitle">每一阶段只推动一个下一步：先建立价值认知，再降低决策顾虑，最后锁定可执行动作。</p></div>
+        <div class="headline">沟通原则：不急着讲预算，先确认承接条件；不承诺固定结果，用小额测试和真实数据推动决策。</div>
+      </header>
+
+      <div class="journey">
+        <article class="stage">
+          <div class="stage-head"><div><span class="stage-no">STAGE 01</span><h2>首次联系</h2></div><span class="timing">建议：初次触达</span></div>
+          <div class="goal"><strong>本次目标：</strong>让商家听懂产品价值，并同意检查电话与预定入口。</div>
+          <div class="copy-box" id="copy-1">
+            <p>老板您好，我是负责您门店区域效果广告的顾问。</p>
+            <p>这次联系不是单纯建议您买曝光，而是想帮门店把“用户看到—点击—电话或预定—到店”这条客资链路接起来。现在很多顾客会先搜品类、商圈或用餐场景，如果页面只有电话、没有预定入口，部分不方便打电话的意向可能留不下来。</p>
+            <p>我建议先帮您免费检查一下门店电话、预定入口和页面信息是否完整，再结合门店主推场景判断适不适合做小额测试。您今天方便给我5分钟一起看一下吗？</p>
+            <button class="copy-btn" type="button" onclick="copyText('copy-1')">复制文案</button>
+          </div>
+          <div class="next"><strong>下一步：</strong>约5分钟诊断；确认电话、预定入口和主推场景。</div>
+        </article>
+
+        <article class="stage">
+          <div class="stage-head"><div><span class="stage-no">STAGE 02</span><h2>二次跟进</h2></div><span class="timing">建议：1—2天后</span></div>
+          <div class="goal"><strong>本次目标：</strong>回应计费和有效性顾虑，获得小额测试意向。</div>
+          <div class="copy-box" id="copy-2">
+            <p>老板您好，上次提到的客资方案我又结合您门店情况梳理了一下。</p>
+            <p>这类投放不能只看曝光量，也不能把精搜、泛搜直接等同于是否收费。最终是否形成计费客资，要看用户是否触发正式客资动作，以及归因和去重规则；有效客资也不等于最终成交，一次未接、取消或未到店不能直接算无效。</p>
+            <p>更稳妥的方式是先把预定功能和承接人准备好，用小预算跑一轮，同时看曝光、点击、计费客资、有效客资、预定和到店。这样我们能判断问题在流量、页面还是跟进，而不是凭感觉追加预算。</p>
+            <p>如果您认可，我今天先协助把预定入口配置完整，再给您一版首轮测试建议。</p>
+            <button class="copy-btn" type="button" onclick="copyText('copy-2')">复制文案</button>
+          </div>
+          <div class="next"><strong>下一步：</strong>确认正式计费口径；开通预定；明确首轮测试范围。</div>
+        </article>
+
+        <article class="stage">
+          <div class="stage-head"><div><span class="stage-no">STAGE 03</span><h2>推动合作</h2></div><span class="timing">建议：顾虑澄清后</span></div>
+          <div class="goal"><strong>本次目标：</strong>锁定开通、负责人和测试时间，不做结果性承诺。</div>
+          <div class="copy-box" id="copy-3">
+            <p>老板，目前影响合作的几个问题已经对齐：搜索类型不直接等于计费动作，具体以后台规则为准；客资会按可追溯、可联系、需求相关和去重规则分类；曝光与客资价格也不是简单线性关系。</p>
+            <p>现在最关键的不是继续讨论理论效果，而是把门店承接准备好，跑出第一轮真实数据。建议今天完成三件事：开通预定功能、校验联系电话、确定一位客资负责人和备份人。</p>
+            <p>准备好后我们用小预算启动，首轮重点看有效客资成本、预定和到店，再决定后续是否调整。投放可以持续观察和优化，但不承诺固定客资量、成交量或ROI。</p>
+            <p>如果可以，我现在就协助您把预定入口开起来，并确认首轮启动时间。</p>
+            <button class="copy-btn" type="button" onclick="copyText('copy-3')">复制文案</button>
+          </div>
+          <div class="next"><strong>下一步：</strong>完成预定开通；指定负责人；确认小额测试启动时间。</div>
+        </article>
+      </div>
+
+      <div class="micro">
+        <div><b>开场不讲预算</b>先说门店能得到什么，再讲怎么验证。</div>
+        <div><b>异议不争对错</b>先承认顾虑，再用漏斗和正式规则回答。</div>
+        <div><b>每次只推一步</b>诊断、开通预定、小额测试逐级推进。</div>
+        <div><b>结果不做承诺</b>用真实数据复盘，不承诺固定数量或ROI。</div>
+      </div>
+
+      <div class="footnote"><span>可将“老板”“门店”“主推场景”等替换为具体称呼，提高沟通针对性。</span><span>生成时间：2026-09-10 13:46 CST</span></div>
+    </section>
+  </main>
+
+  <div class="toast" id="toast">已复制</div>
+  <script>
+    function showToast(message) {
+      const toast = document.getElementById('toast');
+      toast.textContent = message;
+      toast.classList.add('show');
+      setTimeout(() => toast.classList.remove('show'), 1300);
+    }
+
+    function copyText(id) {
+      const box = document.getElementById(id);
+      const text = Array.from(box.querySelectorAll('p')).map(p => p.innerText).join('\n\n');
+      if (navigator.clipboard && window.isSecureContext) {
+        navigator.clipboard.writeText(text)
+          .then(() => showToast('已复制'))
+          .catch(() => showToast('复制失败，请手动选择文本'));
+        return;
+      }
+      try {
+        const area = document.createElement('textarea');
+        area.value = text;
+        area.style.position = 'fixed';
+        area.style.opacity = '0';
+        document.body.appendChild(area);
+        area.select();
+        const copied = document.execCommand('copy');
+        area.remove();
+        showToast(copied ? '已复制' : '复制失败，请手动选择文本');
+      } catch (error) {
+        showToast('复制失败，请手动选择文本');
+      }
+    }
+  </script>
+</body>
+</html>
