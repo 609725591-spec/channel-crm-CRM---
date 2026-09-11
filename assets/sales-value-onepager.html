@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="color-scheme" content="light">
+  <title>说清价值｜客资专项一页纸</title>
+  <style>
+    :root {
+      --ink:#172231; --muted:#687689; --navy:#12385f; --blue:#146fac;
+      --sky:#eaf5fc; --line:#d9e5ee; --paper:#fff; --bg:#edf3f7;
+      --mint:#e9f7f1; --green:#187052; --amber:#fff4dd; --gold:#9a620a;
+      --rose:#fff0ee; --red:#a64238; --shadow:0 18px 48px rgba(21,50,77,.12);
+    }
+    *{box-sizing:border-box} html{scroll-behavior:smooth}
+    body{margin:0;background:linear-gradient(145deg,#eaf2f8,#f5f8fa 45%,#eaf1f6);color:var(--ink);font-family:"Microsoft YaHei","PingFang SC","Noto Sans CJK SC",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;line-height:1.55}
+    button{font:inherit}
+    .toolbar{position:sticky;top:0;z-index:20;display:flex;justify-content:space-between;align-items:center;gap:18px;padding:11px max(18px,calc((100% - 1440px)/2));color:#dcecff;background:rgba(13,43,72,.96);backdrop-filter:blur(10px);box-shadow:0 5px 18px rgba(10,35,58,.16)}
+    .toolbar strong{color:#fff;font-size:14px}.toolbar span{font-size:12px}.toolbar button{border:1px solid rgba(255,255,255,.25);border-radius:9px;padding:7px 13px;color:#fff;background:rgba(255,255,255,.08);cursor:pointer}.toolbar button:hover{background:rgba(255,255,255,.17)}
+    .deck{width:min(1440px,calc(100% - 28px));margin:24px auto 48px;display:grid;gap:24px}
+    .page{position:relative;overflow:hidden;min-height:810px;padding:34px 38px;border:1px solid rgba(210,225,236,.9);border-radius:20px;background:var(--paper);box-shadow:var(--shadow)}
+    .page::before{content:"";position:absolute;right:-100px;top:-120px;width:320px;height:320px;border-radius:50%;background:radial-gradient(circle,rgba(20,111,172,.13),rgba(20,111,172,0) 68%)}
+    .page-head{position:relative;display:flex;justify-content:space-between;gap:26px;padding-bottom:20px;border-bottom:2px solid var(--navy)}
+    .kicker{margin:0 0 5px;color:var(--blue);font-size:11px;font-weight:800;letter-spacing:.18em}
+    h1{margin:0;color:var(--navy);font-size:34px;line-height:1.2;letter-spacing:-.035em}
+    .subtitle{max-width:760px;margin:8px 0 0;color:var(--muted);font-size:14px}
+    .headline{align-self:center;max-width:390px;padding:13px 17px;border-left:4px solid var(--blue);border-radius:0 11px 11px 0;color:#24445e;background:var(--sky);font-size:14px;font-weight:700}
+    .grid{display:grid;gap:14px}.top-grid{grid-template-columns:1.05fr 1.5fr 1.15fr;margin-top:17px}.bottom-grid{grid-template-columns:1.16fr 1.84fr;margin-top:14px}
+    .card{min-width:0;padding:17px 18px;border:1px solid var(--line);border-radius:14px;background:#fff}
+    .card h2{display:flex;align-items:center;gap:9px;margin:0 0 12px;color:var(--navy);font-size:17px;line-height:1.3}
+    .badge{display:inline-grid;place-items:center;width:25px;height:25px;flex:0 0 25px;border-radius:8px;color:#fff;background:var(--blue);font-size:11px}
+    .intro{color:#33485c;font-size:14px}.intro strong{color:var(--navy)}
+    .chain{display:flex;align-items:center;gap:6px;margin-top:14px;flex-wrap:wrap}.chain span{padding:6px 8px;border-radius:8px;color:#2a506f;background:var(--sky);font-size:11px;font-weight:700}.chain i{color:#9aabb9;font-style:normal}
+    .selling{display:grid;grid-template-columns:1fr 1fr;gap:9px}.selling article{padding:11px 12px;border-radius:10px;background:#f7fafc}.selling b{display:block;margin-bottom:4px;color:var(--navy);font-size:13px}.selling p{margin:0;color:var(--muted);font-size:11.5px}
+    .action{padding:14px 15px;border:1px solid #cce4d9;border-radius:11px;background:var(--mint)}.action strong{display:block;margin-bottom:5px;color:var(--green);font-size:14px}.action p{margin:0;color:#3f6458;font-size:12px}
+    .action + .action{margin-top:9px}.action.secondary{border-color:#f0d9a7;background:var(--amber)}.action.secondary strong{color:var(--gold)}.action.secondary p{color:#755c2e}
+    .script{padding:15px 16px;border-radius:12px;color:#244157;background:linear-gradient(145deg,#eff7fc,#f9fcfe);font-size:13px}.script p{margin:0 0 9px}.script p:last-child{margin-bottom:0}.script strong{color:var(--navy)}
+    table{width:100%;border-collapse:collapse;font-size:11.4px;line-height:1.48}th{padding:8px 9px;color:#fff;background:var(--navy);text-align:left}td{padding:8px 9px;border-top:1px solid var(--line);vertical-align:top}tbody tr:nth-child(even){background:#f8fafc}td:first-child{width:25%;color:var(--navy);font-weight:800}
+    .footnote{position:absolute;left:38px;right:38px;bottom:17px;display:flex;justify-content:space-between;gap:20px;padding-top:10px;border-top:1px solid var(--line);color:#8290a0;font-size:9.5px}
+    .journey{display:grid;grid-template-columns:repeat(3,1fr);gap:15px;margin-top:18px}
+    .stage{position:relative;display:flex;flex-direction:column;min-height:600px;padding:19px;border:1px solid var(--line);border-top:5px solid var(--blue);border-radius:15px;background:linear-gradient(180deg,#fff,#f8fbfd)}
+    .stage:nth-child(2){border-top-color:#3a8f75}.stage:nth-child(3){border-top-color:#b7791f}
+    .stage-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}.stage-no{color:var(--blue);font-size:11px;font-weight:900;letter-spacing:.13em}.stage:nth-child(2) .stage-no{color:#27775f}.stage:nth-child(3) .stage-no{color:#9a620a}
+    .stage h2{margin:2px 0 3px;color:var(--navy);font-size:19px}.timing{display:inline-block;padding:4px 8px;border-radius:999px;color:var(--muted);background:#eef3f7;font-size:10px;white-space:nowrap}
+    .goal{margin:12px 0;padding:10px 11px;border-radius:9px;color:#375167;background:var(--sky);font-size:11.5px}.goal strong{color:var(--navy)}
+    .copy-box{position:relative;flex:1;padding:15px 14px 48px;border:1px dashed #c3d7e6;border-radius:11px;background:#fff;color:#2d4357;font-size:12.4px;line-height:1.7}.copy-box p{margin:0 0 10px}.copy-box p:last-of-type{margin-bottom:0}
+    .copy-btn{position:absolute;right:10px;bottom:10px;border:1px solid #c9dbe8;border-radius:8px;padding:6px 10px;color:var(--blue);background:#f5faff;cursor:pointer;font-size:10.5px;font-weight:700}.copy-btn:hover{background:var(--sky)}
+    .next{margin-top:11px;padding:10px 11px;border-radius:9px;color:#556779;background:#f1f5f8;font-size:11px}.next strong{color:var(--navy)}
+    .micro{margin-top:14px;display:grid;grid-template-columns:repeat(4,1fr);gap:9px}.micro div{padding:9px 10px;border-radius:9px;color:#465d72;background:#f4f7fa;font-size:10.5px}.micro b{display:block;color:var(--navy);font-size:11px}
+    .toast{position:fixed;right:24px;bottom:24px;z-index:30;padding:10px 15px;border-radius:9px;color:#fff;background:#183d60;box-shadow:0 8px 24px rgba(15,43,67,.22);opacity:0;transform:translateY(10px);pointer-events:none;transition:.22s}.toast.show{opacity:1;transform:none}
+    @media(max-width:1050px){.top-grid,.bottom-grid,.journey{grid-template-columns:1fr}.page{min-height:0;padding-bottom:70px}.stage{min-height:0}.footnote{position:static;margin-top:20px}.page-head{flex-direction:column}.headline{max-width:none}.micro{grid-template-columns:1fr 1fr}}
+    @media(max-width:620px){.toolbar span{display:none}.deck{width:calc(100% - 14px);margin-top:8px}.page{padding:24px 16px 30px;border-radius:13px}h1{font-size:28px}.selling,.micro{grid-template-columns:1fr}.footnote{flex-direction:column;gap:3px}.page-head{padding-bottom:15px}.stage{padding:15px}}
+    @page{size:A4 landscape;margin:8mm}
+    @media print{
+      body{background:#fff;line-height:1.3}.toolbar{display:none}.deck{display:block;width:100%;margin:0}
+      .page{width:100%;height:194mm;min-height:0;margin:0;padding:5mm 7mm 9mm;border:0;border-radius:0;box-shadow:none;break-after:page;overflow:hidden}.page:last-child{break-after:auto}.page::before{display:none}
+      .page-head{display:flex;flex-direction:row;gap:5mm;padding-bottom:2.5mm}.kicker{margin-bottom:1mm;font-size:6.5pt}h1{font-size:20pt}.subtitle{max-width:165mm;margin-top:1.2mm;font-size:8pt}.headline{max-width:82mm;padding:2mm 3mm;font-size:8pt}
+      .top-grid{grid-template-columns:1.05fr 1.5fr 1.15fr;margin-top:2.5mm}.bottom-grid{grid-template-columns:1.16fr 1.84fr;margin-top:2mm}.grid{gap:2mm}
+      .card{padding:2.2mm;border-radius:2.5mm}.card h2{gap:1.5mm;margin-bottom:1.5mm;font-size:10pt}.badge{width:5mm;height:5mm;flex-basis:5mm;border-radius:1.4mm;font-size:6.5pt}
+      .intro{margin:0;font-size:7.8pt}.chain{gap:1mm;margin-top:1.5mm}.chain span{padding:1mm 1.4mm;border-radius:1.4mm;font-size:6.5pt}
+      .selling{gap:1.3mm}.selling article{padding:1.5mm 1.8mm;border-radius:1.6mm}.selling b{margin-bottom:.5mm;font-size:7.5pt}.selling p{font-size:6.5pt}
+      .action{padding:1.7mm 2mm;border-radius:1.8mm}.action strong{margin-bottom:.5mm;font-size:8pt}.action p{font-size:6.5pt}.action+.action{margin-top:1.3mm}
+      .script{padding:2mm 2.2mm;border-radius:2mm;font-size:7.2pt}.script p{margin-bottom:1.2mm}
+      table{font-size:6.5pt;line-height:1.2}th,td{padding:1.25mm 1.5mm}
+      .footnote{left:7mm;right:7mm;bottom:2mm;gap:4mm;padding-top:1.2mm;font-size:6pt}
+    }
+  </style>
+</head>
+<body>
+  <div class="toolbar"><div><strong>说清价值｜客资专项一页纸</strong> <span>产品介绍 · 核心卖点 · 销售话术 · 常见异议</span></div><button type="button" onclick="window.print()">打印 / 导出 PDF</button></div>
+  <main class="deck">
+    <section class="page" aria-label="客资价值专项一页纸">
+      <header class="page-head">
+        <div><p class="kicker">VALUE PROPOSITION · ONE PAGER</p><h1>说清价值——客资专项一页纸</h1><p class="subtitle">不是单纯买曝光，而是把有找店和咨询意向的用户，引导到电话或预定入口，并沿“曝光—点击—客资—预定—到店”持续优化。</p></div>
+        <div class="headline">一句话价值：让门店不只“被看见”，更有机会把用户意向留下来、接起来、追下去。</div>
+      </header>
+
+      <div class="grid top-grid">
+        <article class="card">
+          <h2><span class="badge">01</span>产品介绍</h2>
+          <p class="intro"><strong>客资广告</strong>面向正在找店、看品类、搜商圈或有消费场景需求的用户，通过门店页面、电话和预定入口承接咨询，并结合来源、处理状态、预定与到店结果复盘。</p>
+          <div class="chain"><span>曝光</span><i>→</i><span>点击</span><i>→</i><span>客资</span><i>→</i><span>预定</span><i>→</i><span>到店</span></div>
+        </article>
+
+        <article class="card">
+          <h2><span class="badge">02</span>四个核心卖点</h2>
+          <div class="selling">
+            <article><b>覆盖有需求的用户</b><p>兼顾明确找店与品类、商圈、场景探索需求。</p></article>
+            <article><b>多一个留资入口</b><p>电话之外开通预定，降低用户表达需求的门槛。</p></article>
+            <article><b>效果链路可拆解</b><p>不只看曝光，沿点击、客资、预定和到店定位问题。</p></article>
+            <article><b>先验证再放量</b><p>小预算跑首轮真实数据，再按有效客资成本优化。</p></article>
+          </div>
+        </article>
+
+        <article class="card">
+          <h2><span class="badge">03</span>合作前先做两件事</h2>
+          <div class="action"><strong>开通预定功能</strong><p>配置可约时段、人数、桌型和确认方式，让不方便打电话的用户也能留下需求。</p></div>
+          <div class="action secondary"><strong>明确承接负责人</strong><p>设置主负责人和备份人，尽量5分钟内首次响应，未接电话分时段回拨并留痕。</p></div>
+        </article>
+      </div>
+
+      <div class="grid bottom-grid">
+        <article class="card">
+          <h2><span class="badge">04</span>销售标准话术</h2>
+          <div class="script">
+            <p><strong>老板，客资广告不只是帮门店增加曝光，核心是把正在找店、有咨询意向的用户，引导到电话或预定入口。</strong></p>
+            <p>我们不会只看点击，而是继续看有没有形成客资、门店是否及时承接、有没有预定和到店。哪个环节弱，就优化哪个环节。</p>
+            <p>建议先把预定和电话入口准备好，用小预算跑出首轮真实数据，再根据有效客资成本、预定和到店结果调整，不承诺固定客资量或成交量。</p>
+          </div>
+        </article>
+
+        <article class="card">
+          <h2><span class="badge">05</span>常见异议——一句话回应</h2>
+          <table>
+            <thead><tr><th>商家异议</th><th>标准回应</th></tr></thead>
+            <tbody>
+              <tr><td>精搜和泛搜怎么计费？泛搜也会算钱吗？</td><td>搜索类型不等于计费动作；是否形成计费客资，要看正式客资动作、归因和去重规则，最终以后台账单和当期规则为准。</td></tr>
+              <tr><td>什么才算有效客资？</td><td>不能只看是否成交，也不能因一次没接通就判无效；核心是把正在找店、有咨询意向的用户引导到店，变成有效客资。</td></tr>
+              <tr><td>曝光多，客资就该便宜？</td><td>曝光是机会，客资价格是转化结果；人群意图和页面承接会影响转化，曝光增加不代表单价一定下降。</td></tr>
+              <tr><td>投了没客资怎么办？</td><td>先查曝光和点击，再查电话、预定入口与页面承接；入口不完整时，流量进来也可能留不下来。</td></tr>
+              <tr><td>电话就够了，不想开预定</td><td>预定不是多一道流程，而是给不方便打电话的用户多一个留需求入口，减少意向在电话之外流失。</td></tr>
+            </tbody>
+          </table>
+        </article>
+      </div>
+
+      <div class="footnote"><span>口径边界：正式计费动作、归因窗口、去重周期、有效性认定及申诉规则，以产品后台与当期政策为准。</span><span>版本：2026-09-10</span></div>
+    </section>
+  </main>
+</body>
+</html>
